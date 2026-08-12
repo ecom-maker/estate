@@ -1,0 +1,718 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
+}
+
+enum PropertyType {
+  VILLA
+  APARTMENT
+  PENTHOUSE
+  TOWNHOUSE
+  UNIT
+  LAND
+}
+
+enum PropertyStatus {
+  DRAFT
+  ACTIVE
+  RESERVED
+  SOLD
+  OFF_MARKET
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum SyncStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum ConnectorType {
+  CRM
+  MLS
+  TRANSACTION
+  COMMUNITY
+  SCHOOL
+  METRO
+  AIRPORT
+  OTHER
+}
+
+model Company {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  users     User[]
+  properties Property[]
+  settings  Setting[]
+
+  @@map("companies")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  companyId      String?   @map("company_id")
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime? @map("email_verified")
+  phone          String?   @unique
+  phoneVerified  DateTime? @map("phone_verified")
+  image          String?
+  preferences    Json?     @map("preferences_json")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  company        Company?  @relation(fields: [companyId], references: [id])
+  accounts       Account[]
+  sessions       Session[]
+  roles          UserRole[]
+  chatSessions   ChatSession[]
+  searchHistory  SearchHistory[]
+  savedSearches  SavedSearch[]
+  favorites      Favorite[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  aiLogs         AiLog[]
+
+  @@index([companyId])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  companyId String?  @map("company_id")
+  key       String
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, key])
+  @@map("settings")
+}
+
+model Developer {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?    @db.Text
+  website     String?
+  logoUrl     String?    @map("logo_url")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  properties  Property[]
+
+  @@map("developers")
+}
+
+model Community {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  description String?    @db.Text
+  city        String?
+  emirate     String?
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  properties  Property[]
+  schools     School[]
+  metros      Metro[]
+
+  @@map("communities")
+}
+
+model Property {
+  id             String         @id @default(cuid())
+  companyId      String?        @map("company_id")
+  externalId     String?        @map("external_id")
+  source         String?
+  title          String
+  slug           String         @unique
+  type           PropertyType
+  status         PropertyStatus @default(DRAFT)
+  description    String?        @db.Text
+  priceAed       Float?         @map("price_aed")
+  areaSqft       Float?         @map("area_sqft")
+  plotAreaSqft   Float?         @map("plot_area_sqft")
+  bedrooms       Int?
+  bathrooms      Int?
+  floors         Int?
+  latitude       Float?
+  longitude      Float?
+  waterfront     Boolean        @default(false)
+  privateBeach   Boolean        @default(false) @map("private_beach")
+  furnished      Boolean        @default(false)
+  offPlan        Boolean        @default(false) @map("off_plan")
+  ready          Boolean        @default(true)
+  availability   String?
+  paymentPlan    Json?          @map("payment_plan")
+  metadata       Json?          @map("metadata_json")
+  rentalYield    Float?         @map("rental_yield")
+  reraStatus     String?        @map("rera_status")
+  developerId    String?        @map("developer_id")
+  communityId    String?        @map("community_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  deletedAt      DateTime?      @map("deleted_at")
+
+  company        Company?       @relation(fields: [companyId], references: [id])
+  developer      Developer?     @relation(fields: [developerId], references: [id])
+  community      Community?     @relation(fields: [communityId], references: [id])
+  units          PropertyUnit[]
+  images         PropertyImage[]
+  videos         PropertyVideo[]
+  documents      PropertyDocument[]
+  floorplans     PropertyFloorplan[]
+  amenities      PropertyAmenity[]
+  salesHistory   SalesHistory[]
+  rentalHistory  RentalHistory[]
+  offplanHistory OffplanHistory[]
+  favorites      Favorite[]
+
+  @@unique([source, externalId])
+  @@index([type, status, priceAed])
+  @@index([bedrooms, bathrooms])
+  @@index([communityId])
+  @@index([developerId])
+  @@index([waterfront, offPlan, ready])
+  @@index([deletedAt])
+  @@map("properties")
+}
+
+model PropertyUnit {
+  id           String    @id @default(cuid())
+  propertyId   String    @map("property_id")
+  unitNumber   String    @map("unit_number")
+  floor        Int?
+  bedrooms     Int?
+  bathrooms    Int?
+  areaSqft     Float?    @map("area_sqft")
+  priceAed     Float?    @map("price_aed")
+  view         String?
+  status       String?
+  metadata     Json?     @map("metadata_json")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  property     Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, unitNumber])
+  @@map("property_units")
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  propertyId String   @map("property_id")
+  url        String
+  alt        String?
+  sortOrder  Int      @default(0) @map("sort_order")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, sortOrder])
+  @@map("property_images")
+}
+
+model PropertyVideo {
+  id         String   @id @default(cuid())
+  propertyId String   @map("property_id")
+  url        String
+  title      String?
+  aspect     String   @default("9:16")
+  sortOrder  Int      @default(0) @map("sort_order")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_videos")
+}
+
+model PropertyDocument {
+  id         String   @id @default(cuid())
+  propertyId String   @map("property_id")
+  title      String
+  url        String
+  mimeType   String?  @map("mime_type")
+  kind       String?
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_documents")
+}
+
+model PropertyFloorplan {
+  id         String   @id @default(cuid())
+  propertyId String   @map("property_id")
+  title      String
+  url        String
+  floor      Int?
+  areaSqft   Float?   @map("area_sqft")
+  unitRef    String?  @map("unit_ref")
+  mimeType   String?  @map("mime_type")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_floorplans")
+}
+
+model Amenity {
+  id        String            @id @default(cuid())
+  name      String            @unique
+  iconSlug  String?           @map("icon_slug")
+  properties PropertyAmenity[]
+
+  @@map("amenities")
+}
+
+model PropertyAmenity {
+  propertyId String   @map("property_id")
+  amenityId  String   @map("amenity_id")
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity    Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, amenityId])
+  @@map("property_amenities")
+}
+
+model School {
+  id          String     @id @default(cuid())
+  name        String
+  curriculum  String?
+  rating      Float?
+  latitude    Float?
+  longitude   Float?
+  communityId String?    @map("community_id")
+  community   Community? @relation(fields: [communityId], references: [id])
+
+  @@map("schools")
+}
+
+model Metro {
+  id          String     @id @default(cuid())
+  name        String
+  line        String?
+  latitude    Float?
+  longitude   Float?
+  communityId String?    @map("community_id")
+  community   Community? @relation(fields: [communityId], references: [id])
+
+  @@map("metros")
+}
+
+model Airport {
+  id        String  @id @default(cuid())
+  name      String
+  code      String?
+  latitude  Float?
+  longitude Float?
+
+  @@map("airports")
+}
+
+model SalesHistory {
+  id           String   @id @default(cuid())
+  propertyId   String   @map("property_id")
+  soldAt       DateTime @map("sold_at")
+  priceAed     Float    @map("price_aed")
+  buyerType    String?  @map("buyer_type")
+  source       String?
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, soldAt])
+  @@map("sales_history")
+}
+
+model RentalHistory {
+  id           String   @id @default(cuid())
+  propertyId   String   @map("property_id")
+  rentedAt     DateTime @map("rented_at")
+  annualRentAed Float   @map("annual_rent_aed")
+  source       String?
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, rentedAt])
+  @@map("rental_history")
+}
+
+model OffplanHistory {
+  id           String   @id @default(cuid())
+  propertyId   String   @map("property_id")
+  recordedAt   DateTime @map("recorded_at")
+  priceAed     Float    @map("price_aed")
+  stage        String?
+  source       String?
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("offplan_history")
+}
+
+model ChatSession {
+  id        String    @id @default(cuid())
+  userId    String?   @map("user_id")
+  title     String?
+  summary   String?   @db.Text
+  intent    Json?     @map("intent_snapshot")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  user      User?     @relation(fields: [userId], references: [id])
+  messages  Message[]
+
+  @@index([userId, createdAt])
+  @@map("chat_sessions")
+}
+
+model Message {
+  id                 String      @id @default(cuid())
+  sessionId          String      @map("session_id")
+  role               MessageRole
+  content            String      @db.Text
+  propertyReferences Json?       @map("property_references")
+  searchIntent       Json?       @map("search_intent")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  session            ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("messages")
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  query     String
+  intent    Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("search_history")
+}
+
+model SavedSearch {
+  id               String   @id @default(cuid())
+  userId           String   @map("user_id")
+  name             String
+  intent           Json
+  notify           Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_searches")
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  propertyId String   @map("property_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@map("favorites")
+}
+
+model KnowledgeDocument {
+  id          String          @id @default(cuid())
+  title       String
+  sourceType  String          @map("source_type")
+  storagePath String?         @map("storage_path")
+  mimeType    String?         @map("mime_type")
+  status      String          @default("pending")
+  version     Int             @default(1)
+  metadata    Json?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  deletedAt   DateTime?       @map("deleted_at")
+  chunks      DocumentChunk[]
+
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String                       @id @default(cuid())
+  documentId String                       @map("document_id")
+  content    String                       @db.Text
+  chunkIndex Int                          @map("chunk_index")
+  tokenCount Int?                         @map("token_count")
+  metadata   Json?
+  // pgvector embedding — managed via raw SQL helpers
+  embedding  Unsupported("vector(1536)")?
+  createdAt  DateTime                     @default(now()) @map("created_at")
+  document   KnowledgeDocument            @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, chunkIndex])
+  @@map("document_chunks")
+}
+
+model PromptTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  content   String   @db.Text
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("prompt_templates")
+}
+
+model AiSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_settings")
+}
+
+model AiModelConfig {
+  id           String   @id @default(cuid())
+  provider     String   @default("openai")
+  model        String
+  temperature  Float    @default(0.2)
+  topP         Float    @default(1) @map("top_p")
+  maxTokens    Int      @default(2000) @map("max_tokens")
+  streaming    Boolean  @default(true)
+  timeoutMs    Int      @default(60000) @map("timeout_ms")
+  retryCount   Int      @default(2) @map("retry_count")
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_models")
+}
+
+model AiLog {
+  id            String   @id @default(cuid())
+  userId        String?  @map("user_id")
+  sessionId     String?  @map("session_id")
+  feature       String
+  model         String?
+  inputTokens   Int?     @map("input_tokens")
+  outputTokens  Int?     @map("output_tokens")
+  totalTokens   Int?     @map("total_tokens")
+  estimatedCost Float?   @map("estimated_cost")
+  latencyMs     Int?     @map("latency_ms")
+  status        String
+  error         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  user          User?    @relation(fields: [userId], references: [id])
+
+  @@index([feature, createdAt])
+  @@index([userId, createdAt])
+  @@map("ai_logs")
+}
+
+model ApiProvider {
+  id              String         @id @default(cuid())
+  name            String
+  type            ConnectorType
+  baseUrl         String?        @map("base_url")
+  headers         Json?
+  authConfig      Json?          @map("auth_config")
+  timeoutMs       Int            @default(30000) @map("timeout_ms")
+  retryCount      Int            @default(3) @map("retry_count")
+  rateLimit       Int?           @map("rate_limit")
+  priority        Int            @default(100)
+  syncFrequency   String?        @map("sync_frequency")
+  enabled         Boolean        @default(false)
+  healthStatus    String         @default("unknown") @map("health_status")
+  lastSuccessAt   DateTime?      @map("last_success_at")
+  lastFailedAt    DateTime?      @map("last_failed_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  credentials     ApiCredential[]
+  syncJobs        ApiSyncJob[]
+
+  @@map("api_providers")
+}
+
+model ApiCredential {
+  id                 String      @id @default(cuid())
+  providerId         String      @map("provider_id")
+  label              String
+  encryptedSecret    String      @map("encrypted_secret") @db.Text
+  lastFour           String?     @map("last_four")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+  provider           ApiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("api_credentials")
+}
+
+model ApiSyncJob {
+  id         String      @id @default(cuid())
+  providerId String      @map("provider_id")
+  mode       String
+  status     SyncStatus  @default(PENDING)
+  progress   Int         @default(0)
+  stats      Json?
+  error      String?     @db.Text
+  startedAt  DateTime?   @map("started_at")
+  finishedAt DateTime?   @map("finished_at")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  provider   ApiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  logs       ApiSyncLog[]
+
+  @@index([providerId, createdAt])
+  @@map("api_sync_jobs")
+}
+
+model ApiSyncLog {
+  id        String     @id @default(cuid())
+  jobId     String     @map("job_id")
+  level     String
+  message   String
+  meta      Json?
+  createdAt DateTime   @default(now()) @map("created_at")
+  job       ApiSyncJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("api_sync_logs")
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?  @map("parent_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  media     Media[]
+
+  @@map("folders")
+}
+
+model Media {
+  id           String   @id @default(cuid())
+  folderId     String?  @map("folder_id")
+  filename     String
+  storagePath  String   @map("storage_path")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  createdAt    DateTime @default(now()) @map("created_at")
+  folder       Folder?  @relation(fields: [folderId], references: [id])
+
+  @@map("media")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  title     String
+  body      String
+  readAt    DateTime? @map("read_at")
+  kind      String?
+  meta      Json?
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  meta       Json?
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}

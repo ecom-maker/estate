@@ -1,0 +1,60 @@
+[
+  {
+    "id": "crm-villa-001",
+    "name": "Palm Frond Signature Villa",
+    "desc": "SEED DATA — Minimalist waterfront villa with private beach access.",
+    "type": "Villa",
+    "price": 28500000,
+    "beds": 5,
+    "baths": 6,
+    "area": 9200,
+    "community": "Palm Jumeirah",
+    "developer": "Nakheel",
+    "waterfront": true,
+    "private_beach": true,
+    "lat": 25.1124,
+    "lng": 55.1389,
+    "images": [
+      "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1600&q=80"
+    ],
+    "amenities": ["Private Beach", "Pool", "Smart Home"]
+  },
+  {
+    "id": "crm-apt-002",
+    "name": "Downtown Sky Residence",
+    "desc": "SEED DATA — High-floor apartment with Burj Khalifa views.",
+    "type": "Apartment",
+    "price": 9800000,
+    "beds": 3,
+    "baths": 4,
+    "area": 2400,
+    "community": "Downtown Dubai",
+    "developer": "Emaar",
+    "waterfront": false,
+    "lat": 25.1972,
+    "lng": 55.2744,
+    "images": [
+      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1600&q=80"
+    ],
+    "amenities": ["Concierge", "Gym", "Parking"]
+  },
+  {
+    "id": "crm-ph-003",
+    "name": "Marina Crown Penthouse",
+    "desc": "SEED DATA — Dual-level penthouse overlooking Dubai Marina.",
+    "type": "Penthouse",
+    "price": 22000000,
+    "beds": 4,
+    "baths": 5,
+    "area": 6100,
+    "community": "Dubai Marina",
+    "developer": "Select Group",
+    "waterfront": true,
+    "lat": 25.0805,
+    "lng": 55.1403,
+    "images": [
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1600&q=80"
+    ],
+    "amenities": ["Terrace", "Pool", "Sea View"]
+  }
+]
