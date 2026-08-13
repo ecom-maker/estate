@@ -26,3 +26,4 @@ jobs:
           AUTH_SECRET: ci-auth-secret
           ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
           NEXT_PUBLIC_APP_URL: http://localhost:3000
+          # E2E runs separately when a preview URL is available (npm run test:e2e)

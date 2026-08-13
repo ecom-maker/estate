@@ -1,4 +1,9 @@
-import type { SearchIntent } from "@/lib/validation/search-intent";
+import {
+  SearchIntentSchema,
+  mergeSearchIntent,
+  type SearchIntent,
+} from "@/lib/validation/search-intent";
+import { resolveOpenAIKey } from "@/lib/ai/openai-key";
 
 const TYPE_MAP: Record<string, string> = {
   villa: "VILLA",
@@ -38,7 +43,11 @@ export function extractSearchIntentHeuristic(
     next.maxPriceAED = maxPrice[2] ? amount * 1_000_000 : amount;
   }
 
-  if (text.includes("waterfront") || text.includes("ocean view") || text.includes("sea view")) {
+  if (
+    text.includes("waterfront") ||
+    text.includes("ocean view") ||
+    text.includes("sea view")
+  ) {
     next.waterfront = true;
   }
   if (text.includes("private beach")) next.privateBeach = true;
@@ -68,5 +77,70 @@ export function extractSearchIntentHeuristic(
 
   if (text.includes("only waterfront")) next.waterfront = true;
 
-  return next;
+  return SearchIntentSchema.parse(next);
+}
+
+async function extractWithOpenAI(
+  message: string,
+  previous?: SearchIntent | null,
+  apiKey?: string,
+): Promise<SearchIntent | null> {
+  if (!apiKey) return null;
+
+  const system = `Extract luxury real estate search intent as JSON only.
+Merge with previous intent for follow-ups. Never invent numeric constraints not implied.
+Schema keys: propertyType, location, community, developer, bedrooms, bathrooms, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
+propertyType enum: villa|apartment|penthouse|townhouse|unit|land.`;
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        {
+          role: "user",
+          content: JSON.stringify({
+            previousIntent: previous ?? null,
+            message,
+          }),
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) return null;
+  const data = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) return null;
+
+  try {
+    const parsed = SearchIntentSchema.partial().parse(JSON.parse(content));
+    return mergeSearchIntent(previous, {
+      ...parsed,
+      queryText: message,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function extractSearchIntent(
+  message: string,
+  previous?: SearchIntent | null,
+): Promise<SearchIntent> {
+  const apiKey = await resolveOpenAIKey();
+  if (apiKey) {
+    const llmIntent = await extractWithOpenAI(message, previous, apiKey);
+    if (llmIntent) return llmIntent;
+  }
+  return extractSearchIntentHeuristic(message, previous);
 }

@@ -493,6 +493,42 @@ async function main() {
     skipDuplicates: true,
   });
 
+  const guide = await prisma.knowledgeDocument.upsert({
+    where: { id: "seed-knowledge-palm" },
+    update: { status: "chunked" },
+    create: {
+      id: "seed-knowledge-palm",
+      title: "SEED — Palm Jumeirah Community Guide",
+      sourceType: "community-guide",
+      status: "processing",
+      metadata: { seed: true },
+    },
+  });
+
+  await prisma.documentChunk.deleteMany({ where: { documentId: guide.id } });
+  await prisma.documentChunk.createMany({
+    data: [
+      {
+        documentId: guide.id,
+        chunkIndex: 0,
+        content:
+          "SEED DATA — Palm Jumeirah is a waterfront community in Dubai with villas, apartments, and private beach access on selected fronds. Schools and monorail access vary by frond.",
+        tokenCount: 60,
+      },
+      {
+        documentId: guide.id,
+        chunkIndex: 1,
+        content:
+          "SEED DATA — Investment notes for Palm Jumeirah should cite known rental history only. Do not invent yields. Airport proximity is typically 30–45 minutes depending on traffic.",
+        tokenCount: 55,
+      },
+    ],
+  });
+  await prisma.knowledgeDocument.update({
+    where: { id: guide.id },
+    data: { status: "chunked" },
+  });
+
   console.log("Seed complete.");
 }
 

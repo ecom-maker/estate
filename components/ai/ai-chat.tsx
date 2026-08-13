@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { decodeBase64UrlJson } from "@/lib/encoding";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
@@ -12,7 +13,9 @@ type AIChatProps = {
   propertyId?: string;
   className?: string;
   initialMessages?: ChatMessage[];
+  autoSendOnMount?: string;
   onIntent?: (intentHeader: string | null) => void;
+  onPropertyIds?: (ids: string[]) => void;
 };
 
 export function AIChat({
@@ -20,18 +23,29 @@ export function AIChat({
   propertyId,
   className,
   initialMessages = [],
+  autoSendOnMount,
   onIntent,
+  onPropertyIds,
 }: AIChatProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    initialMessages.filter((m) => m.role === "assistant" || !autoSendOnMount),
+  );
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [sessionId, setSessionId] = useState<string | undefined>();
+  const [previousIntent, setPreviousIntent] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const autoSent = useRef(false);
 
-  async function send(text: string) {
+  async function send(text: string, baseMessages?: ChatMessage[]) {
     const trimmed = text.trim();
     if (!trimmed || streaming) return;
 
+    const history = baseMessages ?? messages;
     const nextMessages: ChatMessage[] = [
-      ...messages,
+      ...history,
       { role: "user", content: trimmed },
     ];
     setMessages(nextMessages);
@@ -46,10 +60,25 @@ export function AIChat({
         body: JSON.stringify({
           messages: nextMessages,
           propertyId,
+          sessionId,
+          previousIntent: previousIntent ?? undefined,
         }),
       });
 
-      onIntent?.(res.headers.get("X-Search-Intent"));
+      const intentHeader = res.headers.get("X-Search-Intent");
+      onIntent?.(intentHeader);
+      if (intentHeader) {
+        const decoded = decodeBase64UrlJson<Record<string, unknown>>(intentHeader);
+        if (decoded) setPreviousIntent(decoded);
+      }
+
+      const idsHeader = res.headers.get("X-Property-Ids");
+      if (idsHeader) {
+        onPropertyIds?.(idsHeader.split(",").filter(Boolean));
+      }
+
+      const nextSession = res.headers.get("X-Chat-Session");
+      if (nextSession) setSessionId(nextSession);
 
       if (!res.ok || !res.body) {
         throw new Error("Chat request failed");
@@ -63,7 +92,10 @@ export function AIChat({
         const { done, value } = await reader.read();
         if (done) break;
         assistant += decoder.decode(value, { stream: true });
-        setMessages([...nextMessages, { role: "assistant", content: assistant }]);
+        setMessages([
+          ...nextMessages,
+          { role: "assistant", content: assistant },
+        ]);
       }
     } catch {
       setMessages([
@@ -78,6 +110,13 @@ export function AIChat({
       setStreaming(false);
     }
   }
+
+  useEffect(() => {
+    if (!autoSendOnMount || autoSent.current) return;
+    autoSent.current = true;
+    void send(autoSendOnMount, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSendOnMount]);
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -119,7 +158,10 @@ export function AIChat({
         </AnimatePresence>
       </div>
 
-      <form onSubmit={onSubmit} className="flex gap-2 border-t border-border pt-3">
+      <form
+        onSubmit={onSubmit}
+        className="flex gap-2 border-t border-border pt-3"
+      >
         <label htmlFor="ai-chat-input" className="sr-only">
           Message
         </label>

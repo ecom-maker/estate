@@ -5,6 +5,10 @@ import {
   processMlsSync,
   processTransactionSync,
 } from "./processors/sync";
+import {
+  processDocumentJob,
+  processEmbeddingJob,
+} from "./processors/embeddings";
 
 async function main() {
   const connection = createRedisConnection();
@@ -14,20 +18,19 @@ async function main() {
     new Worker("crm-sync", processCrmSync, { connection }),
     new Worker("mls-sync", processMlsSync, { connection }),
     new Worker("transaction-sync", processTransactionSync, { connection }),
+    new Worker("embedding", processEmbeddingJob, { connection }),
+    new Worker("document-processing", processDocumentJob, { connection }),
     new Worker(
-      "embedding",
+      "notifications",
       async (job) => {
-        console.log("embedding job", job.id, job.data);
-        return { ok: true };
+        console.log("notification job", job.id, job.name);
+        return { queued: true };
       },
       { connection },
     ),
     new Worker(
-      "document-processing",
-      async (job) => {
-        console.log("document-processing job", job.id, job.data);
-        return { ok: true };
-      },
+      "cleanup",
+      async () => ({ cleaned: true }),
       { connection },
     ),
   ];
@@ -37,7 +40,7 @@ async function main() {
       console.error(`Job ${job?.id} failed`, error.message);
     });
     worker.on("completed", (job) => {
-      console.log(`Job ${job.id} completed`);
+      console.log(`Job ${job.id} completed on ${job.queueName}`);
     });
   }
 
