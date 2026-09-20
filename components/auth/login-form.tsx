@@ -3,15 +3,31 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export function LoginForm() {
+type LoginFormProps = {
+  googleEnabled?: boolean;
+};
+
+export function LoginForm({ googleEnabled = false }: LoginFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const authError = searchParams.get("error");
+
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const configError =
+    authError === "Configuration"
+      ? "Auth is misconfigured. Use phone OTP for now, or set Google OAuth + AUTH_SECRET in Vercel."
+      : authError === "AccessDenied"
+        ? "Access denied."
+        : authError
+          ? `Sign-in error: ${authError}`
+          : null;
 
   async function requestOtp(e: FormEvent) {
     e.preventDefault();
@@ -48,7 +64,13 @@ export function LoginForm() {
         code,
         redirect: false,
       });
-      if (result?.error) throw new Error("Invalid code");
+      if (result?.error) {
+        throw new Error(
+          result.error === "Configuration"
+            ? "Server auth misconfigured (check AUTH_SECRET / database)."
+            : "Invalid code or database unavailable.",
+        );
+      }
       router.push("/");
       router.refresh();
     } catch (error) {
@@ -60,13 +82,26 @@ export function LoginForm() {
 
   return (
     <div className="mt-8 space-y-3">
-      <button
-        type="button"
-        onClick={() => signIn("google", { callbackUrl: "/" })}
-        className="flex w-full items-center justify-center rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
-      >
-        Continue with Google
-      </button>
+      {(configError || message) && (
+        <p className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-muted">
+          {configError ?? message}
+        </p>
+      )}
+
+      {googleEnabled ? (
+        <button
+          type="button"
+          onClick={() => signIn("google", { callbackUrl: "/" })}
+          className="flex w-full items-center justify-center rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
+        >
+          Continue with Google
+        </button>
+      ) : (
+        <p className="text-xs text-muted">
+          Google sign-in is not configured. Use phone OTP below (code{" "}
+          <code>000000</code> in mock mode).
+        </p>
+      )}
 
       {step === "phone" ? (
         <form onSubmit={requestOtp} className="space-y-3">
@@ -119,7 +154,6 @@ export function LoginForm() {
         </form>
       )}
 
-      {message ? <p className="text-sm text-muted">{message}</p> : null}
       <p className="text-xs text-muted">
         Prefer browsing first?{" "}
         <Link href="/search" className="text-accent hover:underline">

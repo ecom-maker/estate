@@ -2,11 +2,14 @@
 
 ## Target
 
-- Cloudflare (optional edge)
-- Vercel — Next.js web
-- Supabase — PostgreSQL + Storage
+- Vercel — Next.js web (`ecom-maker/estate`)
+- Supabase — PostgreSQL + pgvector + Storage
 - Redis + worker VM/container (not on the Next.js process)
 - OpenAI
+
+## Supabase + Vercel
+
+Follow [supabase.md](./supabase.md): set pooler `DATABASE_URL`, direct `DIRECT_URL`, API keys, enable `vector`, then verify with `GET /api/health`.
 
 ## Local
 

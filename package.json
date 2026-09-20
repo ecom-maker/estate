@@ -18,7 +18,8 @@
     "db:studio": "prisma studio",
     "worker": "tsx workers/src/index.ts",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker compose -f docker/docker-compose.yml down"
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "supabase:health": "curl -s http://localhost:3000/api/health"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
