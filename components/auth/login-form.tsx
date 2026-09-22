@@ -14,6 +14,8 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
 
+  const [email, setEmail] = useState("admin@dmproperties.ai");
+  const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");
@@ -22,12 +24,34 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
 
   const configError =
     authError === "Configuration"
-      ? "Auth is misconfigured. Use phone OTP for now, or set Google OAuth + AUTH_SECRET in Vercel."
+      ? "Auth is misconfigured. Check AUTH_SECRET in Vercel."
       : authError === "AccessDenied"
         ? "Access denied."
         : authError
           ? `Sign-in error: ${authError}`
           : null;
+
+  async function loginWithPassword(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+      if (result?.error) {
+        throw new Error("Invalid email or password.");
+      }
+      router.push("/admin");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function requestOtp(e: FormEvent) {
     e.preventDefault();
@@ -65,11 +89,7 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
         redirect: false,
       });
       if (result?.error) {
-        throw new Error(
-          result.error === "Configuration"
-            ? "Server auth misconfigured (check AUTH_SECRET / database)."
-            : "Invalid code or database unavailable.",
-        );
+        throw new Error("Invalid code or database unavailable.");
       }
       router.push("/");
       router.refresh();
@@ -81,78 +101,116 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
   }
 
   return (
-    <div className="mt-8 space-y-3">
+    <div className="mt-8 space-y-6">
       {(configError || message) && (
         <p className="rounded-sm border border-border bg-card px-3 py-2 text-sm text-muted">
           {configError ?? message}
         </p>
       )}
 
-      {googleEnabled ? (
-        <button
-          type="button"
-          onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="flex w-full items-center justify-center rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground"
-        >
-          Continue with Google
-        </button>
-      ) : (
-        <p className="text-xs text-muted">
-          Google sign-in is not configured. Use phone OTP below (code{" "}
-          <code>000000</code> in mock mode).
+      <form onSubmit={loginWithPassword} className="space-y-3">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+          Admin email login
         </p>
-      )}
+        <label htmlFor="email" className="sr-only">
+          Email
+        </label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="admin@dmproperties.ai"
+          className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
+          required
+          autoComplete="username"
+        />
+        <label htmlFor="password" className="sr-only">
+          Password
+        </label>
+        <input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
+          required
+          autoComplete="current-password"
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          Sign in
+        </button>
+        <p className="text-xs text-muted">
+          Seeded admin: <code>admin@dmproperties.ai</code> /{" "}
+          <code>Admin123!</code>
+        </p>
+      </form>
 
-      {step === "phone" ? (
-        <form onSubmit={requestOtp} className="space-y-3">
-          <label htmlFor="phone" className="sr-only">
-            Phone number
-          </label>
-          <input
-            id="phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+971 50 000 0000"
-            className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
-            required
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary disabled:opacity-50"
-          >
-            Send OTP
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={verifyOtp} className="space-y-3">
-          <label htmlFor="code" className="sr-only">
-            OTP code
-          </label>
-          <input
-            id="code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="000000"
-            className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
-            required
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary disabled:opacity-50"
-          >
-            Verify & sign in
-          </button>
+      <div className="border-t border-border pt-6 space-y-3">
+        {googleEnabled ? (
           <button
             type="button"
-            className="w-full text-xs text-muted"
-            onClick={() => setStep("phone")}
+            onClick={() => signIn("google", { callbackUrl: "/" })}
+            className="flex w-full items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary"
           >
-            Use a different number
+            Continue with Google
           </button>
-        </form>
-      )}
+        ) : null}
+
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+          Or phone OTP
+        </p>
+
+        {step === "phone" ? (
+          <form onSubmit={requestOtp} className="space-y-3">
+            <input
+              id="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+971 50 000 0000"
+              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
+              required
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary disabled:opacity-50"
+            >
+              Send OTP
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={verifyOtp} className="space-y-3">
+            <input
+              id="code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="000000"
+              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
+              required
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary disabled:opacity-50"
+            >
+              Verify & sign in
+            </button>
+            <button
+              type="button"
+              className="w-full text-xs text-muted"
+              onClick={() => setStep("phone")}
+            >
+              Use a different number
+            </button>
+          </form>
+        )}
+      </div>
 
       <p className="text-xs text-muted">
         Prefer browsing first?{" "}

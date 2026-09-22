@@ -12,9 +12,8 @@ export default function LoginPage() {
       </p>
       <h1 className="mt-3 font-serif text-4xl text-primary">Welcome back</h1>
       <p className="mt-3 text-sm text-muted">
-        Sign in with phone OTP
-        {isGoogleAuthEnabled ? " or Google" : ""} to save searches and
-        favorites.
+        Sign in with email and password
+        {isGoogleAuthEnabled ? ", Google," : ""} or phone OTP.
       </p>
       <Suspense fallback={<p className="mt-8 text-sm text-muted">Loading…</p>}>
         <LoginForm googleEnabled={isGoogleAuthEnabled} />

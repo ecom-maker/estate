@@ -72,6 +72,7 @@ model User {
   emailVerified  DateTime? @map("email_verified")
   phone          String?   @unique
   phoneVerified  DateTime? @map("phone_verified")
+  passwordHash   String?   @map("password_hash")
   image          String?
   preferences    Json?     @map("preferences_json")
   createdAt      DateTime  @default(now()) @map("created_at")

@@ -3,9 +3,14 @@ import {
   PropertyType,
   PropertyStatus,
 } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { PERMISSIONS } from "../lib/rbac/permissions";
 
 const prisma = new PrismaClient();
+
+/** Default admin login for seeded environments (change in production). */
+const ADMIN_EMAIL = "admin@dmproperties.ai";
+const ADMIN_PASSWORD = "Admin123!";
 
 async function main() {
   console.log("Seeding DMProperties AI (fictional/seed data)...");
@@ -50,13 +55,20 @@ async function main() {
     });
   }
 
+  const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const admin = await prisma.user.upsert({
-    where: { email: "admin@dmproperties.ai" },
-    update: {},
-    create: {
-      email: "admin@dmproperties.ai",
+    where: { email: ADMIN_EMAIL },
+    update: {
+      passwordHash: adminPasswordHash,
       name: "Super Admin",
       companyId: company.id,
+    },
+    create: {
+      email: ADMIN_EMAIL,
+      name: "Super Admin",
+      companyId: company.id,
+      passwordHash: adminPasswordHash,
+      emailVerified: new Date(),
     },
   });
   await prisma.userRole.upsert({
@@ -64,6 +76,7 @@ async function main() {
     update: {},
     create: { userId: admin.id, roleId: superAdmin.id },
   });
+  console.log(`Admin login: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
 
   const agentRole = await prisma.role.findUniqueOrThrow({
     where: { name: "AGENT" },
