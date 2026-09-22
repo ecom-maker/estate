@@ -3,6 +3,7 @@ import { Inter, Libre_Caslon_Text } from "next/font/google";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Providers } from "@/components/providers";
+import { getAppUrl } from "@/lib/app-url";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,9 +26,7 @@ export const metadata: Metadata = {
   },
   description:
     "AI-native luxury real estate discovery — conversational search for villas, residences, and investment properties.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-  ),
+  metadataBase: new URL(getAppUrl()),
 };
 
 export default function RootLayout({
