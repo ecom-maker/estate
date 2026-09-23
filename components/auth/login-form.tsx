@@ -44,8 +44,9 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
       if (result?.error) {
         throw new Error("Invalid email or password.");
       }
-      router.push("/admin");
-      router.refresh();
+      // Hard navigation so the server header re-reads the session cookie.
+      window.location.assign("/admin");
+      return;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Login failed");
     } finally {
