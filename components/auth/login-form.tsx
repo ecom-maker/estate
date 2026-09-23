@@ -3,14 +3,13 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 type LoginFormProps = {
   googleEnabled?: boolean;
 };
 
 export function LoginForm({ googleEnabled = false }: LoginFormProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
 
@@ -92,8 +91,9 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
       if (result?.error) {
         throw new Error("Invalid code or database unavailable.");
       }
-      router.push("/");
-      router.refresh();
+      // Hard navigation so SessionProvider + header re-read the session.
+      window.location.assign("/");
+      return;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Verify failed");
     } finally {
