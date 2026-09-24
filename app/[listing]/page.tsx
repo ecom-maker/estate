@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { formatAED } from "@/lib/utils";
+import { getAppUrl } from "@/lib/app-url";
 import {
   parseListingSlug,
   buildListingSlug,
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ listing: string }> };
 
-const BASE = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+const BASE = getAppUrl();
 
 type ListingProperty = Prisma.PropertyGetPayload<{
   include: { images: true; community: true };
