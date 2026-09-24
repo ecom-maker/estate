@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AIChat } from "@/components/ai/ai-chat";
-import { formatAED } from "@/lib/utils";
+import { cn, formatAED } from "@/lib/utils";
 import { decodeBase64UrlJson } from "@/lib/encoding";
 import type { SearchIntent } from "@/lib/validation/search-intent";
 
@@ -16,6 +16,7 @@ type PropertyCard = {
   bedrooms: number | null;
   bathrooms: number | null;
   areaSqft: number | null;
+  offPlan?: boolean | null;
   score?: number;
   images?: Array<{ url: string; alt: string | null }>;
   community?: { name: string } | null;
@@ -137,6 +138,16 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                         sizes="(max-width:768px) 100vw, 40vw"
                       />
                     ) : null}
+                    <span
+                      className={cn(
+                        "absolute left-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide backdrop-blur",
+                        property.offPlan
+                          ? "bg-accent text-primary"
+                          : "bg-primary/90 text-primary-foreground",
+                      )}
+                    >
+                      {property.offPlan ? "Off-plan" : "Completed"}
+                    </span>
                   </div>
                   <div className="p-4">
                     <p className="text-xs uppercase tracking-wider text-muted">
