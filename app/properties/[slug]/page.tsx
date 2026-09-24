@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { formatAED } from "@/lib/utils";
+import { cn, formatAED } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
 import type { Metadata } from "next";
 
@@ -75,6 +75,16 @@ export default async function PropertyDetailPage({ params }: Props) {
               sizes="(max-width:1024px) 100vw, 60vw"
             />
           ) : null}
+          <span
+            className={cn(
+              "absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur",
+              property.offPlan
+                ? "bg-accent text-primary"
+                : "bg-primary/90 text-primary-foreground",
+            )}
+          >
+            {property.offPlan ? "Off-plan" : "Completed"}
+          </span>
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
