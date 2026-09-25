@@ -1,16 +1,48 @@
+import { redirect } from "next/navigation";
 import { AIChat } from "@/components/ai/ai-chat";
-import { maskSecret } from "@/lib/crypto/secrets";
+import { AiProviderForm } from "@/components/admin/ai-provider-form";
+import { assertPermission } from "@/lib/rbac/guards";
+import { findPreset } from "@/lib/ai/providers";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "AI Control Panel" };
 
-export default async function AdminAiPage() {
-  let settings: { key: string; value: unknown }[] = [];
-  let logs: { id: string; feature: string; status: string; totalTokens: number | null; createdAt: Date }[] = [];
+type LlmSetting = {
+  provider?: string;
+  baseUrl?: string;
+  model?: string;
+  embeddingModel?: string;
+  enabled?: boolean;
+  apiKeyConfigured?: boolean;
+};
+
+export default async function AdminAiPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>;
+}) {
+  try {
+    await assertPermission("ai.settings.view");
+  } catch {
+    redirect("/login?next=/admin/ai");
+  }
+
+  const { saved } = await searchParams;
+
+  let llm: LlmSetting = {};
+  let logs: {
+    id: string;
+    feature: string;
+    status: string;
+    model: string | null;
+    totalTokens: number | null;
+    createdAt: Date;
+  }[] = [];
 
   try {
-    settings = await prisma.aiSetting.findMany({ orderBy: { key: "asc" } });
+    const setting = await prisma.aiSetting.findUnique({ where: { key: "llm" } });
+    llm = (setting?.value as LlmSetting) ?? {};
     logs = await prisma.aiLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
@@ -18,18 +50,18 @@ export default async function AdminAiPage() {
         id: true,
         feature: true,
         status: true,
+        model: true,
         totalTokens: true,
         createdAt: true,
       },
     });
   } catch {
-    settings = [];
+    llm = {};
     logs = [];
   }
 
-  const llm = settings.find((s) => s.key === "llm")?.value as
-    | { model?: string; enabled?: boolean; apiKeyConfigured?: boolean }
-    | undefined;
+  const providerLabel = findPreset(llm.provider).label;
+  const envKeyActive = Boolean(process.env.OPENAI_API_KEY || process.env.LLM_API_KEY);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
@@ -38,57 +70,57 @@ export default async function AdminAiPage() {
       </p>
       <h1 className="mt-3 font-serif text-4xl text-primary">AI Control Panel</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
-        Configure OpenAI models, prompts, embeddings, and usage. API keys are
-        encrypted at rest and never returned in full.
+        Connect any OpenAI-compatible LLM — OpenAI, OpenRouter, Google Gemini,
+        Groq, or a custom endpoint. Keys are encrypted at rest and never
+        returned in full.
       </p>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-2">
+      {saved ? (
+        <p className="mt-6 rounded-sm border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">
+          Provider settings saved.
+        </p>
+      ) : null}
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section className="rounded-sm border border-border bg-card p-6">
-          <h2 className="font-serif text-2xl text-primary">LLM</h2>
-          <dl className="mt-4 space-y-3 text-sm">
+          <h2 className="font-serif text-2xl text-primary">LLM provider</h2>
+          <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-muted">Provider</dt>
-              <dd>OpenAI</dd>
+              <dt className="text-muted">Active provider</dt>
+              <dd>{providerLabel}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">Model</dt>
-              <dd>{llm?.model ?? "gpt-4.1-mini"}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Enabled</dt>
-              <dd>{llm?.enabled === false ? "No" : "Yes"}</dd>
+              <dd>{llm.model ?? "gpt-4.1-mini"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">API key</dt>
               <dd>
-                {llm?.apiKeyConfigured
-                  ? maskSecret("sk-configured-key-1234")
-                  : "Not configured"}
+                {envKeyActive
+                  ? "Set via environment"
+                  : llm.apiKeyConfigured
+                    ? "Configured (encrypted)"
+                    : "Not configured"}
               </dd>
             </div>
           </dl>
-          <form
-            action="/api/admin/ai/settings"
-            method="post"
-            className="mt-6 space-y-3"
-          >
-            <label className="block text-xs uppercase tracking-wider text-muted">
-              OpenAI API key
-              <input
-                name="apiKey"
-                type="password"
-                autoComplete="off"
-                placeholder="sk-..."
-                className="mt-2 w-full rounded-sm border border-border bg-background px-3 py-2 text-sm"
-              />
-            </label>
-            <button
-              type="submit"
-              className="rounded-sm bg-primary px-4 py-2 text-sm text-primary-foreground"
-            >
-              Save encrypted key
-            </button>
-          </form>
+          {envKeyActive ? (
+            <p className="mt-4 rounded-sm border border-border bg-background px-3 py-2 text-xs text-muted">
+              An environment key is set, which overrides this panel. Remove{" "}
+              <code>OPENAI_API_KEY</code>/<code>LLM_API_KEY</code> to manage the
+              provider here.
+            </p>
+          ) : null}
+
+          <AiProviderForm
+            initial={{
+              provider: llm.provider,
+              baseUrl: llm.baseUrl,
+              model: llm.model,
+              embeddingModel: llm.embeddingModel,
+              apiKeyConfigured: llm.apiKeyConfigured,
+            }}
+          />
         </section>
 
         <section className="rounded-sm border border-border bg-card p-6">
@@ -104,10 +136,9 @@ export default async function AdminAiPage() {
                 >
                   <span>
                     {log.feature} · {log.status}
+                    {log.model ? ` · ${log.model}` : ""}
                   </span>
-                  <span className="text-muted">
-                    {log.totalTokens ?? 0} tok
-                  </span>
+                  <span className="text-muted">{log.totalTokens ?? 0} tok</span>
                 </li>
               ))}
             </ul>

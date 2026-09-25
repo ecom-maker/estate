@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { resolveOpenAIKey } from "@/lib/ai/openai-key";
+import { resolveLLMConfig } from "@/lib/ai/provider";
 
 export async function chunkText(
   text: string,
@@ -19,17 +19,19 @@ export async function chunkText(
 }
 
 export async function embedTexts(texts: string[]): Promise<number[][] | null> {
-  const apiKey = await resolveOpenAIKey();
-  if (!apiKey || texts.length === 0) return null;
+  const cfg = await resolveLLMConfig();
+  // No key, no configured embedding model (e.g. OpenRouter/Groq), or nothing to
+  // embed → skip; callers fall back to non-vector retrieval.
+  if (!cfg || !cfg.embeddingModel || texts.length === 0) return null;
 
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
+  const res = await fetch(`${cfg.baseUrl}/embeddings`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${cfg.apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
+      model: cfg.embeddingModel,
       input: texts,
     }),
   });

@@ -3,7 +3,7 @@ import {
   mergeSearchIntent,
   type SearchIntent,
 } from "@/lib/validation/search-intent";
-import { resolveOpenAIKey } from "@/lib/ai/openai-key";
+import { resolveLLMConfig, type LLMConfig } from "@/lib/ai/provider";
 
 const TYPE_MAP: Record<string, string> = {
   villa: "VILLA",
@@ -80,26 +80,24 @@ export function extractSearchIntentHeuristic(
   return SearchIntentSchema.parse(next);
 }
 
-async function extractWithOpenAI(
+async function extractWithLLM(
   message: string,
-  previous?: SearchIntent | null,
-  apiKey?: string,
+  previous: SearchIntent | null | undefined,
+  cfg: LLMConfig,
 ): Promise<SearchIntent | null> {
-  if (!apiKey) return null;
-
   const system = `Extract luxury real estate search intent as JSON only.
 Merge with previous intent for follow-ups. Never invent numeric constraints not implied.
 Schema keys: propertyType, location, community, developer, bedrooms, bathrooms, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
 propertyType enum: villa|apartment|penthouse|townhouse|unit|land.`;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${cfg.apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+      model: cfg.model,
       temperature: 0,
       response_format: { type: "json_object" },
       messages: [
@@ -137,9 +135,9 @@ export async function extractSearchIntent(
   message: string,
   previous?: SearchIntent | null,
 ): Promise<SearchIntent> {
-  const apiKey = await resolveOpenAIKey();
-  if (apiKey) {
-    const llmIntent = await extractWithOpenAI(message, previous, apiKey);
+  const cfg = await resolveLLMConfig();
+  if (cfg) {
+    const llmIntent = await extractWithLLM(message, previous, cfg);
     if (llmIntent) return llmIntent;
   }
   return extractSearchIntentHeuristic(message, previous);

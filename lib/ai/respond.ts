@@ -1,4 +1,4 @@
-import { resolveOpenAIKey } from "@/lib/ai/openai-key";
+import { resolveLLMConfig } from "@/lib/ai/provider";
 import { semanticSearch } from "@/lib/ai/rag";
 
 export type ChatTurn = { role: "user" | "assistant" | "system"; content: string };
@@ -6,12 +6,11 @@ export type ChatTurn = { role: "user" | "assistant" | "system"; content: string 
 export type CompletionUsage = {
   inputTokens?: number;
   outputTokens?: number;
+  model?: string;
 };
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-
 export function chatModel() {
-  return process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
+  return process.env.LLM_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
 }
 
 /**
@@ -48,8 +47,8 @@ export async function streamGroundedResponse(opts: {
   temperature?: number;
   onComplete?: (fullText: string, usage?: CompletionUsage) => Promise<void> | void;
 }): Promise<ReadableStream<Uint8Array> | null> {
-  const apiKey = await resolveOpenAIKey();
-  if (!apiKey) return null;
+  const cfg = await resolveLLMConfig();
+  if (!cfg) return null;
 
   const messages: ChatTurn[] = [
     { role: "system", content: opts.system },
@@ -65,14 +64,14 @@ export async function streamGroundedResponse(opts: {
 
   let res: Response;
   try {
-    res = await fetch(OPENAI_URL, {
+    res = await fetch(`${cfg.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${cfg.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: chatModel(),
+        model: cfg.model,
         temperature: opts.temperature ?? 0.3,
         stream: true,
         stream_options: { include_usage: true },
@@ -94,7 +93,7 @@ export async function streamGroundedResponse(opts: {
       const reader = upstream.getReader();
       let buffer = "";
       let full = "";
-      let usage: CompletionUsage | undefined;
+      let usage: CompletionUsage = { model: cfg.model };
 
       try {
         for (;;) {
@@ -118,6 +117,7 @@ export async function streamGroundedResponse(opts: {
               }
               if (json.usage) {
                 usage = {
+                  model: cfg.model,
                   inputTokens: json.usage.prompt_tokens,
                   outputTokens: json.usage.completion_tokens,
                 };
