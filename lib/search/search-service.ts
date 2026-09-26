@@ -21,12 +21,6 @@ export async function searchProperties(intent: SearchIntent) {
   if (intent.propertyType) {
     where.type = TYPE_MAP[intent.propertyType];
   }
-  // dealType lives in metadata (default "sale" when absent).
-  if (intent.dealType === "rent") {
-    where.metadata = { path: ["dealType"], equals: "rent" };
-  } else if (intent.dealType === "sale") {
-    where.NOT = { metadata: { path: ["dealType"], equals: "rent" } };
-  }
   if (intent.bedrooms != null) where.bedrooms = { gte: intent.bedrooms };
   if (intent.bathrooms != null) where.bathrooms = { gte: intent.bathrooms };
   if (intent.minPriceAED != null || intent.maxPriceAED != null) {
@@ -67,7 +61,17 @@ export async function searchProperties(intent: SearchIntent) {
     take: 48,
   });
 
-  return rankProperties(properties, intent);
+  // dealType lives in metadata (default "sale" when absent) — filter in code so
+  // absent values are treated as sale (a SQL "NOT rent" would drop NULLs).
+  const filtered = intent.dealType
+    ? properties.filter((p) => {
+        const dt =
+          (p.metadata as { dealType?: string } | null)?.dealType ?? "sale";
+        return dt === intent.dealType;
+      })
+    : properties;
+
+  return rankProperties(filtered, intent);
 }
 
 export type RankedProperty = Property & {
