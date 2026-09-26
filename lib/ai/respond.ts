@@ -74,7 +74,6 @@ export async function streamGroundedResponse(opts: {
         model: cfg.model,
         temperature: opts.temperature ?? 0.3,
         stream: true,
-        stream_options: { include_usage: true },
         messages,
       }),
     });
