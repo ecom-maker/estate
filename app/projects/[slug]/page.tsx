@@ -122,6 +122,14 @@ export default async function ProjectDetailPage({ params }: Props) {
     { title: "Expected Completion", date: fmtLong(completionRaw), done: false },
   ];
 
+  const nearbyAttractions = [
+    "20 minutes to Downtown Dubai & Burj Khalifa",
+    "25 minutes to Dubai Marina",
+    "30 minutes to Palm Jumeirah",
+    "35 minutes to Dubai International Airport",
+    "20 minutes to Al Maktoum International Airport",
+  ];
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
       {/* Breadcrumb */}
@@ -226,6 +234,46 @@ export default async function ProjectDetailPage({ params }: Props) {
             </div>
           </section>
 
+          {/* Amenities */}
+          {project.amenities.length ? (
+            <section className="mt-10">
+              <h2 className="font-serif text-2xl text-primary">Amenities</h2>
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {project.amenities.map(({ amenity }) => (
+                  <li
+                    key={amenity.id}
+                    className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs text-primary"
+                  >
+                    {amenity.name}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {/* Nearby attractions */}
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl text-primary">
+              Nearby attractions
+            </h2>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {nearbyAttractions.map((a) => {
+                const [time, place] = a.split(/ to (.+)/);
+                return (
+                  <li
+                    key={a}
+                    className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                  >
+                    <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                      {time}
+                    </span>
+                    <span className="text-sm text-primary">{place}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
           {/* Payment plan */}
           <section className="mt-10">
             <h2 className="font-serif text-2xl text-primary">Payment plan</h2>
@@ -293,24 +341,6 @@ export default async function ProjectDetailPage({ params }: Props) {
 
           {/* Units & floor plans */}
           <UnitsSection category={project.type} groups={unitGroups} />
-
-          {/* Amenities */}
-          {project.amenities.length ? (
-            <section className="mt-10">
-              <h2 className="font-serif text-2xl text-primary">Amenities</h2>
-              <ul className="mt-4 flex flex-wrap gap-2">
-                {project.amenities.map(({ amenity }) => (
-                  <li
-                    key={amenity.id}
-                    className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs text-primary"
-                  >
-                    {amenity.name}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
         </div>
 
         {/* Sticky enquiry aside */}
