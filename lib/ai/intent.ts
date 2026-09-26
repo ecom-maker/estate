@@ -99,7 +99,6 @@ propertyType enum: villa|apartment|penthouse|townhouse|unit|land.`;
     body: JSON.stringify({
       model: cfg.model,
       temperature: 0,
-      response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
         {
@@ -121,7 +120,11 @@ propertyType enum: villa|apartment|penthouse|townhouse|unit|land.`;
   if (!content) return null;
 
   try {
-    const parsed = SearchIntentSchema.partial().parse(JSON.parse(content));
+    // Providers may wrap JSON in prose or code fences — extract the object.
+    const match = content.match(/\{[\s\S]*\}/);
+    const parsed = SearchIntentSchema.partial().parse(
+      JSON.parse(match ? match[0] : content),
+    );
     return mergeSearchIntent(previous, {
       ...parsed,
       queryText: message,

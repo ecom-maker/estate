@@ -20,24 +20,21 @@ export function chatModel() {
 export async function gatherKnowledge(query: string, limit = 4): Promise<string> {
   try {
     const rows = (await semanticSearch(query, limit)) as Array<{ content?: string }>;
-    const text = rows
+    return rows
       .map((r) => r.content?.trim())
       .filter((c): c is string => Boolean(c))
       .join("\n---\n");
-    return text;
   } catch {
     return "";
   }
 }
 
 /**
- * Stream a grounded LLM response from OpenAI. The model is instructed to answer
- * ONLY from the provided context. Returns a text stream, or `null` when no API
- * key is available or the request fails (so the caller can fall back to a
- * deterministic template).
- *
- * `onComplete` runs once the stream finishes with the full accumulated text and
- * token usage — use it to persist the assistant message and log usage.
+ * Stream a grounded LLM response, answering ONLY from the provided context.
+ * Tries streaming first, then falls back to a non-streaming completion (some
+ * OpenAI-compatible providers, e.g. Gemini, are unreliable with `stream:true`).
+ * Returns null when no key is configured or the provider fails, so callers fall
+ * back to a deterministic template. `onComplete` receives the full text + usage.
  */
 export async function streamGroundedResponse(opts: {
   system: string;
@@ -62,78 +59,109 @@ export async function streamGroundedResponse(opts: {
     },
   ];
 
-  let res: Response;
+  const url = `${cfg.baseUrl}/chat/completions`;
+  const headers = {
+    Authorization: `Bearer ${cfg.apiKey}`,
+    "Content-Type": "application/json",
+  };
+  const temperature = opts.temperature ?? 0.3;
+  const encoder = new TextEncoder();
+
+  // --- Attempt streaming ---
+  let res: Response | null = null;
   try {
-    res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+    res = await fetch(url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${cfg.apiKey}`,
-        "Content-Type": "application/json",
+      headers,
+      body: JSON.stringify({ model: cfg.model, temperature, stream: true, messages }),
+    });
+  } catch {
+    res = null;
+  }
+
+  if (res && res.ok && res.body) {
+    const upstream = res.body;
+    const decoder = new TextDecoder();
+    return new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const reader = upstream.getReader();
+        let buffer = "";
+        let full = "";
+        let usage: CompletionUsage = { model: cfg.model };
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data:")) continue;
+              const payload = trimmed.slice(5).trim();
+              if (!payload || payload === "[DONE]") continue;
+              try {
+                const json = JSON.parse(payload);
+                const delta: string | undefined = json.choices?.[0]?.delta?.content;
+                if (delta) {
+                  full += delta;
+                  controller.enqueue(encoder.encode(delta));
+                }
+                if (json.usage) {
+                  usage = {
+                    model: cfg.model,
+                    inputTokens: json.usage.prompt_tokens,
+                    outputTokens: json.usage.completion_tokens,
+                  };
+                }
+              } catch {
+                // ignore partial / keep-alive lines
+              }
+            }
+          }
+        } finally {
+          controller.close();
+          try {
+            await opts.onComplete?.(full, usage);
+          } catch {
+            // persistence failures must not crash the stream
+          }
+        }
       },
-      body: JSON.stringify({
-        model: cfg.model,
-        temperature: opts.temperature ?? 0.3,
-        stream: true,
-        messages,
-      }),
+    });
+  }
+
+  // --- Fallback: non-streaming completion ---
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ model: cfg.model, temperature, messages }),
+    });
+    if (!r.ok) return null;
+    const data = (await r.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    const content = data.choices?.[0]?.message?.content ?? "";
+    if (!content) return null;
+    const usage: CompletionUsage = {
+      model: cfg.model,
+      inputTokens: data.usage?.prompt_tokens,
+      outputTokens: data.usage?.completion_tokens,
+    };
+    return new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(encoder.encode(content));
+        controller.close();
+        try {
+          await opts.onComplete?.(content, usage);
+        } catch {
+          // ignore
+        }
+      },
     });
   } catch {
     return null;
   }
-
-  if (!res.ok || !res.body) return null;
-
-  const upstream = res.body;
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const reader = upstream.getReader();
-      let buffer = "";
-      let full = "";
-      let usage: CompletionUsage = { model: cfg.model };
-
-      try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data:")) continue;
-            const payload = trimmed.slice(5).trim();
-            if (!payload || payload === "[DONE]") continue;
-            try {
-              const json = JSON.parse(payload);
-              const delta: string | undefined = json.choices?.[0]?.delta?.content;
-              if (delta) {
-                full += delta;
-                controller.enqueue(encoder.encode(delta));
-              }
-              if (json.usage) {
-                usage = {
-                  model: cfg.model,
-                  inputTokens: json.usage.prompt_tokens,
-                  outputTokens: json.usage.completion_tokens,
-                };
-              }
-            } catch {
-              // ignore partial / non-JSON keep-alive lines
-            }
-          }
-        }
-      } finally {
-        controller.close();
-        try {
-          await opts.onComplete?.(full, usage);
-        } catch {
-          // persistence failures must not crash the stream
-        }
-      }
-    },
-  });
 }
