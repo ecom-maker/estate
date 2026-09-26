@@ -4,6 +4,7 @@ import { HeaderAuth } from "@/components/layout/header-auth";
 const nav = [
   { href: "/search", label: "Search" },
   { href: "/properties", label: "Properties" },
+  { href: "/projects", label: "Projects" },
   { href: "/agent", label: "Agent" },
   { href: "/admin", label: "Admin" },
 ];
