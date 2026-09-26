@@ -368,6 +368,63 @@ async function main() {
     },
   ];
 
+  // Generate a spread of layout types (Studio / 1 Bed / 2 Bed …) per listing.
+  const AREA_BY_BED: Record<number, number> = {
+    0: 520,
+    1: 820,
+    2: 1280,
+    3: 1850,
+    4: 2700,
+    5: 4200,
+    6: 6000,
+  };
+  function unitTypesFor(listing: {
+    type: PropertyType;
+    bedrooms: number;
+    bathrooms: number;
+    areaSqft: number;
+    priceAed: number;
+  }) {
+    const apartmentLike = ["APARTMENT", "PENTHOUSE", "UNIT"].includes(
+      listing.type,
+    );
+    const pricePerSqft = listing.priceAed / Math.max(1, listing.areaSqft);
+    const raw = apartmentLike
+      ? [0, 1, 2, listing.bedrooms]
+      : [Math.max(1, listing.bedrooms - 1), listing.bedrooms];
+    const bedCounts = Array.from(
+      new Set(raw.filter((b) => b >= 0 && b <= listing.bedrooms)),
+    ).sort((a, b) => a - b);
+
+    const units: Array<{
+      unitNumber: string;
+      bedrooms: number;
+      bathrooms: number;
+      areaSqft: number;
+      priceAed: number;
+    }> = [];
+    for (const beds of bedCounts) {
+      const layouts = beds === 0 ? ["A"] : ["A", "B"];
+      layouts.forEach((suffix, i) => {
+        const baths =
+          beds === 0 ? 1 : Math.min(beds + 1, listing.bathrooms || beds + 1);
+        const areaSqft = (AREA_BY_BED[beds] ?? beds * 900) + i * 60;
+        const priceAed = Math.max(
+          1,
+          Math.round((areaSqft * pricePerSqft) / 1000) * 1000,
+        );
+        units.push({
+          unitNumber: beds === 0 ? "Type S" : `Type ${beds}${suffix}`,
+          bedrooms: beds,
+          bathrooms: baths,
+          areaSqft,
+          priceAed,
+        });
+      });
+    }
+    return units;
+  }
+
   for (const listing of listings) {
     const community = communities.find((c) => c.slug === listing.communitySlug)!;
     const developer = developers.find((d) => d.slug === listing.developerSlug)!;
@@ -418,24 +475,31 @@ async function main() {
       },
     });
 
-    await prisma.propertyUnit.upsert({
-      where: {
-        propertyId_unitNumber: {
-          propertyId: property.id,
-          unitNumber: "U-01",
-        },
-      },
-      update: {},
-      create: {
+    const unitTypes = unitTypesFor(listing);
+    await prisma.propertyUnit.deleteMany({ where: { propertyId: property.id } });
+    await prisma.propertyFloorplan.deleteMany({
+      where: { propertyId: property.id },
+    });
+    await prisma.propertyUnit.createMany({
+      data: unitTypes.map((u) => ({
         propertyId: property.id,
-        unitNumber: "U-01",
-        bedrooms: listing.bedrooms,
-        bathrooms: listing.bathrooms,
-        areaSqft: listing.areaSqft,
-        priceAed: listing.priceAed,
+        unitNumber: u.unitNumber,
+        bedrooms: u.bedrooms,
+        bathrooms: u.bathrooms,
+        areaSqft: u.areaSqft,
+        priceAed: u.priceAed,
         view: listing.waterfront ? "Sea" : "Community",
         status: "available",
-      },
+      })),
+    });
+    await prisma.propertyFloorplan.createMany({
+      data: unitTypes.map((u) => ({
+        propertyId: property.id,
+        title: `${u.unitNumber} floor plan`,
+        url: "/floorplan-placeholder.svg",
+        unitRef: u.unitNumber,
+        areaSqft: u.areaSqft,
+      })),
     });
 
     for (const amenityName of listing.amenityNames) {
