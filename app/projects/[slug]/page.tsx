@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
@@ -71,8 +72,6 @@ export default async function ProjectDetailPage({ params }: Props) {
       ? unitGroups[0].label
       : `${unitGroups[0].label} – ${unitGroups[unitGroups.length - 1].label}`
     : `${project.bedrooms ?? "—"} Bed`;
-  const hasPaymentPlan = Boolean(project.paymentPlan);
-
   const highlights: [string, string][] = [
     ["Developer", project.developer?.name ?? "—"],
     ["Location", project.community?.name ?? "Dubai"],
@@ -80,6 +79,47 @@ export default async function ProjectDetailPage({ params }: Props) {
     ["Starting price", `from ${formatAED(project.priceAed)}`],
     ["Unit types", bedSummary],
     ["Status", project.offPlan ? "Off-plan" : "Ready"],
+  ];
+
+  // Payment plan (from paymentPlan JSON, with sensible defaults)
+  const pp = (project.paymentPlan ?? {}) as {
+    downPaymentPct?: number;
+    duringConstructionPct?: number;
+    onHandoverPct?: number;
+  };
+  const paymentSteps: { pct: number; label: string; sub: string | null }[] = [
+    { pct: pp.downPaymentPct ?? 20, label: "Down payment", sub: "At sales launch" },
+    { pct: pp.duringConstructionPct ?? 40, label: "During construction", sub: null },
+    { pct: pp.onHandoverPct ?? 40, label: "On handover", sub: null },
+  ];
+
+  // Project timeline (from metadata.timeline, with defaults)
+  const projectMeta = (project.metadata ?? {}) as {
+    handoverDate?: string;
+    timeline?: {
+      announced?: string;
+      constructionStart?: string;
+      completion?: string;
+    };
+  };
+  const tl = projectMeta.timeline ?? {};
+  const fmtLong = (v?: string | null) => {
+    if (!v) return null;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime())
+      ? v
+      : d.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+  };
+  const constructionRaw = tl.constructionStart ?? "2026-02-01";
+  const completionRaw = tl.completion ?? projectMeta.handoverDate ?? "2029-09-01";
+  const milestones = [
+    { title: "Project announcement", date: fmtLong(tl.announced), done: true },
+    { title: "Construction Started", date: fmtLong(constructionRaw), done: true },
+    { title: "Expected Completion", date: fmtLong(completionRaw), done: false },
   ];
 
   return (
@@ -186,6 +226,71 @@ export default async function ProjectDetailPage({ params }: Props) {
             </div>
           </section>
 
+          {/* Payment plan */}
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl text-primary">Payment plan</h2>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              {paymentSteps.map((s, i) => (
+                <Fragment key={s.label}>
+                  <div className="flex-1 rounded-sm border border-border bg-card p-5 text-center">
+                    <p className="font-serif text-2xl text-primary">{s.pct}%</p>
+                    <p className="mt-1 text-sm font-medium text-primary">
+                      {s.label}
+                    </p>
+                    {s.sub ? (
+                      <p className="mt-0.5 text-xs text-muted">{s.sub}</p>
+                    ) : null}
+                  </div>
+                  {i < paymentSteps.length - 1 ? (
+                    <span
+                      className="hidden text-lg text-muted sm:block"
+                      aria-hidden
+                    >
+                      ›
+                    </span>
+                  ) : null}
+                </Fragment>
+              ))}
+            </div>
+          </section>
+
+          {/* Project timeline */}
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl text-primary">Project timeline</h2>
+            <ol className="mt-4 rounded-sm border border-border bg-card p-6">
+              {milestones.map((m, i) => (
+                <li
+                  key={m.title}
+                  className="relative flex gap-4 pb-6 last:pb-0"
+                >
+                  {i < milestones.length - 1 ? (
+                    <span
+                      className="absolute left-[11px] top-6 h-full w-px bg-border"
+                      aria-hidden
+                    />
+                  ) : null}
+                  <span
+                    className={cn(
+                      "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[11px]",
+                      m.done
+                        ? "border-accent bg-accent text-white"
+                        : "border-border bg-card text-transparent",
+                    )}
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                  <div className="pt-0.5">
+                    <p className="text-sm font-medium text-primary">
+                      {m.title}
+                    </p>
+                    <p className="text-sm text-muted">{m.date ?? "-"}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+
           {/* Units & floor plans */}
           <UnitsSection category={project.type} groups={unitGroups} />
 
@@ -206,16 +311,6 @@ export default async function ProjectDetailPage({ params }: Props) {
             </section>
           ) : null}
 
-          {/* Payment plan */}
-          {hasPaymentPlan ? (
-            <section className="mt-10">
-              <h2 className="font-serif text-2xl text-primary">Payment plan</h2>
-              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
-                An attractive developer payment plan is available for this
-                project. Ask the assistant for the current milestone breakdown.
-              </p>
-            </section>
-          ) : null}
         </div>
 
         {/* Sticky enquiry aside */}

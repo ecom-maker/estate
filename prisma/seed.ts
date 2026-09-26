@@ -461,7 +461,7 @@ async function main() {
         latitude: community.latitude,
         longitude: community.longitude,
         paymentPlan: listing.offPlan
-          ? { downPaymentPct: 20, duringConstructionPct: 50, onHandoverPct: 30 }
+          ? { downPaymentPct: 20, duringConstructionPct: 40, onHandoverPct: 40 }
           : undefined,
         metadata: listing.offPlan
           ? { seed: true, handoverDate: "2030-09-23" }
