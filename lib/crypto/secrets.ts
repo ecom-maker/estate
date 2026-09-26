@@ -1,14 +1,25 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "crypto";
 
 function getKey() {
-  const raw = process.env.ENCRYPTION_KEY;
+  // Prefer a dedicated ENCRYPTION_KEY; fall back to the auth secret so secret
+  // storage works without a separate env var (both must stay stable once used).
+  const raw =
+    process.env.ENCRYPTION_KEY?.trim() ||
+    process.env.AUTH_SECRET?.trim() ||
+    process.env.NEXTAUTH_SECRET?.trim();
   if (!raw) {
     throw new Error("ENCRYPTION_KEY is not configured");
   }
   if (/^[0-9a-fA-F]{64}$/.test(raw)) {
     return Buffer.from(raw, "hex");
   }
-  return Buffer.from(raw).subarray(0, 32);
+  // Any other secret → derive a stable 32-byte AES key.
+  return createHash("sha256").update(raw).digest();
 }
 
 export function encryptSecret(plaintext: string): string {
