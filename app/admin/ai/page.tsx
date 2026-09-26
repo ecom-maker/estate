@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { AIChat } from "@/components/ai/ai-chat";
 import { AiProviderForm } from "@/components/admin/ai-provider-form";
+import { PromptEditor } from "@/components/admin/prompt-editor";
 import { assertPermission } from "@/lib/rbac/guards";
 import { findPreset } from "@/lib/ai/providers";
+import { EDITABLE_PROMPTS, getPrompts } from "@/lib/ai/get-prompt";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -62,6 +64,14 @@ export default async function AdminAiPage({
 
   const providerLabel = findPreset(llm.provider).label;
   const envKeyActive = Boolean(process.env.OPENAI_API_KEY || process.env.LLM_API_KEY);
+
+  const promptValues = await getPrompts(EDITABLE_PROMPTS.map((p) => p.key));
+  const promptFields = EDITABLE_PROMPTS.map((p) => ({
+    key: p.key,
+    label: p.label,
+    help: p.help,
+    value: promptValues[p.key],
+  }));
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
@@ -145,6 +155,15 @@ export default async function AdminAiPage({
           )}
         </section>
       </div>
+
+      <section className="mt-6 rounded-sm border border-border bg-card p-6">
+        <h2 className="font-serif text-2xl text-primary">Prompt templates</h2>
+        <p className="mt-2 max-w-2xl text-sm text-muted">
+          Fine-tune how the assistant responds. These override the built-in
+          defaults and apply immediately to search and property chat.
+        </p>
+        <PromptEditor prompts={promptFields} />
+      </section>
 
       <section className="mt-6 rounded-sm border border-border bg-card p-6">
         <h2 className="font-serif text-2xl text-primary">Test prompt</h2>

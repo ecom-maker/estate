@@ -1,5 +1,5 @@
 import { extractSearchIntent } from "@/lib/ai/intent";
-import { DEFAULT_PROMPTS } from "@/lib/ai/prompts";
+import { getPrompts } from "@/lib/ai/get-prompt";
 import { logAiUsage } from "@/lib/ai/usage";
 import {
   streamGroundedResponse,
@@ -87,6 +87,8 @@ export async function POST(request: Request) {
       data: { sessionId: chatSessionId, role: "USER", content: lastUser.content },
     });
 
+    const prompts = await getPrompts(["system", "search", "propertyAssistant"]);
+
     // Prior turns (exclude the current user message) for conversation continuity.
     const history: ChatTurn[] = body.messages
       .slice(0, -1)
@@ -167,7 +169,7 @@ export async function POST(request: Request) {
       };
 
       const stream = await streamGroundedResponse({
-        system: `${DEFAULT_PROMPTS.system}\n${DEFAULT_PROMPTS.propertyAssistant}`,
+        system: `${prompts.system}\n${prompts.propertyAssistant}`,
         history,
         question: lastUser.content,
         context,
@@ -256,7 +258,7 @@ export async function POST(request: Request) {
     };
 
     const stream = await streamGroundedResponse({
-      system: `${DEFAULT_PROMPTS.system}\n${DEFAULT_PROMPTS.search}\nConfirm briefly what you understood, present the matching properties conversationally (never invent any beyond the provided list), and suggest one or two refinements.`,
+      system: `${prompts.system}\n${prompts.search}`,
       history,
       question: lastUser.content,
       context,
