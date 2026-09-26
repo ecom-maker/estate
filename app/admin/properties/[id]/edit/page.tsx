@@ -33,6 +33,8 @@ export default async function EditPropertyPage({
 
   if (!property) notFound();
 
+  const meta = (property.metadata ?? {}) as { handoverDate?: string };
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-28 md:px-10">
       <Link
@@ -59,7 +61,7 @@ export default async function EditPropertyPage({
       <PropertyForm
         action={updateProperty.bind(null, property.id)}
         communities={communities}
-        property={property}
+        property={{ ...property, handoverDate: meta.handoverDate ?? null }}
         submitLabel="Save changes"
       />
     </div>

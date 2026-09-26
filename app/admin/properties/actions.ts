@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
-import type { PropertyStatus, PropertyType } from "@prisma/client";
+import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 
 export type PropertyFormState = { error?: string };
 
@@ -61,6 +61,7 @@ function parseForm(formData: FormData) {
     ready: formData.get("ready") === "on",
     waterfront: formData.get("waterfront") === "on",
     furnished: formData.get("furnished") === "on",
+    handoverDate: String(formData.get("handoverDate") ?? "").trim() || null,
     slugInput: String(formData.get("slug") ?? "").trim(),
   };
 }
@@ -115,6 +116,9 @@ export async function createProperty(
         ready: input.ready,
         waterfront: input.waterfront,
         furnished: input.furnished,
+        metadata: input.handoverDate
+          ? { handoverDate: input.handoverDate }
+          : undefined,
         ...(input.communityId
           ? { community: { connect: { id: input.communityId } } }
           : {}),
@@ -151,6 +155,15 @@ export async function updateProperty(
     const slug = input.slugInput
       ? await uniqueSlug(slugify(input.slugInput), id)
       : undefined;
+    const existing = await prisma.property.findUnique({
+      where: { id },
+      select: { metadata: true },
+    });
+    const metadata: Record<string, unknown> = {
+      ...((existing?.metadata as Record<string, unknown> | null) ?? {}),
+    };
+    if (input.handoverDate) metadata.handoverDate = input.handoverDate;
+    else delete metadata.handoverDate;
     await prisma.property.update({
       where: { id },
       data: {
@@ -167,6 +180,7 @@ export async function updateProperty(
         ready: input.ready,
         waterfront: input.waterfront,
         furnished: input.furnished,
+        metadata: metadata as Prisma.InputJsonValue,
         community: input.communityId
           ? { connect: { id: input.communityId } }
           : { disconnect: true },

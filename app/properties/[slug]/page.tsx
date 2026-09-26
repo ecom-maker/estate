@@ -52,6 +52,16 @@ export default async function PropertyDetailPage({ params }: Props) {
   if (!property) notFound();
 
   const primary = property.images[0];
+  const meta = (property.metadata ?? {}) as { handoverDate?: string };
+  const handoverDate = meta.handoverDate ? new Date(meta.handoverDate) : null;
+  const handoverLabel =
+    handoverDate && !Number.isNaN(handoverDate.getTime())
+      ? handoverDate.toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : null;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-10 px-6 py-28 lg:grid-cols-[1.4fr_0.8fr] md:px-10">
@@ -62,7 +72,24 @@ export default async function PropertyDetailPage({ params }: Props) {
         <h1 className="mt-3 font-serif text-4xl text-primary md:text-5xl">
           {property.title}
         </h1>
-        <p className="mt-3 text-lg text-muted">{formatAED(property.priceAed)}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-lg text-muted">{formatAED(property.priceAed)}</p>
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+              property.offPlan
+                ? "bg-accent/15 text-accent"
+                : "bg-primary/10 text-primary",
+            )}
+          >
+            {property.offPlan ? "Off-plan" : "Completed"}
+          </span>
+          {handoverLabel ? (
+            <span className="text-sm text-muted">
+              {property.offPlan ? "Delivery" : "Completed"}: {handoverLabel}
+            </span>
+          ) : null}
+        </div>
 
         <div className="relative mt-8 aspect-[16/10] overflow-hidden rounded-sm bg-primary/10">
           {primary ? (
@@ -75,16 +102,6 @@ export default async function PropertyDetailPage({ params }: Props) {
               sizes="(max-width:1024px) 100vw, 60vw"
             />
           ) : null}
-          <span
-            className={cn(
-              "absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur",
-              property.offPlan
-                ? "bg-accent text-primary"
-                : "bg-primary/90 text-primary-foreground",
-            )}
-          >
-            {property.offPlan ? "Off-plan" : "Completed"}
-          </span>
         </div>
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">

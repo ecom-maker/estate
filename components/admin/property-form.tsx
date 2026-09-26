@@ -21,6 +21,7 @@ type PropertyDefaults = {
   ready?: boolean | null;
   waterfront?: boolean | null;
   furnished?: boolean | null;
+  handoverDate?: string | null;
 };
 
 const TYPES = ["VILLA", "APARTMENT", "PENTHOUSE", "TOWNHOUSE", "UNIT", "LAND"];
@@ -198,6 +199,23 @@ export function PropertyForm({
             className={fieldClass}
           />
         </div>
+      </div>
+
+      <div>
+        <label htmlFor="handoverDate" className={labelClass}>
+          Handover / completion date
+        </label>
+        <input
+          id="handoverDate"
+          name="handoverDate"
+          type="date"
+          defaultValue={property?.handoverDate ?? ""}
+          className={fieldClass}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          Shown as the delivery date for off-plan, or the completed date for
+          ready properties.
+        </p>
       </div>
 
       <div>
