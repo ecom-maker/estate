@@ -138,16 +138,6 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                         sizes="(max-width:768px) 100vw, 40vw"
                       />
                     ) : null}
-                    <span
-                      className={cn(
-                        "absolute left-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide backdrop-blur",
-                        property.offPlan
-                          ? "bg-accent text-primary"
-                          : "bg-primary/90 text-primary-foreground",
-                      )}
-                    >
-                      {property.offPlan ? "Off-plan" : "Completed"}
-                    </span>
                   </div>
                   <div className="p-4">
                     <p className="text-xs uppercase tracking-wider text-muted">
@@ -161,9 +151,21 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                       {property.bathrooms ?? "—"} bath ·{" "}
                       {property.areaSqft?.toLocaleString() ?? "—"} sqft
                     </p>
-                    <p className="mt-3 text-sm font-medium text-primary">
-                      {formatAED(property.priceAed)}
-                    </p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <p className="text-sm font-medium text-primary">
+                        {formatAED(property.priceAed)}
+                      </p>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                          property.offPlan
+                            ? "bg-accent/15 text-accent"
+                            : "bg-primary/10 text-primary",
+                        )}
+                      >
+                        {property.offPlan ? "Off-plan" : "Completed"}
+                      </span>
+                    </div>
                   </div>
                 </Link>
               );
