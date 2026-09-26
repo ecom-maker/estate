@@ -21,6 +21,12 @@ export async function searchProperties(intent: SearchIntent) {
   if (intent.propertyType) {
     where.type = TYPE_MAP[intent.propertyType];
   }
+  // dealType lives in metadata (default "sale" when absent).
+  if (intent.dealType === "rent") {
+    where.metadata = { path: ["dealType"], equals: "rent" };
+  } else if (intent.dealType === "sale") {
+    where.NOT = { metadata: { path: ["dealType"], equals: "rent" } };
+  }
   if (intent.bedrooms != null) where.bedrooms = { gte: intent.bedrooms };
   if (intent.bathrooms != null) where.bathrooms = { gte: intent.bathrooms };
   if (intent.minPriceAED != null || intent.maxPriceAED != null) {

@@ -55,6 +55,23 @@ export function extractSearchIntentHeuristic(
   if (text.includes("off-plan") || text.includes("off plan")) next.offPlan = true;
   if (text.includes("ready")) next.ready = true;
 
+  if (
+    text.includes("for rent") ||
+    text.includes("rental") ||
+    text.includes("to rent") ||
+    /\brent\b/.test(text) ||
+    /\blease\b/.test(text)
+  ) {
+    next.dealType = "rent";
+  } else if (
+    text.includes("for sale") ||
+    text.includes("to buy") ||
+    text.includes("buy") ||
+    text.includes("purchase")
+  ) {
+    next.dealType = "sale";
+  }
+
   const communities = [
     "palm jumeirah",
     "downtown dubai",
@@ -87,8 +104,9 @@ async function extractWithLLM(
 ): Promise<SearchIntent | null> {
   const system = `Extract luxury real estate search intent as JSON only.
 Merge with previous intent for follow-ups. Never invent numeric constraints not implied.
-Schema keys: propertyType, location, community, developer, bedrooms, bathrooms, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
-propertyType enum: villa|apartment|penthouse|townhouse|unit|land.`;
+Schema keys: propertyType, dealType, location, community, developer, bedrooms, bathrooms, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
+propertyType enum: villa|apartment|penthouse|townhouse|unit|land.
+dealType enum: sale|rent (set "rent" for rent/rental/lease requests, "sale" for buy/purchase).`;
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",

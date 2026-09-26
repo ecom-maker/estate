@@ -205,6 +205,7 @@ export async function POST(request: Request) {
 
     const intentSummary = [
       `Type: ${intent.propertyType ?? "any"}`,
+      `Deal: ${intent.dealType === "rent" ? "for rent" : intent.dealType === "sale" ? "for sale" : "any"}`,
       `Location: ${intent.community ?? intent.location ?? "any"}`,
       `Bedrooms: ${intent.bedrooms ?? "any"}`,
       `Max budget: ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`,

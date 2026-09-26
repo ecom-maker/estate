@@ -4,6 +4,7 @@ export const SearchIntentSchema = z.object({
   propertyType: z
     .enum(["villa", "apartment", "penthouse", "townhouse", "unit", "land"])
     .optional(),
+  dealType: z.enum(["sale", "rent"]).optional(),
   location: z.string().optional(),
   community: z.string().optional(),
   developer: z.string().optional(),

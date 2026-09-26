@@ -62,6 +62,8 @@ function parseForm(formData: FormData) {
     waterfront: formData.get("waterfront") === "on",
     furnished: formData.get("furnished") === "on",
     handoverDate: String(formData.get("handoverDate") ?? "").trim() || null,
+    dealType:
+      String(formData.get("dealType") ?? "sale") === "rent" ? "rent" : "sale",
     slugInput: String(formData.get("slug") ?? "").trim(),
   };
 }
@@ -116,9 +118,10 @@ export async function createProperty(
         ready: input.ready,
         waterfront: input.waterfront,
         furnished: input.furnished,
-        metadata: input.handoverDate
-          ? { handoverDate: input.handoverDate }
-          : undefined,
+        metadata: {
+          dealType: input.dealType,
+          ...(input.handoverDate ? { handoverDate: input.handoverDate } : {}),
+        },
         ...(input.communityId
           ? { community: { connect: { id: input.communityId } } }
           : {}),
@@ -164,6 +167,7 @@ export async function updateProperty(
     };
     if (input.handoverDate) metadata.handoverDate = input.handoverDate;
     else delete metadata.handoverDate;
+    metadata.dealType = input.dealType;
     await prisma.property.update({
       where: { id },
       data: {

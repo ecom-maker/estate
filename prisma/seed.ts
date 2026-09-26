@@ -235,6 +235,7 @@ async function main() {
     waterfront?: boolean;
     privateBeach?: boolean;
     offPlan?: boolean;
+    dealType?: "sale" | "rent";
     rentalYield?: number;
     image: string;
     amenityNames: string[];
@@ -434,8 +435,8 @@ async function main() {
         priceAed: listing.priceAed,
         status: PropertyStatus.ACTIVE,
         metadata: listing.offPlan
-          ? { seed: true, handoverDate: "2030-09-23" }
-          : { seed: true },
+          ? { seed: true, dealType: listing.dealType ?? "sale", handoverDate: "2030-09-23" }
+          : { seed: true, dealType: listing.dealType ?? "sale" },
       },
       create: {
         companyId: company.id,
@@ -464,8 +465,8 @@ async function main() {
           ? { downPaymentPct: 20, duringConstructionPct: 40, onHandoverPct: 40 }
           : undefined,
         metadata: listing.offPlan
-          ? { seed: true, handoverDate: "2030-09-23" }
-          : { seed: true },
+          ? { seed: true, dealType: listing.dealType ?? "sale", handoverDate: "2030-09-23" }
+          : { seed: true, dealType: listing.dealType ?? "sale" },
       },
     });
 

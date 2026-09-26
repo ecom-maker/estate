@@ -12,6 +12,7 @@ type PropertyDefaults = {
   type?: string | null;
   status?: string | null;
   communityId?: string | null;
+  dealType?: string | null;
   priceAed?: number | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
@@ -141,6 +142,23 @@ export function PropertyForm({
                 {c.name}
               </option>
             ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        <div>
+          <label htmlFor="dealType" className={labelClass}>
+            Listing type
+          </label>
+          <select
+            id="dealType"
+            name="dealType"
+            defaultValue={property?.dealType ?? "sale"}
+            className={fieldClass}
+          >
+            <option value="sale">For sale</option>
+            <option value="rent">For rent</option>
           </select>
         </div>
       </div>
