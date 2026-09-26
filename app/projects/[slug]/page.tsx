@@ -50,6 +50,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       where: { slug, deletedAt: null },
       include: {
         images: { orderBy: { sortOrder: "asc" } },
+        videos: true,
         units: true,
         floorplans: true,
         amenities: { include: { amenity: true } },
@@ -358,6 +359,24 @@ export default async function ProjectDetailPage({ params }: Props) {
               placeholder="Ask about this project..."
             />
           </div>
+          {project.videos[0] ? (
+            <div className="mt-6">
+              <p className="text-xs uppercase tracking-wider text-muted">
+                Video tour
+              </p>
+              <div className="mt-3 aspect-[9/16] overflow-hidden rounded-sm bg-primary/10">
+                <video
+                  src={project.videos[0].url}
+                  controls
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="mt-6 text-xs text-muted">
+              9:16 video tour placeholder — upload via media service.
+            </p>
+          )}
         </aside>
       </div>
     </div>
