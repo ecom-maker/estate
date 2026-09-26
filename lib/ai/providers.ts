@@ -35,7 +35,7 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "gemini",
     label: "Google Gemini",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultModel: "gemini-2.0-flash",
+    defaultModel: "gemini-3.8-flash",
     defaultEmbedding: "text-embedding-004",
     supportsEmbeddings: true,
     keyHint: "AIza...",
