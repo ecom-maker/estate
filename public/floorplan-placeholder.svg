@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360" width="480" height="360" role="img" aria-label="Floor plan placeholder">
+  <rect width="480" height="360" fill="#fcf8fa"/>
+  <g fill="none" stroke="#0f172a" stroke-width="4">
+    <rect x="24" y="24" width="432" height="312"/>
+    <!-- living / dining -->
+    <rect x="24" y="24" width="252" height="180"/>
+    <!-- kitchen -->
+    <rect x="276" y="24" width="180" height="96"/>
+    <!-- bedroom -->
+    <rect x="276" y="120" width="180" height="120"/>
+    <!-- bath -->
+    <rect x="24" y="204" width="120" height="132"/>
+    <!-- hall / second bedroom -->
+    <rect x="144" y="204" width="312" height="132"/>
+  </g>
+  <g fill="#0f172a" font-family="Inter, system-ui, sans-serif" font-size="15">
+    <text x="150" y="120" text-anchor="middle">Living</text>
+    <text x="366" y="76" text-anchor="middle">Kitchen</text>
+    <text x="366" y="184" text-anchor="middle">Bedroom</text>
+    <text x="84" y="274" text-anchor="middle">Bath</text>
+    <text x="300" y="274" text-anchor="middle">Bedroom 2</text>
+  </g>
+  <g stroke="#C5A572" stroke-width="6">
+    <line x1="120" y1="24" x2="150" y2="24"/>
+    <line x1="276" y1="72" x2="276" y2="102"/>
+    <line x1="144" y1="260" x2="144" y2="290"/>
+  </g>
+  <text x="240" y="350" text-anchor="middle" fill="#9a8f95" font-family="Inter, system-ui, sans-serif" font-size="12">Indicative layout — sample floor plan</text>
+</svg>
