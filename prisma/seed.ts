@@ -433,6 +433,9 @@ async function main() {
       update: {
         priceAed: listing.priceAed,
         status: PropertyStatus.ACTIVE,
+        metadata: listing.offPlan
+          ? { seed: true, handoverDate: "2030-09-23" }
+          : { seed: true },
       },
       create: {
         companyId: company.id,
@@ -460,7 +463,9 @@ async function main() {
         paymentPlan: listing.offPlan
           ? { downPaymentPct: 20, duringConstructionPct: 50, onHandoverPct: 30 }
           : undefined,
-        metadata: { seed: true },
+        metadata: listing.offPlan
+          ? { seed: true, handoverDate: "2030-09-23" }
+          : { seed: true },
       },
     });
 
