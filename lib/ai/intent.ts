@@ -148,29 +148,33 @@ export function extractSearchIntentHeuristic(
     next.dealType = "sale";
   }
 
-  // Match the longest community name first so "Palm Jumeirah" wins over
-  // "Jumeirah", then fall back to fuzzy matching for typos ("emirates hils").
+  // Detect a community named in THIS message. Kept in a local (not read from
+  // `next`, which may already hold a community carried over from `previous`)
+  // so a fuzzy/token match can OVERRIDE the earlier community on a follow-up
+  // like "palm jumeria" or "what about downtown".
   const communities = [...knownCommunities].sort((a, b) => b.length - a.length);
+  let detected: string | null = null;
+
+  // 1) Exact substring — longest name first so "Palm Jumeirah" beats "Jumeirah".
   for (const community of communities) {
     if (text.includes(community.toLowerCase())) {
-      next.community = community;
-      next.location = community;
+      detected = community;
       break;
     }
   }
-  if (!next.community) {
+  // 2) Fuzzy whole-name match for typos ("emirates hils", "palm jumeria").
+  if (!detected) {
     for (const community of communities) {
       if (fuzzyContains(message, community)) {
-        next.community = community;
-        next.location = community;
+        detected = community;
         break;
       }
     }
   }
-  // Single distinctive word → community (e.g. "downtown" → "Downtown Dubai",
-  // "marina" → "Dubai Marina"). Only tokens that map to exactly one community
-  // are used, so ambiguous words like "dubai"/"jumeirah" are skipped here.
-  if (!next.community) {
+  // 3) Single distinctive word → community ("downtown" → "Downtown Dubai",
+  //    "marina" → "Dubai Marina"). Only tokens mapping to exactly one community
+  //    are used, so ambiguous words like "dubai"/"jumeirah" are skipped here.
+  if (!detected) {
     const GENERIC = new Set(["dubai", "uae", "the", "and", "for"]);
     const tokenToCommunities = new Map<string, Set<string>>();
     for (const community of communities) {
@@ -190,13 +194,16 @@ export function extractSearchIntentHeuristic(
       if (owners.size !== 1) continue; // unambiguous tokens only
       for (const word of messageWords) {
         if (word === token || levenshtein(word, token) <= 1) {
-          const only = [...owners][0];
-          next.community = only;
-          next.location = only;
+          detected = [...owners][0];
           break outer;
         }
       }
     }
+  }
+
+  if (detected) {
+    next.community = detected;
+    next.location = detected;
   }
 
   if (text.includes("only waterfront")) next.waterfront = true;
