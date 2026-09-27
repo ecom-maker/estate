@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolveLLMConfig } from "@/lib/ai/provider";
+import { getPrompts, EDITABLE_PROMPTS } from "@/lib/ai/get-prompt";
+import { DEFAULT_PROMPTS } from "@/lib/ai/prompts";
 import { assertPermission } from "@/lib/rbac/guards";
 
 export const dynamic = "force-dynamic";
@@ -24,10 +26,19 @@ export async function GET() {
     }
   }
 
+  // Which prompts are active (default vs a saved DB override).
+  const active = await getPrompts(EDITABLE_PROMPTS.map((p) => p.key));
+  const prompts = EDITABLE_PROMPTS.map((p) => ({
+    key: p.key,
+    source: active[p.key] === DEFAULT_PROMPTS[p.key] ? "default" : "custom (DB)",
+    preview: active[p.key].slice(0, 140),
+  }));
+
   const cfg = await resolveLLMConfig();
   if (!cfg) {
     return NextResponse.json({
       configured: false,
+      prompts,
       reason:
         "No LLM config resolved — the provider key is not saved, is disabled, or could not be decrypted. Save the provider + key in /admin/ai.",
     });
@@ -49,6 +60,7 @@ export async function GET() {
     const body = await res.text();
     return NextResponse.json({
       configured: true,
+      prompts,
       baseUrl: cfg.baseUrl,
       model: cfg.model,
       embeddingModel: cfg.embeddingModel,
