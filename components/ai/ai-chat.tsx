@@ -16,6 +16,7 @@ type AIChatProps = {
   autoSendOnMount?: string;
   onIntent?: (intentHeader: string | null) => void;
   onPropertyIds?: (ids: string[]) => void;
+  onStreaming?: (streaming: boolean) => void;
 };
 
 export function AIChat({
@@ -26,6 +27,7 @@ export function AIChat({
   autoSendOnMount,
   onIntent,
   onPropertyIds,
+  onStreaming,
 }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(
     initialMessages.filter((m) => m.role === "assistant" || !autoSendOnMount),
@@ -67,6 +69,7 @@ export function AIChat({
     setMessages(nextMessages);
     setInput("");
     setStreaming(true);
+    onStreaming?.(true);
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
 
     try {
@@ -124,6 +127,7 @@ export function AIChat({
       ]);
     } finally {
       setStreaming(false);
+      onStreaming?.(false);
     }
   }
 

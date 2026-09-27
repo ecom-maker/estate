@@ -34,6 +34,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
   const [propertyIds, setPropertyIds] = useState<string[]>([]);
   const [properties, setProperties] = useState<PropertyCard[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   const queryString = useMemo(() => {
     if (!intent) return "";
@@ -91,6 +92,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           }
           onIntent={(header) => setIntent(decodeIntent(header))}
           onPropertyIds={(ids) => setPropertyIds(ids)}
+          onStreaming={setSearching}
         />
       </aside>
 
@@ -99,8 +101,8 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           <div>
             <h1 className="font-serif text-3xl text-primary">Results</h1>
             <p className="mt-1 text-sm text-muted">
-              {loading
-                ? "Updating matches…"
+              {searching || loading
+                ? "Searching inventory…"
                 : `${properties.length} properties · dual-view · map-ready`}
             </p>
           </div>
@@ -112,7 +114,11 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           </Link>
         </div>
 
-        {properties.length === 0 ? (
+        {searching ? (
+          <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
+            Finding the best matches for your request…
+          </div>
+        ) : properties.length === 0 ? (
           <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
             {initialQuery
               ? "Ask the assistant to run or refine your search. Matching cards will appear here."
