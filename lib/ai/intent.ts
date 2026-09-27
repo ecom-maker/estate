@@ -212,13 +212,26 @@ export function extractSearchIntentHeuristic(
 }
 
 async function getKnownCommunities(): Promise<string[]> {
+  // Union the DB `Community` names with the curated list: some areas (e.g.
+  // "Business Bay") appear only in property titles, not as Community records,
+  // so relying on the DB alone would leave them undetectable.
+  let dbNames: string[] = [];
   try {
     const rows = await prisma.community.findMany({ select: { name: true } });
-    const names = rows.map((r) => r.name).filter((n): n is string => Boolean(n));
-    return names.length ? names : FALLBACK_COMMUNITIES;
+    dbNames = rows.map((r) => r.name).filter((n): n is string => Boolean(n));
   } catch {
-    return FALLBACK_COMMUNITIES;
+    dbNames = [];
   }
+
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const name of [...dbNames, ...FALLBACK_COMMUNITIES]) {
+    const key = name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    merged.push(name.trim());
+  }
+  return merged;
 }
 
 async function extractWithLLM(
@@ -294,24 +307,18 @@ export async function extractSearchIntent(
       cfg,
       knownCommunities,
     );
-    // The LLM sometimes omits an obvious community or status — backfill from
-    // the heuristic so a named location / "completed" is never silently dropped.
+    // A community / status named in the CURRENT message always wins over what
+    // was carried forward from the previous intent — so "what about business
+    // bay" switches away from an earlier "palm jumeirah" instead of keeping it.
+    // Passing previous=null limits detection to this message only.
     if (llmIntent) {
-      const needsCommunity = !llmIntent.community && !llmIntent.location;
-      const needsStatus = llmIntent.offPlan == null;
-      if (needsCommunity || needsStatus) {
-        const fuzzy = extractSearchIntentHeuristic(
-          message,
-          previous,
-          knownCommunities,
-        );
-        if (needsCommunity && fuzzy.community) {
-          llmIntent.community = fuzzy.community;
-          llmIntent.location = fuzzy.location;
-        }
-        if (needsStatus && fuzzy.offPlan != null) {
-          llmIntent.offPlan = fuzzy.offPlan;
-        }
+      const fresh = extractSearchIntentHeuristic(message, null, knownCommunities);
+      if (fresh.community) {
+        llmIntent.community = fresh.community;
+        llmIntent.location = fresh.location;
+      }
+      if (fresh.offPlan != null) {
+        llmIntent.offPlan = fresh.offPlan;
       }
       return llmIntent;
     }
