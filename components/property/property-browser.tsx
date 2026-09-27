@@ -53,18 +53,20 @@ export function PropertyBrowser({
     let cancelled = false;
     (async () => {
       setLoadingResults(true);
-      const results: BrowserCard[] = [];
-      for (const id of propertyIds) {
-        try {
-          const res = await fetch(`/api/properties/${id}`);
-          const json = await res.json();
-          if (json.success) results.push(json.data as BrowserCard);
-        } catch {
-          // skip
-        }
-      }
+      // Fetch matches in parallel and preserve the ranked order.
+      const settled = await Promise.all(
+        propertyIds.map(async (id) => {
+          try {
+            const res = await fetch(`/api/properties/${id}`);
+            const json = await res.json();
+            return json.success ? (json.data as BrowserCard) : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
       if (!cancelled) {
-        setProperties(results);
+        setProperties(settled.filter((p): p is BrowserCard => p !== null));
         setLoadingResults(false);
       }
     })();

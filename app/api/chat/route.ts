@@ -202,6 +202,9 @@ export async function POST(request: Request) {
       results = [];
     }
     const top = results.slice(0, 6);
+    // The results grid mirrors every match (capped), so its count agrees with
+    // the number reported in chat; the text summary still lists only `top`.
+    const shown = results.slice(0, 24);
 
     const intentSummary = [
       `Type: ${intent.propertyType ?? "any"}`,
@@ -227,7 +230,7 @@ export async function POST(request: Request) {
     const searchHeaders = {
       "X-Chat-Session": chatSessionId,
       "X-Search-Intent": Buffer.from(JSON.stringify(intent)).toString("base64url"),
-      "X-Property-Ids": top.map((p) => p.id).join(","),
+      "X-Property-Ids": shown.map((p) => p.id).join(","),
     };
 
     const persistSearch = async (text: string, usage?: CompletionUsage) => {
@@ -241,7 +244,7 @@ export async function POST(request: Request) {
           role: "ASSISTANT",
           content: text,
           searchIntent: intent,
-          propertyReferences: top.map((p) => p.id),
+          propertyReferences: shown.map((p) => p.id),
         },
       });
       await prisma.searchHistory.create({

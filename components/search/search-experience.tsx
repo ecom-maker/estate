@@ -52,13 +52,21 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
       setLoading(true);
       try {
         if (propertyIds.length) {
-          const results: PropertyCard[] = [];
-          for (const id of propertyIds) {
-            const res = await fetch(`/api/properties/${id}`);
-            const json = await res.json();
-            if (json.success) results.push(json.data);
+          // Fetch matches in parallel and preserve the ranked order.
+          const settled = await Promise.all(
+            propertyIds.map(async (id) => {
+              try {
+                const res = await fetch(`/api/properties/${id}`);
+                const json = await res.json();
+                return json.success ? (json.data as PropertyCard) : null;
+              } catch {
+                return null;
+              }
+            }),
+          );
+          if (!cancelled) {
+            setProperties(settled.filter((p): p is PropertyCard => p !== null));
           }
-          if (!cancelled) setProperties(results);
           return;
         }
 

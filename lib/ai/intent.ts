@@ -4,6 +4,7 @@ import {
   type SearchIntent,
 } from "@/lib/validation/search-intent";
 import { resolveLLMConfig, type LLMConfig } from "@/lib/ai/provider";
+import { prisma } from "@/lib/db/prisma";
 
 const TYPE_MAP: Record<string, string> = {
   villa: "VILLA",
@@ -14,9 +15,72 @@ const TYPE_MAP: Record<string, string> = {
   land: "LAND",
 };
 
+// Fallback community list used when the DB lookup is unavailable.
+const FALLBACK_COMMUNITIES = [
+  "Palm Jumeirah",
+  "Downtown Dubai",
+  "Emirates Hills",
+  "Dubai Marina",
+  "Arabian Ranches",
+  "Jumeirah",
+  "Business Bay",
+];
+
+/** Classic Levenshtein edit distance (small strings, iterative two-row). */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const dp = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = Math.min(
+        dp[j] + 1,
+        dp[j - 1] + 1,
+        prev + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+/**
+ * True when `phrase` appears in `text` allowing for minor typos — e.g.
+ * "emirates hils" still matches "Emirates Hills". Slides a same-word-count
+ * window across the text and accepts a small edit distance (~1 typo / 6 chars).
+ */
+function fuzzyContains(text: string, phrase: string): boolean {
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const t = normalize(text);
+  const p = normalize(phrase);
+  if (!p) return false;
+  if (t.includes(p)) return true;
+
+  const words = t.split(" ");
+  const pWords = p.split(" ");
+  const span = pWords.length;
+  const tolerance = Math.max(1, Math.floor(p.length / 6));
+  for (let i = 0; i + span <= words.length; i++) {
+    const window = words.slice(i, i + span).join(" ");
+    if (levenshtein(window, p) <= tolerance) return true;
+  }
+  return false;
+}
+
 export function extractSearchIntentHeuristic(
   message: string,
   previous?: SearchIntent | null,
+  knownCommunities: string[] = FALLBACK_COMMUNITIES,
 ): SearchIntent {
   const text = message.toLowerCase();
   const next: SearchIntent = { ...(previous ?? {}), queryText: message };
@@ -72,23 +136,23 @@ export function extractSearchIntentHeuristic(
     next.dealType = "sale";
   }
 
-  const communities = [
-    "palm jumeirah",
-    "downtown dubai",
-    "emirates hills",
-    "dubai marina",
-    "arabian ranches",
-    "jumeirah",
-    "business bay",
-  ];
+  // Match the longest community name first so "Palm Jumeirah" wins over
+  // "Jumeirah", then fall back to fuzzy matching for typos ("emirates hils").
+  const communities = [...knownCommunities].sort((a, b) => b.length - a.length);
   for (const community of communities) {
-    if (text.includes(community)) {
-      next.community = community
-        .split(" ")
-        .map((w) => w[0]?.toUpperCase() + w.slice(1))
-        .join(" ");
-      next.location = next.community;
+    if (text.includes(community.toLowerCase())) {
+      next.community = community;
+      next.location = community;
       break;
+    }
+  }
+  if (!next.community) {
+    for (const community of communities) {
+      if (fuzzyContains(message, community)) {
+        next.community = community;
+        next.location = community;
+        break;
+      }
     }
   }
 
@@ -97,16 +161,28 @@ export function extractSearchIntentHeuristic(
   return SearchIntentSchema.parse(next);
 }
 
+async function getKnownCommunities(): Promise<string[]> {
+  try {
+    const rows = await prisma.community.findMany({ select: { name: true } });
+    const names = rows.map((r) => r.name).filter((n): n is string => Boolean(n));
+    return names.length ? names : FALLBACK_COMMUNITIES;
+  } catch {
+    return FALLBACK_COMMUNITIES;
+  }
+}
+
 async function extractWithLLM(
   message: string,
   previous: SearchIntent | null | undefined,
   cfg: LLMConfig,
+  knownCommunities: string[],
 ): Promise<SearchIntent | null> {
   const system = `Extract luxury real estate search intent as JSON only.
 Merge with previous intent for follow-ups. Never invent numeric constraints not implied.
 Schema keys: propertyType, dealType, location, community, developer, bedrooms, bathrooms, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
 propertyType enum: villa|apartment|penthouse|townhouse|unit|land.
-dealType enum: sale|rent (set "rent" for rent/rental/lease requests, "sale" for buy/purchase).`;
+dealType enum: sale|rent (set "rent" for rent/rental/lease requests, "sale" for buy/purchase).
+Known communities (map misspellings/variants to the closest one, use its exact spelling in "community"; omit if no community is mentioned): ${knownCommunities.join(", ")}.`;
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
@@ -156,10 +232,33 @@ export async function extractSearchIntent(
   message: string,
   previous?: SearchIntent | null,
 ): Promise<SearchIntent> {
-  const cfg = await resolveLLMConfig();
+  const [cfg, knownCommunities] = await Promise.all([
+    resolveLLMConfig(),
+    getKnownCommunities(),
+  ]);
   if (cfg) {
-    const llmIntent = await extractWithLLM(message, previous, cfg);
-    if (llmIntent) return llmIntent;
+    const llmIntent = await extractWithLLM(
+      message,
+      previous,
+      cfg,
+      knownCommunities,
+    );
+    // The LLM sometimes omits an obvious community — backfill from the
+    // heuristic's fuzzy match so a named location is never silently dropped.
+    if (llmIntent) {
+      if (!llmIntent.community && !llmIntent.location) {
+        const fuzzy = extractSearchIntentHeuristic(
+          message,
+          previous,
+          knownCommunities,
+        );
+        if (fuzzy.community) {
+          llmIntent.community = fuzzy.community;
+          llmIntent.location = fuzzy.location;
+        }
+      }
+      return llmIntent;
+    }
   }
-  return extractSearchIntentHeuristic(message, previous);
+  return extractSearchIntentHeuristic(message, previous, knownCommunities);
 }
