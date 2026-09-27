@@ -48,7 +48,12 @@ export async function POST(request: Request) {
         title: body.title,
         sourceType: body.sourceType,
         status: "processing",
-        metadata: (body.metadata ?? { seed: false }) as Prisma.InputJsonValue,
+        // Persist the source text so the document stays editable in admin.
+        metadata: {
+          seed: false,
+          ...(body.metadata ?? {}),
+          sourceText: body.text,
+        } as Prisma.InputJsonValue,
       },
     });
 
