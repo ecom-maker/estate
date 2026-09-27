@@ -51,8 +51,8 @@ export function PropertyBrowser({
   useEffect(() => {
     if (propertyIds === null) return; // no search yet — keep the browse view
     let cancelled = false;
-    setLoadingResults(true);
     (async () => {
+      setLoadingResults(true);
       const results: BrowserCard[] = [];
       for (const id of propertyIds) {
         try {
