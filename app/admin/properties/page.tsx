@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 import { formatAED } from "@/lib/utils";
+import { BackfillCommunitiesButton } from "@/components/admin/backfill-communities-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Properties" };
@@ -49,12 +50,15 @@ export default async function AdminPropertiesPage() {
             connectors.
           </p>
         </div>
-        <Link
-          href="/admin/properties/new"
-          className="inline-flex items-center rounded-sm bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-        >
-          + New property
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          <Link
+            href="/admin/properties/new"
+            className="inline-flex items-center rounded-sm bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          >
+            + New property
+          </Link>
+          <BackfillCommunitiesButton />
+        </div>
       </div>
 
       <div className="mt-8 overflow-x-auto rounded-sm border border-border bg-card">

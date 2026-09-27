@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
+import { COMMUNITY_CATALOG, communityForText } from "@/lib/communities/catalog";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 
 export type PropertyFormState = { error?: string };
@@ -200,4 +201,90 @@ export async function updateProperty(
   revalidatePath("/admin/properties");
   revalidatePath(`/admin/properties/${id}/edit`);
   redirect("/admin/properties");
+}
+
+export type BackfillState = {
+  done?: boolean;
+  error?: string;
+  createdCommunities?: number;
+  relinked?: number;
+  unlinked?: string[];
+};
+
+/**
+ * Ensure every canonical community exists, then link each property to the
+ * community implied by its title/slug. Idempotent — safe to run repeatedly.
+ */
+export async function backfillCommunities(
+  _prev: BackfillState,
+  _formData: FormData,
+): Promise<BackfillState> {
+  void _prev;
+  void _formData;
+  try {
+    await assertPermission("properties.update");
+  } catch {
+    return { error: "You must be signed in as an admin to run this." };
+  }
+
+  try {
+    // Match an existing community by slug OR name (case-insensitive) so we
+    // never create a duplicate for one seeded earlier under a different slug.
+    let createdCommunities = 0;
+    const idBySlug = new Map<string, string>();
+    for (const community of COMMUNITY_CATALOG) {
+      let row = await prisma.community.findFirst({
+        where: {
+          OR: [
+            { slug: community.slug },
+            { name: { equals: community.name, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (!row) {
+        row = await prisma.community.create({
+          data: {
+            name: community.name,
+            slug: community.slug,
+            city: "Dubai",
+            emirate: "Dubai",
+          },
+          select: { id: true },
+        });
+        createdCommunities++;
+      }
+      idBySlug.set(community.slug, row.id);
+    }
+
+    const properties = await prisma.property.findMany({
+      where: { deletedAt: null },
+      select: { id: true, title: true, slug: true, communityId: true },
+    });
+
+    let relinked = 0;
+    const unlinked: string[] = [];
+    for (const property of properties) {
+      const match = communityForText(`${property.title} ${property.slug}`);
+      if (!match) {
+        if (!property.communityId) unlinked.push(property.title);
+        continue;
+      }
+      const targetId = idBySlug.get(match.slug);
+      if (targetId && property.communityId !== targetId) {
+        await prisma.property.update({
+          where: { id: property.id },
+          data: { communityId: targetId },
+        });
+        relinked++;
+      }
+    }
+
+    revalidatePath("/admin/properties");
+    return { done: true, createdCommunities, relinked, unlinked };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Backfill failed.",
+    };
+  }
 }

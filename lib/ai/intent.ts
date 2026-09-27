@@ -5,6 +5,7 @@ import {
 } from "@/lib/validation/search-intent";
 import { resolveLLMConfig, type LLMConfig } from "@/lib/ai/provider";
 import { prisma } from "@/lib/db/prisma";
+import { COMMUNITY_NAMES } from "@/lib/communities/catalog";
 
 const TYPE_MAP: Record<string, string> = {
   villa: "VILLA",
@@ -15,16 +16,8 @@ const TYPE_MAP: Record<string, string> = {
   land: "LAND",
 };
 
-// Fallback community list used when the DB lookup is unavailable.
-const FALLBACK_COMMUNITIES = [
-  "Palm Jumeirah",
-  "Downtown Dubai",
-  "Emirates Hills",
-  "Dubai Marina",
-  "Arabian Ranches",
-  "Jumeirah",
-  "Business Bay",
-];
+// Fallback community list (from the shared catalog) used to supplement the DB.
+const FALLBACK_COMMUNITIES = COMMUNITY_NAMES;
 
 /** Classic Levenshtein edit distance (small strings, iterative two-row). */
 function levenshtein(a: string, b: string): number {
