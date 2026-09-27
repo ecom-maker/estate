@@ -46,10 +46,12 @@ export function PropertyBrowser({
   const [properties, setProperties] = useState<BrowserCard[]>(initialProperties);
   const [propertyIds, setPropertyIds] = useState<string[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
 
   useEffect(() => {
     if (propertyIds === null) return; // no search yet — keep the browse view
     let cancelled = false;
+    setLoadingResults(true);
     (async () => {
       const results: BrowserCard[] = [];
       for (const id of propertyIds) {
@@ -61,7 +63,10 @@ export function PropertyBrowser({
           // skip
         }
       }
-      if (!cancelled) setProperties(results);
+      if (!cancelled) {
+        setProperties(results);
+        setLoadingResults(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -69,6 +74,7 @@ export function PropertyBrowser({
   }, [propertyIds]);
 
   const isSearch = propertyIds !== null;
+  const busy = searching || loadingResults;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 px-6 py-28 md:grid-cols-[minmax(320px,0.9fr)_1.1fr] md:px-10">
@@ -90,7 +96,7 @@ export function PropertyBrowser({
             ) : null}
             <h1 className="mt-1 font-serif text-3xl text-primary">{heading}</h1>
             <p className="mt-1 text-sm text-muted">
-              {searching
+              {busy
                 ? "Searching inventory…"
                 : isSearch
                   ? `${properties.length} matching · from your search`
@@ -105,7 +111,7 @@ export function PropertyBrowser({
           </Link>
         </div>
 
-        {searching ? (
+        {busy ? (
           <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
             Finding the best matches for your request…
           </div>

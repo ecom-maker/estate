@@ -114,7 +114,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           </Link>
         </div>
 
-        {searching ? (
+        {searching || loading ? (
           <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
             Finding the best matches for your request…
           </div>
