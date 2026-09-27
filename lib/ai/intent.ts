@@ -116,8 +116,27 @@ export function extractSearchIntentHeuristic(
   }
   if (text.includes("private beach")) next.privateBeach = true;
   if (text.includes("furnished")) next.furnished = true;
-  if (text.includes("off-plan") || text.includes("off plan")) next.offPlan = true;
-  if (text.includes("ready")) next.ready = true;
+
+  // Completion status → offPlan (drives the badge and the status filter).
+  // Handles typos like "competed"/"complated" for "completed".
+  const wordsForStatus = text.split(/\s+/).map((w) => w.replace(/[^a-z]/g, ""));
+  const saysCompleted =
+    /\bcomplet/.test(text) ||
+    text.includes("move-in") ||
+    text.includes("move in") ||
+    text.includes("ready to move") ||
+    wordsForStatus.some((w) => w.length >= 6 && levenshtein(w, "completed") <= 2);
+  if (
+    text.includes("off-plan") ||
+    text.includes("off plan") ||
+    text.includes("under construction") ||
+    text.includes("under-construction")
+  ) {
+    next.offPlan = true;
+  } else if (saysCompleted) {
+    next.offPlan = false;
+  }
+  if (/\bready\b/.test(text)) next.ready = true;
 
   if (
     text.includes("for rent") ||
@@ -155,6 +174,37 @@ export function extractSearchIntentHeuristic(
       }
     }
   }
+  // Single distinctive word → community (e.g. "downtown" → "Downtown Dubai",
+  // "marina" → "Dubai Marina"). Only tokens that map to exactly one community
+  // are used, so ambiguous words like "dubai"/"jumeirah" are skipped here.
+  if (!next.community) {
+    const GENERIC = new Set(["dubai", "uae", "the", "and", "for"]);
+    const tokenToCommunities = new Map<string, Set<string>>();
+    for (const community of communities) {
+      for (const word of community.toLowerCase().split(/\s+/)) {
+        if (word.length < 4 || GENERIC.has(word)) continue;
+        if (!tokenToCommunities.has(word)) {
+          tokenToCommunities.set(word, new Set());
+        }
+        tokenToCommunities.get(word)!.add(community);
+      }
+    }
+    const messageWords = text
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+    outer: for (const [token, owners] of tokenToCommunities) {
+      if (owners.size !== 1) continue; // unambiguous tokens only
+      for (const word of messageWords) {
+        if (word === token || levenshtein(word, token) <= 1) {
+          const only = [...owners][0];
+          next.community = only;
+          next.location = only;
+          break outer;
+        }
+      }
+    }
+  }
 
   if (text.includes("only waterfront")) next.waterfront = true;
 
@@ -182,7 +232,8 @@ Merge with previous intent for follow-ups. Never invent numeric constraints not 
 Schema keys: propertyType, dealType, location, community, developer, bedrooms, bathrooms, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
 propertyType enum: villa|apartment|penthouse|townhouse|unit|land.
 dealType enum: sale|rent (set "rent" for rent/rental/lease requests, "sale" for buy/purchase).
-Known communities (map misspellings/variants to the closest one, use its exact spelling in "community"; omit if no community is mentioned): ${knownCommunities.join(", ")}.`;
+offPlan: true for off-plan / under-construction; false for completed / ready / move-in (also treat typos like "competed" as "completed").
+Known communities (map misspellings/variants and partial names to the closest one — e.g. "downtown" → "Downtown Dubai", "marina" → "Dubai Marina" — and use its exact spelling in "community"; omit if no community is mentioned): ${knownCommunities.join(", ")}.`;
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
@@ -243,18 +294,23 @@ export async function extractSearchIntent(
       cfg,
       knownCommunities,
     );
-    // The LLM sometimes omits an obvious community — backfill from the
-    // heuristic's fuzzy match so a named location is never silently dropped.
+    // The LLM sometimes omits an obvious community or status — backfill from
+    // the heuristic so a named location / "completed" is never silently dropped.
     if (llmIntent) {
-      if (!llmIntent.community && !llmIntent.location) {
+      const needsCommunity = !llmIntent.community && !llmIntent.location;
+      const needsStatus = llmIntent.offPlan == null;
+      if (needsCommunity || needsStatus) {
         const fuzzy = extractSearchIntentHeuristic(
           message,
           previous,
           knownCommunities,
         );
-        if (fuzzy.community) {
+        if (needsCommunity && fuzzy.community) {
           llmIntent.community = fuzzy.community;
           llmIntent.location = fuzzy.location;
+        }
+        if (needsStatus && fuzzy.offPlan != null) {
+          llmIntent.offPlan = fuzzy.offPlan;
         }
       }
       return llmIntent;
