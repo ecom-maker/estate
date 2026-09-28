@@ -327,8 +327,8 @@ async function extractWithLLM(
 ): Promise<SearchIntent | null> {
   const system = `Extract luxury real estate search intent as JSON only.
 Merge with previous intent for follow-ups. Never invent numeric constraints not implied.
-Schema keys: propertyType, dealType, location, community, developer, bedrooms, bathrooms, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
-propertyType enum: villa|apartment|penthouse|townhouse|unit|land.
+Schema keys: propertyType, propertyTypes, dealType, location, community, developer, bedrooms, bathrooms, bedroomsList, bathroomsList, minPriceAED, maxPriceAED, minAreaSqft, maxAreaSqft, waterfront, privateBeach, furnished, offPlan, ready, amenities, queryText.
+propertyType enum: villa|apartment|penthouse|townhouse|unit|land. When several types are requested, list them in propertyTypes (same enum). When several bedroom or bathroom counts are requested, list them in bedroomsList / bathroomsList.
 dealType enum: sale|rent (set "rent" for rent/rental/lease requests, "sale" for buy/purchase).
 offPlan: true for off-plan / under-construction; false for completed / ready / move-in (also treat typos like "competed" as "completed").
 Price: "under/below X" → maxPriceAED; "over/above/at least X" → minPriceAED (X may use m/million).
@@ -411,6 +411,20 @@ export async function extractSearchIntent(
       }
       if (fresh.offPlan != null) {
         llmIntent.offPlan = fresh.offPlan;
+      }
+      // Multi-select fields: the LLM tends to return a single value, so take
+      // the arrays detected in the current message when there is more than one.
+      if (fresh.propertyTypes?.length) {
+        llmIntent.propertyTypes = fresh.propertyTypes;
+        llmIntent.propertyType = fresh.propertyType;
+      }
+      if (fresh.bedroomsList?.length) {
+        llmIntent.bedroomsList = fresh.bedroomsList;
+        llmIntent.bedrooms = fresh.bedrooms;
+      }
+      if (fresh.bathroomsList?.length) {
+        llmIntent.bathroomsList = fresh.bathroomsList;
+        llmIntent.bathrooms = fresh.bathrooms;
       }
       return llmIntent;
     }
