@@ -70,6 +70,21 @@ function fuzzyContains(text: string, phrase: string): boolean {
   return false;
 }
 
+/**
+ * True when the message broadens the location to the whole city / no specific
+ * community — "in dubai", "anywhere", "any location", "all areas". Used to drop
+ * a community carried over from a previous search.
+ */
+function mentionsBroadLocation(text: string): boolean {
+  return (
+    /\bdubai\b/.test(text) ||
+    /\bany\s?where\b/.test(text) ||
+    /\beverywhere\b/.test(text) ||
+    /\ball\s+(?:areas|locations|communities)\b/.test(text) ||
+    /\bany\s+(?:location|area|community|neighbou?rhood)\b/.test(text)
+  );
+}
+
 export function extractSearchIntentHeuristic(
   message: string,
   previous?: SearchIntent | null,
@@ -242,10 +257,9 @@ export function extractSearchIntentHeuristic(
   if (detected) {
     next.community = detected;
     next.location = detected;
-  } else if (/\bdubai\b/.test(text)) {
-    // "…in dubai" refers to the whole city, not a community — drop any specific
-    // community (including one carried over from a previous search) so the
-    // query searches across all of Dubai.
+  } else if (mentionsBroadLocation(text)) {
+    // "in dubai" / "anywhere" / "any location" → search the whole city, so drop
+    // any specific community (including one carried over from a previous search).
     next.community = undefined;
     next.location = undefined;
   }
@@ -358,12 +372,12 @@ export async function extractSearchIntent(
     // Passing previous=null limits detection to this message only.
     if (llmIntent) {
       const fresh = extractSearchIntentHeuristic(message, null, knownCommunities);
-      const cityWide =
-        !fresh.community && /\bdubai\b/.test(message.toLowerCase());
+      const broaden =
+        !fresh.community && mentionsBroadLocation(message.toLowerCase());
       if (fresh.community) {
         llmIntent.community = fresh.community;
         llmIntent.location = fresh.location;
-      } else if (cityWide) {
+      } else if (broaden) {
         llmIntent.community = undefined;
         llmIntent.location = undefined;
       }
