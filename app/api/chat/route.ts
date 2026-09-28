@@ -207,10 +207,10 @@ export async function POST(request: Request) {
     const shown = results.slice(0, 24);
 
     const intentSummary = [
-      `Type: ${intent.propertyType ?? "any"}`,
+      `Type: ${intent.propertyTypes?.length ? intent.propertyTypes.join(", ") : (intent.propertyType ?? "any")}`,
       `Deal: ${intent.dealType === "rent" ? "for rent" : intent.dealType === "sale" ? "for sale" : "any"}`,
       `Location: ${intent.community ?? intent.location ?? "any"}`,
-      `Bedrooms: ${intent.bedrooms ?? "any"}`,
+      `Bedrooms: ${intent.bedroomsList?.length ? intent.bedroomsList.join(", ") : (intent.bedrooms ?? "any")}`,
       `Budget: ${
         intent.minPriceAED != null || intent.maxPriceAED != null
           ? `${intent.minPriceAED ? formatAED(intent.minPriceAED) : "any"} – ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`

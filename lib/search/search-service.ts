@@ -18,11 +18,22 @@ export async function searchProperties(intent: SearchIntent) {
     status: { in: ["ACTIVE", "RESERVED"] },
   };
 
-  if (intent.propertyType) {
+  if (intent.propertyTypes?.length) {
+    where.type = { in: intent.propertyTypes.map((t) => TYPE_MAP[t]) };
+  } else if (intent.propertyType) {
     where.type = TYPE_MAP[intent.propertyType];
   }
-  if (intent.bedrooms != null) where.bedrooms = { gte: intent.bedrooms };
-  if (intent.bathrooms != null) where.bathrooms = { gte: intent.bathrooms };
+  // A list is an exact any-of; a single value keeps the "N or more" behaviour.
+  if (intent.bedroomsList?.length) {
+    where.bedrooms = { in: intent.bedroomsList };
+  } else if (intent.bedrooms != null) {
+    where.bedrooms = { gte: intent.bedrooms };
+  }
+  if (intent.bathroomsList?.length) {
+    where.bathrooms = { in: intent.bathroomsList };
+  } else if (intent.bathrooms != null) {
+    where.bathrooms = { gte: intent.bathrooms };
+  }
   if (intent.minPriceAED != null || intent.maxPriceAED != null) {
     where.priceAed = {
       gte: intent.minPriceAED,

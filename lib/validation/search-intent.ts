@@ -4,12 +4,18 @@ export const SearchIntentSchema = z.object({
   propertyType: z
     .enum(["villa", "apartment", "penthouse", "townhouse", "unit", "land"])
     .optional(),
+  // Multi-select: when set, the search matches any of these types / counts.
+  propertyTypes: z
+    .array(z.enum(["villa", "apartment", "penthouse", "townhouse", "unit", "land"]))
+    .optional(),
   dealType: z.enum(["sale", "rent"]).optional(),
   location: z.string().optional(),
   community: z.string().optional(),
   developer: z.string().optional(),
   bedrooms: z.number().int().min(0).max(20).optional(),
   bathrooms: z.number().int().min(0).max(20).optional(),
+  bedroomsList: z.array(z.number().int().min(0).max(20)).optional(),
+  bathroomsList: z.array(z.number().int().min(0).max(20)).optional(),
   minPriceAED: z.number().nonnegative().optional(),
   maxPriceAED: z.number().nonnegative().optional(),
   minAreaSqft: z.number().nonnegative().optional(),

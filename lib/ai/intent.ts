@@ -93,19 +93,39 @@ export function extractSearchIntentHeuristic(
   const text = message.toLowerCase();
   const next: SearchIntent = { ...(previous ?? {}), queryText: message };
 
-  for (const [key, value] of Object.entries(TYPE_MAP)) {
-    if (text.includes(key)) {
-      next.propertyType = key as SearchIntent["propertyType"];
-      void value;
-      break;
-    }
+  // Collect every property type mentioned (word-boundary so "land" ignores
+  // "island"/"Highland"). One → propertyType; several → propertyTypes (any-of).
+  const foundTypes = (
+    Object.keys(TYPE_MAP) as (keyof typeof TYPE_MAP)[]
+  ).filter((key) => new RegExp(`\\b${key}s?\\b`).test(text));
+  if (foundTypes.length) {
+    next.propertyType = foundTypes[0] as SearchIntent["propertyType"];
+    next.propertyTypes =
+      foundTypes.length > 1
+        ? (foundTypes as SearchIntent["propertyTypes"])
+        : undefined;
   }
 
-  const bedMatch = text.match(/(\d+)\s*[- ]?\s*bed/);
-  if (bedMatch) next.bedrooms = Number(bedMatch[1]);
+  // Bedrooms — collect every "N bed" (plus "studio" → 0). One → bedrooms (min /
+  // "N+"); several → bedroomsList (exact any-of).
+  const bedNums = [...text.matchAll(/(\d+)\s*[- ]?\s*bed/gi)].map((m) =>
+    Number(m[1]),
+  );
+  if (/\bstudio\b/.test(text)) bedNums.push(0);
+  const uniqBeds = [...new Set(bedNums)].sort((a, b) => a - b);
+  if (uniqBeds.length) {
+    next.bedrooms = uniqBeds[0];
+    next.bedroomsList = uniqBeds.length > 1 ? uniqBeds : undefined;
+  }
 
-  const bathMatch = text.match(/(\d+)\s*[- ]?\s*bath/);
-  if (bathMatch) next.bathrooms = Number(bathMatch[1]);
+  const bathNums = [...text.matchAll(/(\d+)\s*[- ]?\s*bath/gi)].map((m) =>
+    Number(m[1]),
+  );
+  const uniqBaths = [...new Set(bathNums)].sort((a, b) => a - b);
+  if (uniqBaths.length) {
+    next.bathrooms = uniqBaths[0];
+    next.bathroomsList = uniqBaths.length > 1 ? uniqBaths : undefined;
+  }
 
   // Price — the negative lookahead stops "under 8500 sqft" being read as a price.
   const maxPrice =
