@@ -90,7 +90,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
   }, [propertyIds, queryString]);
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 px-6 py-28 md:grid-cols-[minmax(320px,0.9fr)_1.1fr] md:px-10">
+    <div className="mx-auto grid max-w-7xl gap-8 px-6 pb-20 pt-10 md:grid-cols-[minmax(320px,0.9fr)_1.1fr] md:px-10">
       <aside className="flex h-[70vh] flex-col self-start rounded-sm border border-border bg-card p-4 md:sticky md:top-24 md:h-[calc(100vh-7rem)]">
         <AIChat
           placeholder="Ask a follow-up..."
