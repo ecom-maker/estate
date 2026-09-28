@@ -29,6 +29,12 @@ export async function searchProperties(intent: SearchIntent) {
       lte: intent.maxPriceAED,
     };
   }
+  if (intent.minAreaSqft != null || intent.maxAreaSqft != null) {
+    where.areaSqft = {
+      gte: intent.minAreaSqft ?? undefined,
+      lte: intent.maxAreaSqft ?? undefined,
+    };
+  }
   if (intent.waterfront != null) where.waterfront = intent.waterfront;
   if (intent.privateBeach != null) where.privateBeach = intent.privateBeach;
   if (intent.furnished != null) where.furnished = intent.furnished;

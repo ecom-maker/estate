@@ -92,12 +92,48 @@ export function extractSearchIntentHeuristic(
   const bathMatch = text.match(/(\d+)\s*[- ]?\s*bath/);
   if (bathMatch) next.bathrooms = Number(bathMatch[1]);
 
+  // Price — the negative lookahead stops "under 8500 sqft" being read as a price.
   const maxPrice =
-    text.match(/under\s*(?:aed\s*)?(\d+(?:\.\d+)?)\s*(m|million)?/i) ??
-    text.match(/below\s*(?:aed\s*)?(\d+(?:\.\d+)?)\s*(m|million)?/i);
+    text.match(
+      /under\s*(?:aed\s*)?(\d+(?:\.\d+)?)(?!\d)\s*(m|million)?(?!\s*(?:sq|square))/i,
+    ) ??
+    text.match(
+      /below\s*(?:aed\s*)?(\d+(?:\.\d+)?)(?!\d)\s*(m|million)?(?!\s*(?:sq|square))/i,
+    );
   if (maxPrice) {
     const amount = Number(maxPrice[1]);
     next.maxPriceAED = maxPrice[2] ? amount * 1_000_000 : amount;
+  }
+
+  // Area (sqft / sq ft / sqm). "under X" → max, "over/at least X" → min, and a
+  // bare "X sqft" is treated as "around X" (±15% band) rather than exact, so a
+  // close listing still matches. Commas in the number are ignored.
+  const AREA_UNIT =
+    "(?:sq\\s?\\.?\\s?ft|sqft|square\\s?f(?:ee|oo)t|sq\\s?\\.?\\s?m|sqm|square\\s?met(?:er|re)s?)";
+  const AREA_NUM = "(\\d[\\d,]*(?:\\.\\d+)?)";
+  const areaNum = (s: string) => Number(s.replace(/,/g, ""));
+  const areaMax = text.match(
+    new RegExp(
+      `(?:under|below|less than|max(?:imum)?|up to|no more than)\\s*${AREA_NUM}\\s*${AREA_UNIT}`,
+      "i",
+    ),
+  );
+  const areaMin =
+    text.match(
+      new RegExp(
+        `(?:over|above|at least|min(?:imum)?|more than|starting (?:from|at)|from)\\s*${AREA_NUM}\\s*${AREA_UNIT}`,
+        "i",
+      ),
+    ) ?? text.match(new RegExp(`${AREA_NUM}\\s*\\+\\s*${AREA_UNIT}`, "i"));
+  const areaBare = text.match(new RegExp(`${AREA_NUM}\\s*${AREA_UNIT}`, "i"));
+  if (areaMax) {
+    next.maxAreaSqft = areaNum(areaMax[1]);
+  } else if (areaMin) {
+    next.minAreaSqft = areaNum(areaMin[1]);
+  } else if (areaBare) {
+    const a = areaNum(areaBare[1]);
+    next.minAreaSqft = Math.round(a * 0.85);
+    next.maxAreaSqft = Math.round(a * 1.15);
   }
 
   if (
@@ -254,6 +290,7 @@ Schema keys: propertyType, dealType, location, community, developer, bedrooms, b
 propertyType enum: villa|apartment|penthouse|townhouse|unit|land.
 dealType enum: sale|rent (set "rent" for rent/rental/lease requests, "sale" for buy/purchase).
 offPlan: true for off-plan / under-construction; false for completed / ready / move-in (also treat typos like "competed" as "completed").
+Area: "under X sqft" → maxAreaSqft; "over/at least X sqft" → minAreaSqft; a bare "X sqft" means "around X" → set minAreaSqft≈X*0.85 and maxAreaSqft≈X*1.15.
 Known communities (map misspellings/variants and partial names to the closest one — e.g. "downtown" → "Downtown Dubai", "marina" → "Dubai Marina" — and use its exact spelling in "community"; omit if no community is mentioned): ${knownCommunities.join(", ")}.`;
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {

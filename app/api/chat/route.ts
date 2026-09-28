@@ -212,6 +212,11 @@ export async function POST(request: Request) {
       `Location: ${intent.community ?? intent.location ?? "any"}`,
       `Bedrooms: ${intent.bedrooms ?? "any"}`,
       `Max budget: ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`,
+      `Size: ${
+        intent.minAreaSqft != null || intent.maxAreaSqft != null
+          ? `${intent.minAreaSqft?.toLocaleString() ?? "0"}–${intent.maxAreaSqft?.toLocaleString() ?? "∞"} sqft`
+          : "any"
+      }`,
       `Waterfront: ${intent.waterfront ? "yes" : "not required"}`,
     ].join("\n");
 
@@ -281,6 +286,11 @@ export async function POST(request: Request) {
       `- Location: ${intent.community ?? intent.location ?? "any"}`,
       `- Bedrooms: ${intent.bedrooms ?? "any"}`,
       `- Max budget: ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`,
+      ...(intent.minAreaSqft != null || intent.maxAreaSqft != null
+        ? [
+            `- Size: ${intent.minAreaSqft?.toLocaleString() ?? "0"}–${intent.maxAreaSqft?.toLocaleString() ?? "∞"} sqft`,
+          ]
+        : []),
       `- Waterfront: ${intent.waterfront ? "yes" : "not required"}`,
       "",
       top.length
