@@ -91,8 +91,11 @@ export function AIChat({
         if (decoded) setPreviousIntent(decoded);
       }
 
+      // Header present but empty means "a search ran and matched nothing" —
+      // still notify (with []) so the results grid clears instead of keeping
+      // the previous search's cards. Only a missing header (null) is skipped.
       const idsHeader = res.headers.get("X-Property-Ids");
-      if (idsHeader) {
+      if (idsHeader !== null) {
         onPropertyIds?.(idsHeader.split(",").filter(Boolean));
       }
 

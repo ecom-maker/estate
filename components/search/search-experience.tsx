@@ -2,11 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { cn, formatAED } from "@/lib/utils";
-import { decodeBase64UrlJson } from "@/lib/encoding";
-import type { SearchIntent } from "@/lib/validation/search-intent";
 
 type PropertyCard = {
   id: string;
@@ -22,72 +20,43 @@ type PropertyCard = {
   community?: { name: string } | null;
 };
 
-function decodeIntent(header: string | null): SearchIntent | null {
-  if (!header) return null;
-  return decodeBase64UrlJson<SearchIntent>(header);
-}
-
 export function SearchExperience({ initialQuery }: { initialQuery: string }) {
-  const [intent, setIntent] = useState<SearchIntent | null>(
-    initialQuery ? { queryText: initialQuery } : null,
-  );
-  const [propertyIds, setPropertyIds] = useState<string[]>([]);
+  // null = no search has run yet (show the idle prompt); an array (even empty)
+  // = the assistant ran a search, so the grid reflects exactly those matches.
+  const [propertyIds, setPropertyIds] = useState<string[] | null>(null);
   const [properties, setProperties] = useState<PropertyCard[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  const queryString = useMemo(() => {
-    if (!intent) return "";
-    const params = new URLSearchParams();
-    if (intent.propertyType) params.set("type", intent.propertyType);
-    if (intent.community || intent.location) {
-      params.set("community", intent.community ?? intent.location ?? "");
-    }
-    return params.toString();
-  }, [intent]);
-
   useEffect(() => {
+    if (propertyIds === null) return; // no search yet
     let cancelled = false;
-    async function load() {
-      setLoading(true);
-      try {
-        if (propertyIds.length) {
-          // Fetch matches in parallel and preserve the ranked order.
-          const settled = await Promise.all(
-            propertyIds.map(async (id) => {
-              try {
-                const res = await fetch(`/api/properties/${id}`);
-                const json = await res.json();
-                return json.success ? (json.data as PropertyCard) : null;
-              } catch {
-                return null;
-              }
-            }),
-          );
-          if (!cancelled) {
-            setProperties(settled.filter((p): p is PropertyCard => p !== null));
+    (async () => {
+      setLoadingResults(true);
+      // Fetch matches in parallel and preserve the ranked order.
+      const settled = await Promise.all(
+        propertyIds.map(async (id) => {
+          try {
+            const res = await fetch(`/api/properties/${id}`);
+            const json = await res.json();
+            return json.success ? (json.data as PropertyCard) : null;
+          } catch {
+            return null;
           }
-          return;
-        }
-
-        const res = await fetch(
-          `/api/properties${queryString ? `?${queryString}` : ""}`,
-        );
-        const json = await res.json();
-        if (!cancelled && json.success) {
-          setProperties(json.data.items ?? []);
-        }
-      } catch {
-        if (!cancelled) setProperties([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+        }),
+      );
+      if (!cancelled) {
+        setProperties(settled.filter((p): p is PropertyCard => p !== null));
+        setLoadingResults(false);
       }
-    }
-    void load();
+    })();
     return () => {
       cancelled = true;
     };
-  }, [propertyIds, queryString]);
+  }, [propertyIds]);
+
+  const isSearch = propertyIds !== null;
+  const busy = searching || loadingResults;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-8 px-6 pb-20 pt-10 md:grid-cols-[minmax(320px,0.9fr)_1.1fr] md:px-10">
@@ -98,7 +67,6 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           initialMessages={
             initialQuery ? [{ role: "user", content: initialQuery }] : []
           }
-          onIntent={(header) => setIntent(decodeIntent(header))}
           onPropertyIds={(ids) => setPropertyIds(ids)}
           onStreaming={setSearching}
         />
@@ -109,9 +77,11 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           <div>
             <h1 className="font-serif text-3xl text-primary">Results</h1>
             <p className="mt-1 text-sm text-muted">
-              {searching || loading
+              {busy
                 ? "Searching inventory…"
-                : `${properties.length} properties · dual-view · map-ready`}
+                : isSearch
+                  ? `${properties.length} matching · from your search`
+                  : `${properties.length} properties · dual-view · map-ready`}
             </p>
           </div>
           <Link
@@ -122,14 +92,14 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           </Link>
         </div>
 
-        {searching || loading ? (
+        {busy ? (
           <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
             Finding the best matches for your request…
           </div>
         ) : properties.length === 0 ? (
           <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
-            {initialQuery
-              ? "Ask the assistant to run or refine your search. Matching cards will appear here."
+            {isSearch
+              ? "No matching properties for those filters. Ask the assistant to broaden your search."
               : "Start from the homepage chat bar or ask a question on the left."}
           </div>
         ) : (
