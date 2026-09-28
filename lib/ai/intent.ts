@@ -119,12 +119,14 @@ export function extractSearchIntentHeuristic(
     text.includes("move in") ||
     text.includes("ready to move") ||
     wordsForStatus.some((w) => w.length >= 6 && levenshtein(w, "completed") <= 2);
-  if (
+  const saysOffPlan =
     text.includes("off-plan") ||
     text.includes("off plan") ||
+    text.includes("offplan") ||
     text.includes("under construction") ||
-    text.includes("under-construction")
-  ) {
+    text.includes("under-construction") ||
+    wordsForStatus.some((w) => w.length >= 6 && levenshtein(w, "offplan") <= 1);
+  if (saysOffPlan) {
     next.offPlan = true;
   } else if (saysCompleted) {
     next.offPlan = false;
@@ -204,6 +206,12 @@ export function extractSearchIntentHeuristic(
   if (detected) {
     next.community = detected;
     next.location = detected;
+  } else if (/\bdubai\b/.test(text)) {
+    // "…in dubai" refers to the whole city, not a community — drop any specific
+    // community (including one carried over from a previous search) so the
+    // query searches across all of Dubai.
+    next.community = undefined;
+    next.location = undefined;
   }
 
   if (text.includes("only waterfront")) next.waterfront = true;
@@ -313,9 +321,14 @@ export async function extractSearchIntent(
     // Passing previous=null limits detection to this message only.
     if (llmIntent) {
       const fresh = extractSearchIntentHeuristic(message, null, knownCommunities);
+      const cityWide =
+        !fresh.community && /\bdubai\b/.test(message.toLowerCase());
       if (fresh.community) {
         llmIntent.community = fresh.community;
         llmIntent.location = fresh.location;
+      } else if (cityWide) {
+        llmIntent.community = undefined;
+        llmIntent.location = undefined;
       }
       if (fresh.offPlan != null) {
         llmIntent.offPlan = fresh.offPlan;
