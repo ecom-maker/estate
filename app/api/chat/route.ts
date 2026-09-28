@@ -211,7 +211,11 @@ export async function POST(request: Request) {
       `Deal: ${intent.dealType === "rent" ? "for rent" : intent.dealType === "sale" ? "for sale" : "any"}`,
       `Location: ${intent.community ?? intent.location ?? "any"}`,
       `Bedrooms: ${intent.bedrooms ?? "any"}`,
-      `Max budget: ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`,
+      `Budget: ${
+        intent.minPriceAED != null || intent.maxPriceAED != null
+          ? `${intent.minPriceAED ? formatAED(intent.minPriceAED) : "any"} – ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`
+          : "any"
+      }`,
       `Size: ${
         intent.minAreaSqft != null || intent.maxAreaSqft != null
           ? `${intent.minAreaSqft?.toLocaleString() ?? "0"}–${intent.maxAreaSqft?.toLocaleString() ?? "∞"} sqft`
@@ -285,7 +289,11 @@ export async function POST(request: Request) {
       `- Type: ${intent.propertyType ?? "any"}`,
       `- Location: ${intent.community ?? intent.location ?? "any"}`,
       `- Bedrooms: ${intent.bedrooms ?? "any"}`,
-      `- Max budget: ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`,
+      `- Budget: ${
+        intent.minPriceAED != null || intent.maxPriceAED != null
+          ? `${intent.minPriceAED ? formatAED(intent.minPriceAED) : "any"} – ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`
+          : "any"
+      }`,
       ...(intent.minAreaSqft != null || intent.maxAreaSqft != null
         ? [
             `- Size: ${intent.minAreaSqft?.toLocaleString() ?? "0"}–${intent.maxAreaSqft?.toLocaleString() ?? "∞"} sqft`,

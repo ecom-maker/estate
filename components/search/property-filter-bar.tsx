@@ -15,16 +15,19 @@ const TYPES: Option[] = [
   { v: "townhouse", l: "Townhouse" },
 ];
 
-const PRICES: Option[] = [
-  { v: "", l: "Price" },
-  { v: "5", l: "Under AED 5M" },
-  { v: "10", l: "Under AED 10M" },
-  { v: "20", l: "Under AED 20M" },
-  { v: "50", l: "Under AED 50M" },
-];
-
 const BEDROOMS = ["studio", "1", "2", "3", "4", "5", "6", "7", "7+"];
 const BATHROOMS = ["1", "2", "3", "4", "5", "6", "7", "7+"];
+
+function compactAED(value: string): string {
+  const n = Number(value.replace(/,/g, ""));
+  if (!value || !Number.isFinite(n) || n <= 0) return "";
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `AED ${m % 1 === 0 ? m : m.toFixed(1)}M`;
+  }
+  if (n >= 1_000) return `AED ${Math.round(n / 1_000)}K`;
+  return `AED ${n}`;
+}
 
 function PillSelect({
   value,
@@ -171,13 +174,108 @@ function BedsBaths({
   );
 }
 
+function PriceRange({
+  min,
+  max,
+  onMin,
+  onMax,
+}: {
+  min: string;
+  max: string;
+  onMin: (v: string) => void;
+  onMax: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const label = (() => {
+    const lo = compactAED(min);
+    const hi = compactAED(max);
+    if (lo && hi) return `${lo} – ${hi}`;
+    if (lo) return `${lo}+`;
+    if (hi) return `Up to ${hi}`;
+    return "Price";
+  })();
+
+  const inputClass =
+    "w-full rounded-md border border-border px-3 py-2.5 text-sm text-primary outline-none transition placeholder:text-muted focus:border-accent";
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full border border-border bg-white py-2 pl-4 pr-3 text-sm transition focus:border-accent",
+          min || max ? "text-accent" : "text-primary/70",
+        )}
+      >
+        {label}
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-muted transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-full z-20 mt-2 w-[340px] max-w-[80vw] rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+          <p className="text-sm font-semibold text-primary">Price</p>
+          <div className="mt-3 flex items-center gap-3">
+            <label htmlFor="price-min" className="sr-only">
+              Minimum price in AED
+            </label>
+            <input
+              id="price-min"
+              inputMode="numeric"
+              value={min}
+              onChange={(e) => onMin(e.target.value.replace(/[^\d,]/g, ""))}
+              placeholder="Min. Price (AED)"
+              className={inputClass}
+            />
+            <span className="text-muted" aria-hidden>
+              —
+            </span>
+            <label htmlFor="price-max" className="sr-only">
+              Maximum price in AED
+            </label>
+            <input
+              id="price-max"
+              inputMode="numeric"
+              value={max}
+              onChange={(e) => onMax(e.target.value.replace(/[^\d,]/g, ""))}
+              placeholder="Max. Price (AED)"
+              className={inputClass}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PropertyFilterBar({ dealType }: { dealType: "rent" | "buy" }) {
   const router = useRouter();
   const [city, setCity] = useState("");
   const [type, setType] = useState("");
   const [beds, setBeds] = useState("");
   const [baths, setBaths] = useState("");
-  const [price, setPrice] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [status, setStatus] = useState<"" | "offplan" | "ready">("");
 
   function search() {
@@ -191,7 +289,12 @@ export function PropertyFilterBar({ dealType }: { dealType: "rent" | "buy" }) {
     if (city.trim()) parts.push(`in ${city.trim()}`);
     if (status === "offplan") parts.push("off-plan");
     if (status === "ready") parts.push("ready");
-    if (price) parts.push(`under AED ${price}M`);
+    const minP = Number(minPrice.replace(/,/g, ""));
+    const maxP = Number(maxPrice.replace(/,/g, ""));
+    if (minPrice && Number.isFinite(minP) && minP > 0)
+      parts.push(`over AED ${minP}`);
+    if (maxPrice && Number.isFinite(maxP) && maxP > 0)
+      parts.push(`under AED ${maxP}`);
     parts.push(dealType === "rent" ? "for rent" : "for sale");
     const q = parts.join(" ");
     router.push(`/search?${new URLSearchParams({ q }).toString()}`);
@@ -224,7 +327,12 @@ export function PropertyFilterBar({ dealType }: { dealType: "rent" | "buy" }) {
           onBeds={setBeds}
           onBaths={setBaths}
         />
-        <PillSelect value={price} onChange={setPrice} options={PRICES} />
+        <PriceRange
+          min={minPrice}
+          max={maxPrice}
+          onMin={setMinPrice}
+          onMax={setMaxPrice}
+        />
 
         <div className="inline-flex items-center rounded-full border border-border bg-white text-sm">
           <button

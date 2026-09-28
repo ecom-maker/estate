@@ -119,6 +119,13 @@ export function extractSearchIntentHeuristic(
     const amount = Number(maxPrice[1]);
     next.maxPriceAED = maxPrice[2] ? amount * 1_000_000 : amount;
   }
+  const minPrice = text.match(
+    /(?:over|above|at least|minimum|min|starting (?:from|at))\s*(?:aed\s*)?(\d+(?:\.\d+)?)(?!\d)\s*(m|million)?(?!\s*(?:sq|square))/i,
+  );
+  if (minPrice) {
+    const amount = Number(minPrice[1]);
+    next.minPriceAED = minPrice[2] ? amount * 1_000_000 : amount;
+  }
 
   // Area (sqft / sq ft / sqm). "under X" → max, "over/at least X" → min, and a
   // bare "X sqft" is treated as "around X" (±15% band) rather than exact, so a
@@ -304,6 +311,7 @@ Schema keys: propertyType, dealType, location, community, developer, bedrooms, b
 propertyType enum: villa|apartment|penthouse|townhouse|unit|land.
 dealType enum: sale|rent (set "rent" for rent/rental/lease requests, "sale" for buy/purchase).
 offPlan: true for off-plan / under-construction; false for completed / ready / move-in (also treat typos like "competed" as "completed").
+Price: "under/below X" → maxPriceAED; "over/above/at least X" → minPriceAED (X may use m/million).
 Area: "under X sqft" → maxAreaSqft; "over/at least X sqft" → minAreaSqft; a bare "X sqft" means "around X" → set minAreaSqft≈X*0.85 and maxAreaSqft≈X*1.15.
 Known communities (map misspellings/variants and partial names to the closest one — e.g. "downtown" → "Downtown Dubai", "marina" → "Dubai Marina" — and use its exact spelling in "community"; omit if no community is mentioned): ${knownCommunities.join(", ")}.`;
 
