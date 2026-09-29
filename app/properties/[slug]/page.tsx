@@ -5,6 +5,8 @@ import { cn, formatAED } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
 import { UnitsSection } from "@/components/property/units-section";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
+import { JsonLd } from "@/components/seo/json-ld";
+import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +71,25 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-10 px-6 py-28 lg:grid-cols-[1.4fr_0.8fr] md:px-10">
+      <JsonLd
+        data={propertyJsonLd({
+          title: property.title,
+          slug: property.slug,
+          type: property.type,
+          description: property.description,
+          priceAed: property.priceAed,
+          bedrooms: property.bedrooms,
+          bathrooms: property.bathrooms,
+          areaSqft: property.areaSqft,
+          latitude: property.latitude,
+          longitude: property.longitude,
+          status: property.status,
+          community: property.community,
+          developer: property.developer,
+          images: property.images,
+          amenities: property.amenities.map((a) => a.amenity.name),
+        })}
+      />
       <div>
         <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
           {property.community?.name ?? "Dubai"}

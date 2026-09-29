@@ -8,6 +8,8 @@ import { cn, formatAED } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
 import { UnitsSection } from "@/components/property/units-section";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
+import { JsonLd } from "@/components/seo/json-ld";
+import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +135,25 @@ export default async function ProjectDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
+      <JsonLd
+        data={propertyJsonLd({
+          title: project.title,
+          slug: project.slug,
+          type: project.type,
+          description: project.description,
+          priceAed: project.priceAed,
+          bedrooms: project.bedrooms,
+          bathrooms: project.bathrooms,
+          areaSqft: project.areaSqft,
+          latitude: project.latitude,
+          longitude: project.longitude,
+          status: project.status,
+          community: project.community,
+          developer: project.developer,
+          images: project.images,
+          amenities: project.amenities.map((a) => a.amenity.name),
+        })}
+      />
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="text-xs text-muted">
         <Link href="/" className="hover:text-primary">
