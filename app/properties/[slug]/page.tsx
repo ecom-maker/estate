@@ -7,6 +7,7 @@ import { UnitsSection } from "@/components/property/units-section";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
+import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -91,7 +92,22 @@ export default async function PropertyDetailPage({ params }: Props) {
         })}
       />
       <div>
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
+        <Breadcrumbs
+          items={[
+            { label: "Home", href: "/" },
+            { label: "Properties", href: "/properties" },
+            ...(property.community
+              ? [
+                  {
+                    label: property.community.name,
+                    href: `/search?q=${encodeURIComponent(property.community.slug)}`,
+                  },
+                ]
+              : []),
+            { label: property.title },
+          ]}
+        />
+        <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-accent">
           {property.community?.name ?? "Dubai"}
         </p>
         <h1 className="mt-3 font-serif text-4xl text-primary md:text-5xl">

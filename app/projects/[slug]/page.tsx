@@ -10,6 +10,7 @@ import { UnitsSection } from "@/components/property/units-section";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
+import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -154,18 +155,16 @@ export default async function ProjectDetailPage({ params }: Props) {
           amenities: project.amenities.map((a) => a.amenity.name),
         })}
       />
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="text-xs text-muted">
-        <Link href="/" className="hover:text-primary">
-          Home
-        </Link>
-        <span className="mx-2">/</span>
-        <Link href="/projects" className="hover:text-primary">
-          Projects
-        </Link>
-        <span className="mx-2">/</span>
-        <span className="text-primary">{project.title}</span>
-      </nav>
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Projects", href: "/projects" },
+          ...(project.developer
+            ? [{ label: project.developer.name }]
+            : []),
+          { label: project.title },
+        ]}
+      />
 
       {/* Hero */}
       {project.developer ? (
