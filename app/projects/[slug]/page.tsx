@@ -353,7 +353,7 @@ export default async function ProjectDetailPage({ params }: Props) {
             Ask about pricing, payment plans, availability and handover — grounded
             only in known project facts.
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex h-[70vh] min-h-0 flex-col">
             <AIChat
               propertyId={project.id}
               placeholder="Ask about this project..."

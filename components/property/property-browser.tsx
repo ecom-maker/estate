@@ -79,8 +79,8 @@ export function PropertyBrowser({
   const busy = searching || loadingResults;
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 px-6 pb-20 pt-10 md:grid-cols-[minmax(320px,0.9fr)_1.1fr] md:px-10">
-      <aside className="flex h-[70vh] flex-col self-start rounded-sm border border-border bg-card p-4 md:sticky md:top-24 md:h-[calc(100vh-7rem)]">
+    <div className="mx-auto grid max-w-7xl gap-8 px-6 pb-20 pt-10 md:grid-cols-[1.1fr_minmax(320px,0.9fr)] md:px-10">
+      <aside className="flex h-[70vh] flex-col self-start rounded-sm border border-border bg-card p-4 md:order-2 md:sticky md:top-24">
         <AIChat
           placeholder={chatPlaceholder}
           onPropertyIds={(ids) => setPropertyIds(ids)}
@@ -88,7 +88,7 @@ export function PropertyBrowser({
         />
       </aside>
 
-      <section>
+      <section className="md:order-1">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             {eyebrowLabel ? (

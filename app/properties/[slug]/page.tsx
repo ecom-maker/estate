@@ -155,11 +155,13 @@ export default async function PropertyDetailPage({ params }: Props) {
         <UnitsSection category={property.type} groups={unitGroups} />
       </div>
 
-      <aside className="h-fit rounded-sm border border-border bg-card p-5 lg:sticky lg:top-24">
-        <AIChat
-          propertyId={property.id}
-          placeholder="Ask about this property..."
-        />
+      <aside className="h-fit rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
+        <div className="flex h-[70vh] min-h-0 flex-col">
+          <AIChat
+            propertyId={property.id}
+            placeholder="Ask about this property..."
+          />
+        </div>
         {property.videos[0] ? (
           <div className="mt-6">
             <p className="text-xs uppercase tracking-wider text-muted">
