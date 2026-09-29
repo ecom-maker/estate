@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
+import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { cn, formatAED } from "@/lib/utils";
 
 export type BrowserCard = {
@@ -77,9 +79,17 @@ export function PropertyBrowser({
 
   const isSearch = propertyIds !== null;
   const busy = searching || loadingResults;
+  const [showFilters, setShowFilters] = useState(false);
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-8 px-6 pb-20 pt-10 md:grid-cols-[1.1fr_minmax(320px,0.9fr)] md:px-10">
+    <div className="mx-auto max-w-7xl px-6 pb-20 pt-10 md:px-10">
+      {showFilters ? (
+        <div className="mb-8">
+          <PropertyFilterBar showDeal />
+        </div>
+      ) : null}
+
+      <div className="grid gap-8 md:grid-cols-[1.1fr_minmax(320px,0.9fr)]">
       <aside className="flex h-[70vh] flex-col self-start rounded-sm border border-border bg-card p-4 md:order-2 md:sticky md:top-24">
         <AIChat
           placeholder={chatPlaceholder}
@@ -105,12 +115,23 @@ export function PropertyBrowser({
                   : subheading}
             </p>
           </div>
-          <Link
-            href={altLinkHref}
-            className="text-sm font-medium text-accent hover:underline"
-          >
-            {altLinkLabel}
-          </Link>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowFilters((v) => !v)}
+              aria-expanded={showFilters}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              Search
+            </button>
+            <Link
+              href={altLinkHref}
+              className="text-sm font-medium text-accent hover:underline"
+            >
+              {altLinkLabel}
+            </Link>
+          </div>
         </div>
 
         {busy ? (
@@ -183,6 +204,7 @@ export function PropertyBrowser({
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }

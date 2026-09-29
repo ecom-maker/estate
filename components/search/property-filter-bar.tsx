@@ -300,8 +300,16 @@ function PriceRange({
   );
 }
 
-export function PropertyFilterBar({ dealType }: { dealType: "rent" | "buy" }) {
+export function PropertyFilterBar({
+  dealType = "buy",
+  showDeal = false,
+}: {
+  dealType?: "rent" | "buy";
+  showDeal?: boolean;
+}) {
   const router = useRouter();
+  const [dealState, setDealState] = useState<"rent" | "buy">(dealType);
+  const deal = showDeal ? dealState : dealType;
   const [city, setCity] = useState("");
   const [typeLabels, setTypeLabels] = useState<string[]>([]);
   const [beds, setBeds] = useState<string[]>([]);
@@ -342,7 +350,7 @@ export function PropertyFilterBar({ dealType }: { dealType: "rent" | "buy" }) {
     if (maxPrice && Number.isFinite(maxP) && maxP > 0)
       parts.push(`under AED ${maxP}`);
 
-    parts.push(dealType === "rent" ? "for rent" : "for sale");
+    parts.push(deal === "rent" ? "for rent" : "for sale");
     const q = parts.join(" ");
     router.push(`/search?${new URLSearchParams({ q }).toString()}`);
   }
@@ -367,6 +375,23 @@ export function PropertyFilterBar({ dealType }: { dealType: "rent" | "buy" }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        {showDeal ? (
+          <div className="relative">
+            <select
+              value={dealState}
+              onChange={(e) => setDealState(e.target.value as "rent" | "buy")}
+              aria-label="Buy or rent"
+              className="cursor-pointer appearance-none rounded-full border border-border bg-white py-2 pl-4 pr-9 text-sm font-medium text-accent outline-none transition focus:border-accent"
+            >
+              <option value="buy">Buy</option>
+              <option value="rent">Rent</option>
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+              aria-hidden
+            />
+          </div>
+        ) : null}
         <PropertyTypeSelect
           selected={typeLabels}
           onToggle={(l) => setTypeLabels((s) => toggle(s, l))}
