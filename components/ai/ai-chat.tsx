@@ -191,11 +191,12 @@ export function AIChat({
           <button
             type="button"
             onClick={shareOnWhatsApp}
-            aria-label="Share this property on WhatsApp"
-            title="Share on WhatsApp"
-            className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-[#25D366] transition hover:bg-[#25D366]/10"
+            aria-label="Chat on WhatsApp about this property"
+            title="Chat on WhatsApp"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1ebe5d]"
           >
-            <WhatsAppIcon className="h-5 w-5" />
+            <WhatsAppIcon className="h-4 w-4" />
+            Chat on WhatsApp
           </button>
         ) : null}
       </div>
