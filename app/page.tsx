@@ -24,13 +24,9 @@ export default function HomePage() {
           <h1 className="font-serif text-4xl leading-tight text-white md:text-6xl md:leading-[1.1]">
             A luxury real estate advisor, powered by conversation.
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-white/75 md:text-lg">
-            Describe the home you want. We extract intent, search inventory, and
-            answer with clarity — never inventing what we do not know.
-          </p>
         </div>
 
-        <div className="mt-10">
+        <div className="mt-8">
           <HeroChatBar />
         </div>
       </div>
