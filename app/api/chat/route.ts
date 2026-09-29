@@ -207,36 +207,6 @@ export async function POST(request: Request) {
     // the number reported in chat; the text summary still lists only `top`.
     const shown = results.slice(0, 24);
 
-    const intentSummary = [
-      `Type: ${intent.propertyTypes?.length ? intent.propertyTypes.join(", ") : (intent.propertyType ?? "any")}`,
-      `Deal: ${intent.dealType === "rent" ? "for rent" : intent.dealType === "sale" ? "for sale" : "any"}`,
-      `Location: ${intent.community ?? intent.location ?? "any"}`,
-      `Bedrooms: ${intent.bedroomsList?.length ? intent.bedroomsList.join(", ") : (intent.bedrooms ?? "any")}`,
-      `Budget: ${
-        intent.minPriceAED != null || intent.maxPriceAED != null
-          ? `${intent.minPriceAED ? formatAED(intent.minPriceAED) : "any"} – ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`
-          : "any"
-      }`,
-      `Size: ${
-        intent.minAreaSqft != null || intent.maxAreaSqft != null
-          ? `${intent.minAreaSqft?.toLocaleString() ?? "0"}–${intent.maxAreaSqft?.toLocaleString() ?? "∞"} sqft`
-          : "any"
-      }`,
-      `Waterfront: ${intent.waterfront ? "yes" : "not required"}`,
-    ].join("\n");
-
-    const resultsBlock = top.length
-      ? top
-          .map(
-            (p, i) =>
-              `${i + 1}. ${p.title} — ${formatAED(p.priceAed)} · ${p.bedrooms ?? "—"} bed · ${p.bathrooms ?? "—"} bath · ${p.areaSqft ?? "—"} sqft · ${p.community?.name ?? "—"} · ${p.offPlan ? "off-plan" : "ready"} · match score ${p.score}`,
-          )
-          .join("\n")
-      : "No matching properties in inventory for these filters.";
-
-    const knowledge = await gatherKnowledge(lastUser.content);
-    const context = `Interpreted search intent:\n${intentSummary}\n\nMatching inventory (${results.length} total; top ${top.length} shown):\n${resultsBlock}${knowledge ? `\n\nKnowledge:\n${knowledge}` : ""}`;
-
     const searchHeaders = {
       "X-Chat-Session": chatSessionId,
       "X-Search-Intent": Buffer.from(JSON.stringify(intent)).toString("base64url"),
@@ -271,20 +241,9 @@ export async function POST(request: Request) {
       });
     };
 
-    const stream = await streamGroundedResponse({
-      system: `${prompts.system}\n${prompts.search}`,
-      history,
-      question: lastUser.content,
-      context,
-      onComplete: persistSearch,
-    });
-    if (stream) {
-      return new Response(stream, {
-        headers: { ...LLM_HEADERS, ...searchHeaders },
-      });
-    }
-
-    // Fallback: deterministic, structured summary.
+    // Search results use a deterministic, structured summary (no LLM call) —
+    // instant, consistent formatting, and no dependency on model latency. The
+    // LLM is still used for property-detail Q&A above.
     const criteria = [
       `Type: ${intent.propertyTypes?.length ? intent.propertyTypes.join("/") : (intent.propertyType ?? "any")}`,
       `Location: ${intent.community ?? intent.location ?? "any"}`,
