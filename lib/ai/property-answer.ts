@@ -12,7 +12,21 @@ type PropertyForAnswer = {
   community: { name: string } | null;
   developer: { name: string } | null;
   amenities: { amenity: { name: string } }[];
+  paymentPlan?: unknown;
+  metadata?: unknown;
 };
+
+function fmtDate(v?: string | null): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime())
+    ? v
+    : d.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+}
 
 /**
  * Answer a specific factual question about one property directly from its data,
@@ -79,7 +93,40 @@ export function answerPropertyQuestion(
       ? `${title} is developed by ${p.developer.name}.`
       : `The developer isn't listed for ${title}.`;
 
-  if (has("off-plan", "off plan", "offplan", "ready", "completed", "under construction", "handover", "status"))
+  if (has("payment plan", "payment", "installment", "instalment", "down payment", "how to pay", "post handover", "post-handover")) {
+    const pp = (p.paymentPlan ?? {}) as {
+      downPaymentPct?: number;
+      duringConstructionPct?: number;
+      onHandoverPct?: number;
+    };
+    const down = pp.downPaymentPct ?? 20;
+    const during = pp.duringConstructionPct ?? 40;
+    const handover = pp.onHandoverPct ?? 40;
+    return `Payment plan for ${title}: ${down}% down payment at sales launch, ${during}% during construction, and ${handover}% on handover.`;
+  }
+
+  if (has("timeline", "handover", "completion", "complete", "when will", "when is", "ready by", "delivery", "construction")) {
+    const meta = (p.metadata ?? {}) as {
+      handoverDate?: string;
+      timeline?: {
+        announced?: string;
+        constructionStart?: string;
+        completion?: string;
+      };
+    };
+    const tl = meta.timeline ?? {};
+    const parts: string[] = [];
+    if (fmtDate(tl.announced)) parts.push(`announced ${fmtDate(tl.announced)}`);
+    if (fmtDate(tl.constructionStart))
+      parts.push(`construction started ${fmtDate(tl.constructionStart)}`);
+    const completion = fmtDate(tl.completion ?? meta.handoverDate);
+    if (completion) parts.push(`expected completion / handover ${completion}`);
+    return parts.length
+      ? `Project timeline for ${title}: ${parts.join(", ")}.`
+      : `The project timeline isn't listed yet for ${title}.`;
+  }
+
+  if (has("off-plan", "off plan", "offplan", "ready", "status", "under construction"))
     return `${title} is ${p.offPlan ? "off-plan (under construction)" : "ready / completed"}.`;
 
   if (has("yield", "roi", "rental return", "return on"))
