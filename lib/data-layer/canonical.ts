@@ -14,14 +14,13 @@ import { Prisma } from "@prisma/client";
  * derive from it, so agents get one consistent view of a property.
  */
 
-// Canonical URLs must be stable, so prefer the production domain over the
-// per-deployment hash URL that NEXT_PUBLIC_APP_URL can resolve to on Vercel.
+// Canonical URLs must be the stable public domain. NEXT_PUBLIC_APP_URL resolves
+// to the per-deploy hash and VERCEL_PROJECT_PRODUCTION_URL to the auto
+// *.vercel.app domain, so neither is the alias the site is served on. Default to
+// the known canonical domain; set CANONICAL_SITE_URL to override (e.g. a real
+// custom domain) without a code change.
 export const SITE_URL = (
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : undefined) ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "https://estate-sugg.vercel.app"
+  process.env.CANONICAL_SITE_URL || "https://estate-sugg.vercel.app"
 ).replace(/\/$/, "");
 
 // Prisma include that hydrates the whole entity graph for one property.
