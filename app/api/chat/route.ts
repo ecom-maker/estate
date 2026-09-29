@@ -1,4 +1,4 @@
-import { extractSearchIntent } from "@/lib/ai/intent";
+import { extractSearchIntent, isRealEstateQuery } from "@/lib/ai/intent";
 import { getPrompts } from "@/lib/ai/get-prompt";
 import { logAiUsage } from "@/lib/ai/usage";
 import {
@@ -196,6 +196,20 @@ export async function POST(request: Request) {
     // ---------------- Conversational search branch ----------------
     const previous = (body.previousIntent ?? undefined) as SearchIntent | undefined;
     const intent = await extractSearchIntent(lastUser.content, previous);
+
+    // Decline off-topic questions instead of running a blind property search.
+    if (!isRealEstateQuery(lastUser.content, intent)) {
+      const answer =
+        "I'm the DMProperties real-estate assistant, so I can only help with " +
+        "properties, communities, projects and prices — I don't have an answer " +
+        "for that. Try asking about villas, apartments, off-plan projects, or a " +
+        "specific community like Palm Jumeirah.";
+      await prisma.message.create({
+        data: { sessionId: chatSessionId, role: "ASSISTANT", content: answer },
+      });
+      return streamText(answer, { "X-Chat-Session": chatSessionId });
+    }
+
     let results: Awaited<ReturnType<typeof searchProperties>> = [];
     try {
       results = await searchProperties(intent);

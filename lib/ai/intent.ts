@@ -7,6 +7,114 @@ import { resolveLLMConfig, type LLMConfig } from "@/lib/ai/provider";
 import { prisma } from "@/lib/db/prisma";
 import { COMMUNITY_NAMES } from "@/lib/communities/catalog";
 
+// Real-estate vocabulary used to tell property questions apart from off-topic
+// ones ("who is donald trump?") when the query carries no structured signal.
+const REAL_ESTATE_KEYWORDS = [
+  "propert",
+  "home",
+  "house",
+  "apartment",
+  "flat",
+  "villa",
+  "penthouse",
+  "townhouse",
+  "duplex",
+  "studio",
+  "unit",
+  "land",
+  "plot",
+  "listing",
+  "real estate",
+  "realestate",
+  "bed",
+  "bath",
+  "sqft",
+  "sq ft",
+  "square f",
+  "price",
+  "budget",
+  "aed",
+  "dirham",
+  "million",
+  "buy",
+  "rent",
+  "sale",
+  "sell",
+  "lease",
+  "invest",
+  "yield",
+  "mortgage",
+  "off-plan",
+  "off plan",
+  "offplan",
+  "ready",
+  "handover",
+  "waterfront",
+  "beach",
+  "sea view",
+  "amenit",
+  "developer",
+  "community",
+  "neighbou",
+  "project",
+  "dubai",
+  "emirate",
+  "uae",
+  "floor",
+  "balcony",
+  "maid",
+  "garden",
+  "pool",
+  "payment plan",
+  "available",
+  "show me",
+  "looking for",
+  "need a",
+  "want a",
+  "find me",
+  "search",
+  "furnished",
+  "rooms",
+  "bedroom",
+  "bathroom",
+];
+
+/**
+ * True when a query is about real estate — either it produced a structured
+ * intent signal, or its text contains property vocabulary. Used to decline
+ * off-topic questions instead of running a blind search.
+ */
+export function isRealEstateQuery(
+  message: string,
+  intent: SearchIntent,
+): boolean {
+  if (
+    intent.propertyType ||
+    intent.propertyTypes?.length ||
+    intent.community ||
+    intent.location ||
+    intent.developer ||
+    intent.bedrooms != null ||
+    intent.bedroomsList?.length ||
+    intent.bathrooms != null ||
+    intent.bathroomsList?.length ||
+    intent.minPriceAED != null ||
+    intent.maxPriceAED != null ||
+    intent.minAreaSqft != null ||
+    intent.maxAreaSqft != null ||
+    intent.waterfront != null ||
+    intent.privateBeach != null ||
+    intent.furnished != null ||
+    intent.offPlan != null ||
+    intent.ready != null ||
+    intent.dealType
+  ) {
+    return true;
+  }
+  const text = message.toLowerCase();
+  return REAL_ESTATE_KEYWORDS.some((k) => text.includes(k));
+}
+
 const TYPE_MAP: Record<string, string> = {
   villa: "VILLA",
   apartment: "APARTMENT",
@@ -337,6 +445,8 @@ Known communities (map misspellings/variants and partial names to the closest on
 
   // Cap how long we wait on the model for intent — if it is slow, fall back to
   // the (robust) heuristic so search stays responsive.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4500);
   let res: Response;
   try {
     res = await fetch(`${cfg.baseUrl}/chat/completions`, {
@@ -359,10 +469,12 @@ Known communities (map misspellings/variants and partial names to the closest on
           },
         ],
       }),
-      signal: AbortSignal.timeout(4500),
+      signal: controller.signal,
     });
   } catch {
     return null; // timeout or network error → heuristic fallback
+  } finally {
+    clearTimeout(timer);
   }
 
   if (!res.ok) return null;
