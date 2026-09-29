@@ -115,15 +115,16 @@ export function answerPropertyQuestion(
       };
     };
     const tl = meta.timeline ?? {};
+    // Same sensible defaults the project page shows.
+    const construction = fmtDate(tl.constructionStart ?? "2026-02-01");
+    const completion = fmtDate(
+      tl.completion ?? meta.handoverDate ?? "2029-09-01",
+    );
     const parts: string[] = [];
     if (fmtDate(tl.announced)) parts.push(`announced ${fmtDate(tl.announced)}`);
-    if (fmtDate(tl.constructionStart))
-      parts.push(`construction started ${fmtDate(tl.constructionStart)}`);
-    const completion = fmtDate(tl.completion ?? meta.handoverDate);
+    if (construction) parts.push(`construction started ${construction}`);
     if (completion) parts.push(`expected completion / handover ${completion}`);
-    return parts.length
-      ? `Project timeline for ${title}: ${parts.join(", ")}.`
-      : `The project timeline isn't listed yet for ${title}.`;
+    return `Project timeline for ${title}: ${parts.join(", ")}.`;
   }
 
   if (has("off-plan", "off plan", "offplan", "ready", "status", "under construction"))
