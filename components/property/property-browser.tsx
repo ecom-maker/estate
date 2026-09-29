@@ -84,7 +84,7 @@ export function PropertyBrowser({
   return (
     <div className="mx-auto max-w-7xl px-6 pb-20 pt-10 md:px-10">
       {showFilters ? (
-        <div className="mb-8">
+        <div className="relative z-30 mb-8">
           <PropertyFilterBar showDeal />
         </div>
       ) : null}

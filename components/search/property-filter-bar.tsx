@@ -145,7 +145,7 @@ function PropertyTypeSelect({
         onClick={() => setOpen((o) => !o)}
       />
       {open ? (
-        <div className="absolute left-0 top-full z-20 mt-2 w-[360px] max-w-[85vw] rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+        <div className="absolute left-0 top-full z-50 mt-2 w-[360px] max-w-[85vw] rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
           <div className="flex flex-wrap gap-2">
             {visible.map((o) => (
               <Chip
@@ -202,7 +202,7 @@ function BedsBaths({
         onClick={() => setOpen((o) => !o)}
       />
       {open ? (
-        <div className="absolute left-0 top-full z-20 mt-2 w-[320px] max-w-[80vw] rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+        <div className="absolute left-0 top-full z-50 mt-2 w-[320px] max-w-[80vw] rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
           <p className="text-sm font-semibold text-primary">Bedrooms</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {BEDROOMS.map((b) => (
@@ -265,7 +265,7 @@ function PriceRange({
         onClick={() => setOpen((o) => !o)}
       />
       {open ? (
-        <div className="absolute left-0 top-full z-20 mt-2 w-[340px] max-w-[80vw] rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+        <div className="absolute left-0 top-full z-50 mt-2 w-[340px] max-w-[80vw] rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
           <p className="text-sm font-semibold text-primary">Price</p>
           <div className="mt-3 flex items-center gap-3">
             <label htmlFor="price-min" className="sr-only">
