@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
