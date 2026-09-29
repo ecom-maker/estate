@@ -335,27 +335,35 @@ Price: "under/below X" → maxPriceAED; "over/above/at least X" → minPriceAED 
 Area: "under X sqft" → maxAreaSqft; "over/at least X sqft" → minAreaSqft; a bare "X sqft" means "around X" → set minAreaSqft≈X*0.85 and maxAreaSqft≈X*1.15.
 Known communities (map misspellings/variants and partial names to the closest one — e.g. "downtown" → "Downtown Dubai", "marina" → "Dubai Marina" — and use its exact spelling in "community"; omit if no community is mentioned): ${knownCommunities.join(", ")}.`;
 
-  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${cfg.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: cfg.model,
-      temperature: 0,
-      messages: [
-        { role: "system", content: system },
-        {
-          role: "user",
-          content: JSON.stringify({
-            previousIntent: previous ?? null,
-            message,
-          }),
-        },
-      ],
-    }),
-  });
+  // Cap how long we wait on the model for intent — if it is slow, fall back to
+  // the (robust) heuristic so search stays responsive.
+  let res: Response;
+  try {
+    res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${cfg.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: 0,
+        messages: [
+          { role: "system", content: system },
+          {
+            role: "user",
+            content: JSON.stringify({
+              previousIntent: previous ?? null,
+              message,
+            }),
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(4500),
+    });
+  } catch {
+    return null; // timeout or network error → heuristic fallback
+  }
 
   if (!res.ok) return null;
   const data = (await res.json()) as {
