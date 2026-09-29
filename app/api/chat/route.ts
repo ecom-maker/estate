@@ -36,7 +36,8 @@ function streamText(text: string, headers: Record<string, string> = {}) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      for (const chunk of text.match(/.{1,32}/g) ?? [text]) {
+      // [\s\S] so newlines are streamed too — a plain "." drops them.
+      for (const chunk of text.match(/[\s\S]{1,32}/g) ?? [text]) {
         controller.enqueue(encoder.encode(chunk));
         await new Promise((r) => setTimeout(r, 8));
       }
@@ -283,27 +284,32 @@ export async function POST(request: Request) {
       });
     }
 
-    // Fallback: deterministic summary.
-    const answer = [
-      "Here is what I understood from your request:",
-      `- Type: ${intent.propertyType ?? "any"}`,
-      `- Location: ${intent.community ?? intent.location ?? "any"}`,
-      `- Bedrooms: ${intent.bedrooms ?? "any"}`,
-      `- Budget: ${
+    // Fallback: deterministic, structured summary.
+    const criteria = [
+      `Type: ${intent.propertyTypes?.length ? intent.propertyTypes.join("/") : (intent.propertyType ?? "any")}`,
+      `Location: ${intent.community ?? intent.location ?? "any"}`,
+      `Bedrooms: ${intent.bedroomsList?.length ? intent.bedroomsList.join(", ") : (intent.bedrooms ?? "any")}`,
+      `Budget: ${
         intent.minPriceAED != null || intent.maxPriceAED != null
           ? `${intent.minPriceAED ? formatAED(intent.minPriceAED) : "any"} – ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`
           : "any"
       }`,
       ...(intent.minAreaSqft != null || intent.maxAreaSqft != null
         ? [
-            `- Size: ${intent.minAreaSqft?.toLocaleString() ?? "0"}–${intent.maxAreaSqft?.toLocaleString() ?? "∞"} sqft`,
+            `Size: ${intent.minAreaSqft?.toLocaleString() ?? "0"}–${intent.maxAreaSqft?.toLocaleString() ?? "∞"} sqft`,
           ]
         : []),
-      `- Waterfront: ${intent.waterfront ? "yes" : "not required"}`,
+      `Waterfront: ${intent.waterfront ? "yes" : "not required"}`,
+    ].join(" · ");
+
+    const answer = [
+      "Here is what I understood from your request:",
+      criteria,
       "",
       top.length
-        ? `I found ${results.length} matching properties. Top results:`
+        ? `I found ${results.length} matching properties.`
         : "No matching properties were found in inventory for those filters. Try broadening location or budget.",
+      ...(top.length ? ["Top results:"] : []),
       ...top.map(
         (p, i) =>
           `${i + 1}. ${p.title} — ${formatAED(p.priceAed)} · ${p.bedrooms ?? "—"} bed · score ${p.score}`,
