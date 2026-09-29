@@ -14,8 +14,14 @@ import { Prisma } from "@prisma/client";
  * derive from it, so agents get one consistent view of a property.
  */
 
+// Canonical URLs must be stable, so prefer the production domain over the
+// per-deployment hash URL that NEXT_PUBLIC_APP_URL can resolve to on Vercel.
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL || "https://estate-sugg.vercel.app"
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : undefined) ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://estate-sugg.vercel.app"
 ).replace(/\/$/, "");
 
 // Prisma include that hydrates the whole entity graph for one property.
