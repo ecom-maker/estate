@@ -181,6 +181,9 @@ export default async function PropertyDetailPage({ params }: Props) {
           <AIChat
             propertyId={property.id}
             placeholder="Ask about this property..."
+            whatsappNumber={
+              process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "971501234567"
+            }
           />
         </div>
         {property.videos[0] ? (
