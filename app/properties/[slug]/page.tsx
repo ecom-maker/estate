@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
 import { UnitsSection } from "@/components/property/units-section";
+import { MarketInsightsSection } from "@/components/property/market-insights-section";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
@@ -190,6 +191,23 @@ export default async function PropertyDetailPage({ params }: Props) {
         </section>
 
         <UnitsSection category={property.type} groups={unitGroups} />
+
+        <MarketInsightsSection
+          property={{
+            id: property.id,
+            title: property.title,
+            type: property.type,
+            bedrooms: property.bedrooms,
+            priceAed: property.priceAed,
+            areaSqft: property.areaSqft,
+            offPlan: property.offPlan,
+            images: property.images,
+            community: property.community,
+            developer: property.developer,
+            paymentPlan: property.paymentPlan,
+            metadata: property.metadata,
+          }}
+        />
       </div>
 
       <aside className="h-fit rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
