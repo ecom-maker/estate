@@ -140,12 +140,14 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
                     {deliveryLabel(property.offPlan, meta.handoverDate)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-4 sm:block">
-                  <dt className="text-muted">Down payment</dt>
-                  <dd className="font-medium text-primary">
-                    {pp.downPaymentPct ?? 20}%
-                  </dd>
-                </div>
+                {property.offPlan ? (
+                  <div className="flex justify-between gap-4 sm:block">
+                    <dt className="text-muted">Down payment</dt>
+                    <dd className="font-medium text-primary">
+                      {pp.downPaymentPct ?? 20}%
+                    </dd>
+                  </div>
+                ) : null}
                 <div className="flex justify-between gap-4 sm:block">
                   <dt className="text-muted">Property type</dt>
                   <dd className="font-medium text-primary">
@@ -199,8 +201,8 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
         <div className="mt-5 rounded-sm border border-border bg-card p-5">
           <PriceTrendChart
             months={insights.trend.months}
-            primary={insights.trend.primary}
-            secondary={insights.trend.secondary}
+            sale={insights.trend.sale}
+            rent={insights.trend.rent}
             primaryLabel={insights.trend.primaryLabel}
             secondaryLabel={insights.trend.secondaryLabel}
           />

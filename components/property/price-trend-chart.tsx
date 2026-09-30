@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 
+type Series = { primary: number[]; secondary: number[] };
+
 type Props = {
   months: string[];
-  primary: number[];
-  secondary: number[];
+  sale: Series;
+  rent: Series;
   primaryLabel: string;
   secondaryLabel: string;
 };
@@ -17,24 +19,31 @@ const RANGES = [
   { id: "5Y", months: 60 },
 ] as const;
 
+const DEALS = [
+  { id: "sale", label: "Sale" },
+  { id: "rent", label: "Rent" },
+] as const;
+
 const W = 900;
 const H = 320;
 const PAD = { top: 20, right: 20, bottom: 34, left: 52 };
 
 export function PriceTrendChart({
   months,
-  primary,
-  secondary,
+  sale,
+  rent,
   primaryLabel,
   secondaryLabel,
 }: Props) {
   const [range, setRange] = useState<(typeof RANGES)[number]["id"]>("1Y");
+  const [deal, setDeal] = useState<(typeof DEALS)[number]["id"]>("sale");
 
   const view = useMemo(() => {
+    const series = deal === "sale" ? sale : rent;
     const n = RANGES.find((r) => r.id === range)?.months ?? 12;
     const slice = <T,>(a: T[]) => a.slice(Math.max(0, a.length - n));
-    const p = slice(primary);
-    const s = slice(secondary);
+    const p = slice(series.primary);
+    const s = slice(series.secondary);
     const m = slice(months);
     const all = [...p, ...s];
     const min = Math.min(...all);
@@ -59,7 +68,7 @@ export function PriceTrendChart({
       .filter(({ i }) => i % step === 0 || i === m.length - 1);
 
     return { p, s, m, x, y, toPath, ticks, xlabels };
-  }, [range, months, primary, secondary]);
+  }, [range, deal, months, sale, rent]);
 
   const fmtK = (v: number) =>
     v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${Math.round(v)}`;
@@ -77,6 +86,24 @@ export function PriceTrendChart({
             {secondaryLabel}
           </span>
         </div>
+        <div className="flex items-center gap-2">
+        <div className="inline-flex rounded-full border border-border p-0.5">
+          {DEALS.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setDeal(d.id)}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition",
+                deal === d.id
+                  ? "bg-accent/15 text-accent"
+                  : "text-muted hover:text-primary",
+              )}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
         <div className="inline-flex rounded-full border border-border p-0.5">
           {RANGES.map((r) => (
             <button
@@ -93,6 +120,7 @@ export function PriceTrendChart({
               {r.id}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
@@ -156,7 +184,9 @@ export function PriceTrendChart({
           strokeWidth={2.5}
         />
       </svg>
-      <p className="mt-2 text-center text-[11px] text-muted">AED / sqft</p>
+      <p className="mt-2 text-center text-[11px] text-muted">
+        {deal === "sale" ? "AED / sqft" : "AED / sqft / year"}
+      </p>
     </div>
   );
 }

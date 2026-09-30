@@ -12,8 +12,8 @@ export type MarketInsights = {
   rented: Txn[];
   trend: {
     months: string[]; // 60 monthly labels, oldest → newest
-    primary: number[]; // this development, AED/sqft
-    secondary: number[]; // wider area, AED/sqft
+    sale: { primary: number[]; secondary: number[] }; // AED / sqft
+    rent: { primary: number[]; secondary: number[] }; // AED / sqft / year
     primaryLabel: string;
     secondaryLabel: string;
   };
@@ -109,13 +109,21 @@ export function buildMarketInsights(p: {
     secondary.push(Math.round(base * (0.9 + (rnd() - 0.5) * 0.03)));
   }
 
+  // Rent per sqft/year ≈ ~6% gross yield of the sale price per sqft.
+  const rentPrimary = primary.map((v) =>
+    Math.round(v * (0.06 + (rnd() - 0.5) * 0.004)),
+  );
+  const rentSecondary = secondary.map((v) =>
+    Math.round(v * (0.06 + (rnd() - 0.5) * 0.004)),
+  );
+
   return {
     sold,
     rented,
     trend: {
       months,
-      primary,
-      secondary,
+      sale: { primary, secondary },
+      rent: { primary: rentPrimary, secondary: rentSecondary },
       primaryLabel: p.community?.name ?? "This development",
       secondaryLabel: (() => {
         const name = p.community?.name;
