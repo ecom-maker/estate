@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
+import { SellModal } from "@/components/sell/sell-modal";
 
 const SUGGESTIONS = [
   "Waterfront villas under AED 30M",
@@ -28,11 +29,12 @@ export function HeroChatBar() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("buy");
   const [query, setQuery] = useState("");
+  const [sellOpen, setSellOpen] = useState(false);
 
   function onSelect(id: Mode) {
-    // Sell and New projects are destinations; the rest switch the hero panel.
+    // Sell opens the lead form; New projects is a destination; rest switch panel.
     if (id === "sell") {
-      router.push("/agent");
+      setSellOpen(true);
       return;
     }
     if (id === "projects") {
@@ -145,6 +147,8 @@ export function HeroChatBar() {
       ) : (
         <PropertyFilterBar dealType={mode === "rent" ? "rent" : "buy"} />
       )}
+
+      <SellModal open={sellOpen} onClose={() => setSellOpen(false)} />
     </motion.div>
   );
 }
