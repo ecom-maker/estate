@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
-import { buildMarketInsights, type Txn } from "@/lib/property/market-insights";
+import { buildMarketInsights } from "@/lib/property/market-insights";
 import { PriceTrendChart } from "@/components/property/price-trend-chart";
+import { TransactionsBlock } from "@/components/property/transactions-block";
 import { cn } from "@/lib/utils";
 
 type PropertyInput = {
@@ -29,46 +30,6 @@ function deliveryLabel(offPlan: boolean, handoverDate?: string): string {
   const d = new Date(handoverDate);
   if (Number.isNaN(d.getTime())) return handoverDate;
   return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
-}
-
-function TxnTable({
-  title,
-  unit,
-  rows,
-}: {
-  title: string;
-  unit: string;
-  rows: Txn[];
-}) {
-  return (
-    <div>
-      <p className="mb-3 text-sm font-medium text-primary">{title}</p>
-      <div className="overflow-hidden rounded-sm border border-border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-primary/[0.03] text-[11px] uppercase tracking-wider text-muted">
-            <tr>
-              <th className="px-4 py-2.5 font-medium">Date</th>
-              <th className="px-4 py-2.5 text-right font-medium">{unit}</th>
-              <th className="px-4 py-2.5 text-right font-medium">Area (sqft)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="border-t border-border">
-                <td className="px-4 py-2.5 text-muted">{r.date}</td>
-                <td className="px-4 py-2.5 text-right text-primary">
-                  {r.aed.toLocaleString()}
-                </td>
-                <td className="px-4 py-2.5 text-right text-muted">
-                  {r.area.toLocaleString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
 }
 
 export function MarketInsightsSection({ property }: { property: PropertyInput }) {
@@ -168,28 +129,11 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
       </section>
 
       {/* Transactions for Similar Properties */}
-      <section>
-        <h2 className="font-serif text-2xl text-primary">
-          Transactions for Similar Properties
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          {property.bedrooms ?? "—"} Beds {titleCase(property.type)} in{" "}
-          {communityName}
-        </p>
-        <div className="mt-5 grid gap-8 md:grid-cols-2">
-          <TxnTable title="Sold for" unit="AED" rows={insights.sold} />
-          <TxnTable title="Rented for" unit="AED/year" rows={insights.rented} />
-        </div>
-        <div className="mt-6 text-center">
-          <Link
-            href={communityHref}
-            className="inline-flex items-center rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary transition hover:border-accent"
-          >
-            See all transactions in this location
-          </Link>
-          <p className="mt-3 text-[11px] text-muted">Powered by DataGuru</p>
-        </div>
-      </section>
+      <TransactionsBlock
+        sold={insights.sold}
+        rented={insights.rented}
+        subtitle={`${property.bedrooms ?? "—"} Beds ${titleCase(property.type)} in ${communityName}`}
+      />
 
       {/* Prices & trends */}
       <section>

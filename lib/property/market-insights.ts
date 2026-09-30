@@ -66,8 +66,9 @@ export function buildMarketInsights(p: {
 
   const now = new Date();
 
-  // Recent comparable sales (last ~6 weeks, descending).
-  const sold: Txn[] = Array.from({ length: 5 }, (_, i) => {
+  // Recent comparable sales (descending). More than the 5 shown, for the
+  // "see all" modal.
+  const sold: Txn[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (i * 6 + Math.floor(rnd() * 4) + 2));
     const a = Math.round(jitter(area, 0.35));
@@ -79,7 +80,7 @@ export function buildMarketInsights(p: {
   });
 
   // Recent comparable rentals (annual rent ≈ 5–7% gross yield).
-  const rented: Txn[] = Array.from({ length: 5 }, (_, i) => {
+  const rented: Txn[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (i * 6 + Math.floor(rnd() * 4) + 1));
     const a = Math.round(jitter(area, 0.4));
