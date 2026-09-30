@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
@@ -10,6 +9,7 @@ import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { ProjectGallery } from "@/components/property/project-gallery";
 
 export const dynamic = "force-dynamic";
 
@@ -65,9 +65,6 @@ export default async function ProjectDetailPage({ params }: Props) {
   }
 
   if (!project) notFound();
-
-  const hero = project.images[0];
-  const gallery = project.images.slice(1, 5);
   const unitGroups = buildUnitGroups(project);
   const handover = handoverLabel(project.metadata);
   const bedSummary = unitGroups.length
@@ -191,36 +188,15 @@ export default async function ProjectDetailPage({ params }: Props) {
         {handover ? ` · Handover ${handover}` : ""}
       </p>
 
-      <div className="relative mt-8 aspect-[16/9] overflow-hidden rounded-sm bg-primary/10">
-        {hero ? (
-          <Image
-            src={hero.url}
-            alt={hero.alt ?? project.title}
-            fill
-            priority
-            className="object-cover"
-            sizes="(max-width:1024px) 100vw, 66vw"
-          />
-        ) : null}
-      </div>
-      {gallery.length ? (
-        <div className="mt-3 grid grid-cols-4 gap-3">
-          {gallery.map((img) => (
-            <div
-              key={img.id}
-              className="relative aspect-[4/3] overflow-hidden rounded-sm bg-primary/10"
-            >
-              <Image
-                src={img.url}
-                alt={img.alt ?? project.title}
-                fill
-                sizes="20vw"
-                className="object-cover"
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <ProjectGallery
+        images={project.images}
+        title={project.title}
+        mapQuery={
+          project.community
+            ? `${project.community.name}, Dubai`
+            : `${project.title}, Dubai`
+        }
+      />
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.5fr_0.8fr]">
         <div>
