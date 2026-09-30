@@ -59,11 +59,16 @@ export function ProjectGallery({
   return (
     <>
       {/* Grid: large hero + up to 4 side tiles */}
-      <div className="mt-8 grid gap-2 md:grid-cols-[1.7fr_1fr]">
+      <div
+        className={cn(
+          "mt-8 grid gap-2",
+          side.length ? "md:grid-cols-[1.7fr_1fr]" : "",
+        )}
+      >
         <button
           type="button"
           onClick={() => setIndex(0)}
-          className="group relative aspect-[16/10] overflow-hidden rounded-sm bg-primary/10 md:aspect-auto"
+          className="group relative aspect-[16/10] overflow-hidden rounded-sm bg-primary/10"
         >
           <Image
             src={hero.url}
