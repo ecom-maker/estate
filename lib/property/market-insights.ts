@@ -117,9 +117,13 @@ export function buildMarketInsights(p: {
       primary,
       secondary,
       primaryLabel: p.community?.name ?? "This development",
-      secondaryLabel: p.community?.name
-        ? p.community.name.split(" ").slice(0, 2).join(" ")
-        : "Wider area",
+      secondaryLabel: (() => {
+        const name = p.community?.name;
+        if (!name) return "Wider area";
+        const parts = name.split(" ");
+        // Wider area = drop the most specific token, else the city.
+        return parts.length > 2 ? parts.slice(0, -1).join(" ") : "Dubai";
+      })(),
     },
   };
 }
