@@ -128,19 +128,21 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
         </div>
       </section>
 
-      {/* Transactions for Similar Properties */}
+      {/* Transactions for this building */}
       <TransactionsBlock
         sold={insights.sold}
         rented={insights.rented}
-        subtitle={`${property.bedrooms ?? "—"} Beds ${titleCase(property.type)} in ${communityName}`}
+        buildingName={property.title}
+        subtitle={`${property.bedrooms ?? "—"} Bed ${titleCase(property.type)}s in ${property.title}`}
       />
 
       {/* Prices & trends */}
       <section>
         <h2 className="font-serif text-2xl text-primary">Prices &amp; trends</h2>
         <p className="mt-1 text-sm text-muted">
-          {property.bedrooms ?? "—"} bedroom {titleCase(property.type).toLowerCase()}s
-          sold in {communityName}
+          {property.bedrooms ?? "—"} bedroom{" "}
+          {titleCase(property.type).toLowerCase()}s in {property.title} vs{" "}
+          {communityName}
         </p>
         <div className="mt-5 rounded-sm border border-border bg-card p-5">
           <PriceTrendChart

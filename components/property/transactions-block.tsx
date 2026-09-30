@@ -60,10 +60,12 @@ export function TransactionsBlock({
   sold,
   rented,
   subtitle,
+  buildingName,
 }: {
   sold: Txn[];
   rented: Txn[];
   subtitle: string;
+  buildingName: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -79,7 +81,7 @@ export function TransactionsBlock({
   return (
     <section>
       <h2 className="font-serif text-2xl text-primary">
-        Transactions for Similar Properties
+        Transactions in this building
       </h2>
       <p className="mt-1 text-sm text-muted">{subtitle}</p>
 
@@ -125,7 +127,7 @@ export function TransactionsBlock({
             <div className="flex items-start justify-between gap-4 border-b border-border p-5">
               <div>
                 <h3 className="font-serif text-xl text-primary">
-                  All transactions in this location
+                  All transactions in {buildingName}
                 </h3>
                 <p className="mt-0.5 text-sm text-muted">{subtitle}</p>
               </div>

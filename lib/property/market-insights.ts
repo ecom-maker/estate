@@ -52,6 +52,7 @@ function fmtDate(d: Date): string {
 
 export function buildMarketInsights(p: {
   id: string;
+  title?: string;
   priceAed: number | null;
   areaSqft: number | null;
   community?: { name: string } | null;
@@ -71,7 +72,8 @@ export function buildMarketInsights(p: {
   const sold: Txn[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (i * 6 + Math.floor(rnd() * 4) + 2));
-    const a = Math.round(jitter(area, 0.35));
+    // Same building → unit sizes cluster tightly.
+    const a = Math.round(jitter(area, 0.12));
     return {
       date: fmtDate(d),
       aed: roundTo(a * jitter(ppsqft, 0.12), 50_000),
@@ -83,7 +85,7 @@ export function buildMarketInsights(p: {
   const rented: Txn[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() - (i * 6 + Math.floor(rnd() * 4) + 1));
-    const a = Math.round(jitter(area, 0.4));
+    const a = Math.round(jitter(area, 0.14));
     const yieldPct = 0.05 + rnd() * 0.02;
     return {
       date: fmtDate(d),
@@ -125,14 +127,9 @@ export function buildMarketInsights(p: {
       months,
       sale: { primary, secondary },
       rent: { primary: rentPrimary, secondary: rentSecondary },
-      primaryLabel: p.community?.name ?? "This development",
-      secondaryLabel: (() => {
-        const name = p.community?.name;
-        if (!name) return "Wider area";
-        const parts = name.split(" ");
-        // Wider area = drop the most specific token, else the city.
-        return parts.length > 2 ? parts.slice(0, -1).join(" ") : "Dubai";
-      })(),
+      // Building line vs the wider community line.
+      primaryLabel: p.title ?? p.community?.name ?? "This building",
+      secondaryLabel: p.community?.name ?? "Wider area",
     },
   };
 }
