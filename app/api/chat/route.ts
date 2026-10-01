@@ -249,31 +249,34 @@ export async function POST(request: Request) {
     };
 
     const persistSearch = async (text: string, usage?: CompletionUsage) => {
-      await prisma.chatSession.update({
-        where: { id: chatSessionId },
-        data: { intent, summary: text.slice(0, 500) },
-      });
-      await prisma.message.create({
-        data: {
+      // Independent writes run concurrently to shave latency.
+      await Promise.all([
+        prisma.chatSession.update({
+          where: { id: chatSessionId },
+          data: { intent, summary: text.slice(0, 500) },
+        }),
+        prisma.message.create({
+          data: {
+            sessionId: chatSessionId,
+            role: "ASSISTANT",
+            content: text,
+            searchIntent: intent,
+            propertyReferences: shown.map((p) => p.id),
+          },
+        }),
+        prisma.searchHistory.create({
+          data: { query: lastUser.content, intent },
+        }),
+        logAiUsage({
+          feature: "conversational_search",
+          model: chatModel(),
+          status: "ok",
+          latencyMs: Date.now() - started,
           sessionId: chatSessionId,
-          role: "ASSISTANT",
-          content: text,
-          searchIntent: intent,
-          propertyReferences: shown.map((p) => p.id),
-        },
-      });
-      await prisma.searchHistory.create({
-        data: { query: lastUser.content, intent },
-      });
-      await logAiUsage({
-        feature: "conversational_search",
-        model: chatModel(),
-        status: "ok",
-        latencyMs: Date.now() - started,
-        sessionId: chatSessionId,
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
-      });
+          inputTokens: usage?.inputTokens,
+          outputTokens: usage?.outputTokens,
+        }),
+      ]);
     };
 
     // Search results use a deterministic, structured summary (no LLM call) —

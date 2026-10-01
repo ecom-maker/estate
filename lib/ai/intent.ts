@@ -503,10 +503,13 @@ export async function extractSearchIntent(
   message: string,
   previous?: SearchIntent | null,
 ): Promise<SearchIntent> {
-  const [cfg, knownCommunities] = await Promise.all([
-    resolveLLMConfig(),
-    getKnownCommunities(),
-  ]);
+  // The heuristic is fast (<5ms) and handles typos, communities, multi-select,
+  // price/area/beds, status and deal type — so it's the default. The LLM pass
+  // (slower, and its timeout doesn't reliably abort) is opt-in via env.
+  const llmEnabled = process.env.AI_INTENT_ENABLED === "true";
+  const knownCommunities = await getKnownCommunities();
+
+  const cfg = llmEnabled ? await resolveLLMConfig() : null;
   if (cfg) {
     const llmIntent = await extractWithLLM(
       message,
