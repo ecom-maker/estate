@@ -93,6 +93,7 @@ export function PropertyBrowser({
       <aside className="flex h-[70vh] flex-col self-start rounded-sm border border-border bg-card p-4 md:order-2 md:sticky md:top-24">
         <AIChat
           placeholder={chatPlaceholder}
+          showHistory
           onPropertyIds={(ids) => setPropertyIds(ids)}
           onStreaming={setSearching}
         />

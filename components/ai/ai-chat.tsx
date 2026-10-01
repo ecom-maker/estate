@@ -2,11 +2,34 @@
 
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Send } from "lucide-react";
+import { Sparkles, Send, History, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { decodeBase64UrlJson } from "@/lib/encoding";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
+
+type HistoryEntry = { id: string; title: string; updatedAt: number };
+
+const HISTORY_KEY = "dmp_chat_history";
+
+function loadHistory(): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(list: HistoryEntry[]) {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 50)));
+  } catch {
+    // ignore (private mode / blocked storage)
+  }
+}
 
 type AIChatProps = {
   placeholder?: string;
@@ -15,6 +38,7 @@ type AIChatProps = {
   initialMessages?: ChatMessage[];
   autoSendOnMount?: string;
   whatsappNumber?: string;
+  showHistory?: boolean;
   onIntent?: (intentHeader: string | null) => void;
   onPropertyIds?: (ids: string[]) => void;
   onStreaming?: (streaming: boolean) => void;
@@ -35,6 +59,7 @@ export function AIChat({
   initialMessages = [],
   autoSendOnMount,
   whatsappNumber,
+  showHistory = false,
   onIntent,
   onPropertyIds,
   onStreaming,
@@ -49,7 +74,55 @@ export function AIChat({
     string,
     unknown
   > | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const autoSent = useRef(false);
+
+  // Record / update a session, merging with what's already in localStorage so
+  // nothing is lost even if the in-memory list wasn't loaded yet.
+  function recordSession(id: string, title: string) {
+    const current = loadHistory();
+    const next = [
+      { id, title: title.slice(0, 80), updatedAt: Date.now() },
+      ...current.filter((e) => e.id !== id),
+    ].slice(0, 50);
+    saveHistory(next);
+    setHistory(next);
+  }
+
+  function toggleHistory() {
+    if (!historyOpen) setHistory(loadHistory());
+    setHistoryOpen((v) => !v);
+  }
+
+  function startNewChat() {
+    setMessages([]);
+    setInput("");
+    setSessionId(undefined);
+    setPreviousIntent(null);
+    setHistoryOpen(false);
+  }
+
+  async function openSession(id: string) {
+    setHistoryOpen(false);
+    try {
+      const res = await fetch(`/api/chat/sessions/${id}`);
+      const json = await res.json();
+      if (!json.success) return;
+      const d = json.data as {
+        id: string;
+        messages: ChatMessage[];
+        lastIntent: Record<string, unknown> | null;
+        lastPropertyIds: string[];
+      };
+      setMessages(d.messages);
+      setSessionId(d.id);
+      setPreviousIntent(d.lastIntent ?? null);
+      if (d.lastPropertyIds?.length) onPropertyIds?.(d.lastPropertyIds);
+    } catch {
+      // ignore
+    }
+  }
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -110,7 +183,14 @@ export function AIChat({
       }
 
       const nextSession = res.headers.get("X-Chat-Session");
-      if (nextSession) setSessionId(nextSession);
+      if (nextSession) {
+        setSessionId(nextSession);
+        // Title the session by its first user message.
+        if (showHistory) {
+          const firstUser = nextMessages.find((m) => m.role === "user");
+          recordSession(nextSession, firstUser?.content ?? trimmed);
+        }
+      }
 
       if (!res.ok || !res.body) {
         throw new Error("Chat request failed");
@@ -180,13 +260,14 @@ export function AIChat({
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-border pb-3">
+      <div className="relative flex items-center gap-2 border-b border-border pb-3">
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/15">
           <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden />
         </span>
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
           AI Assistant
         </p>
+
         {whatsappNumber ? (
           <button
             type="button"
@@ -198,6 +279,55 @@ export function AIChat({
             <WhatsAppIcon className="h-4 w-4" />
             Chat on WhatsApp
           </button>
+        ) : null}
+
+        {showHistory ? (
+          <div className={cn("flex items-center gap-1", whatsappNumber ? "" : "ml-auto")}>
+            <button
+              type="button"
+              onClick={startNewChat}
+              aria-label="New chat"
+              title="New chat"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-accent/10 hover:text-accent"
+            >
+              <SquarePen className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={toggleHistory}
+              aria-label="Chat history"
+              title="Chat history"
+              aria-expanded={historyOpen}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-accent/10 hover:text-accent"
+            >
+              <History className="h-4 w-4" />
+            </button>
+          </div>
+        ) : null}
+
+        {showHistory && historyOpen ? (
+          <div className="absolute right-0 top-full z-30 mt-1 max-h-80 w-72 overflow-y-auto rounded-md border border-border bg-card p-1.5 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+            {history.length === 0 ? (
+              <p className="px-3 py-4 text-center text-xs text-muted">
+                No past chats yet.
+              </p>
+            ) : (
+              history.map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => openSession(h.id)}
+                  className={cn(
+                    "block w-full truncate rounded-sm px-3 py-2 text-left text-sm transition hover:bg-accent/10",
+                    h.id === sessionId ? "text-accent" : "text-primary",
+                  )}
+                  title={h.title}
+                >
+                  {h.title}
+                </button>
+              ))
+            )}
+          </div>
         ) : null}
       </div>
 
