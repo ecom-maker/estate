@@ -1,4 +1,5 @@
 import { formatAED } from "@/lib/utils";
+import type { Txn } from "@/lib/property/market-insights";
 
 type PropertyForAnswer = {
   title: string;
@@ -36,12 +37,99 @@ function fmtDate(v?: string | null): string | null {
 export function answerPropertyQuestion(
   question: string,
   p: PropertyForAnswer,
+  insights?: { sold: Txn[]; rented: Txn[] },
 ): string | null {
   const t = question.toLowerCase();
   const has = (...kw: string[]) => kw.some((k) => t.includes(k));
   const title = p.title;
   const names = p.amenities.map((a) => a.amenity.name);
   const findAmenity = (re: RegExp) => names.find((n) => re.test(n));
+
+  // Building transaction questions (from the market-insights comparables). Kept
+  // before price/area so "price per sqft" / "last transaction" resolve here.
+  if (insights) {
+    const { sold, rented } = insights;
+    const psf = (x: Txn) =>
+      Math.round(x.aed / Math.max(1, x.area)).toLocaleString();
+
+    if (
+      has(
+        "per sqft",
+        "per sq ft",
+        "psf",
+        "per square",
+        "aed/sqft",
+        "price/sqft",
+        "price per sq",
+        "rate per",
+      )
+    ) {
+      if (sold.length) {
+        const avg = Math.round(
+          sold.reduce((s, x) => s + x.aed / Math.max(1, x.area), 0) /
+            sold.length,
+        );
+        return `In ${title}, recent sales average about AED ${avg.toLocaleString()} per sqft (latest: AED ${psf(sold[0])}/sqft on ${sold[0].date}).`;
+      }
+    }
+
+    if (
+      has(
+        "last transaction",
+        "last sale",
+        "last sold",
+        "latest sale",
+        "latest transaction",
+        "recent sale",
+        "recently sold",
+        "transaction value",
+        "last deal",
+        "most recent sale",
+      )
+    ) {
+      if (sold.length) {
+        const x = sold[0];
+        return `The most recent sale in ${title} was ${formatAED(x.aed)} — ${x.area.toLocaleString()} sqft (AED ${psf(x)}/sqft), on ${x.date}.`;
+      }
+    }
+
+    if (
+      has(
+        "last rent",
+        "last rental",
+        "latest rent",
+        "recently rented",
+        "last lease",
+        "most recent rent",
+      )
+    ) {
+      if (rented.length) {
+        const x = rented[0];
+        return `The most recent rental in ${title} was ${formatAED(x.aed)}/year — ${x.area.toLocaleString()} sqft (AED ${psf(x)}/sqft/yr), on ${x.date}.`;
+      }
+    }
+
+    if (
+      has(
+        "transactions",
+        "transaction history",
+        "sales history",
+        "recent sales",
+        "sold history",
+        "price history",
+      )
+    ) {
+      if (sold.length) {
+        const lines = sold
+          .slice(0, 3)
+          .map(
+            (x) => `${x.date} — ${formatAED(x.aed)} (${x.area.toLocaleString()} sqft)`,
+          )
+          .join("; ");
+        return `Recent sales in ${title}: ${lines}.`;
+      }
+    }
+  }
 
   // Specific amenity yes/no questions.
   if (has("parking", "garage", "car space", "car park")) {

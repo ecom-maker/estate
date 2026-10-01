@@ -1,5 +1,6 @@
 import { extractSearchIntent, isRealEstateQuery } from "@/lib/ai/intent";
 import { answerPropertyQuestion } from "@/lib/ai/property-answer";
+import { buildMarketInsights } from "@/lib/property/market-insights";
 import { getPrompts } from "@/lib/ai/get-prompt";
 import { logAiUsage } from "@/lib/ai/usage";
 import {
@@ -172,7 +173,18 @@ export async function POST(request: Request) {
 
       // Specific factual questions get a direct answer (fast, exact) instead of
       // the whole fact sheet. Open-ended questions fall through to the LLM.
-      const direct = answerPropertyQuestion(lastUser.content, property);
+      const insights = buildMarketInsights({
+        id: property.id,
+        title: property.title,
+        priceAed: property.priceAed,
+        areaSqft: property.areaSqft,
+        community: property.community,
+      });
+      const direct = answerPropertyQuestion(
+        lastUser.content,
+        property,
+        insights,
+      );
       if (direct) {
         await persist(direct);
         return streamText(direct, { "X-Chat-Session": chatSessionId });
