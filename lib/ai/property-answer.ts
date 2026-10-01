@@ -77,7 +77,18 @@ export function answerPropertyQuestion(
       const isRent = has("rent", "rental", "lease");
       const series = isRent ? trend.rent.primary : trend.sale.primary;
       if (series.length >= 2) {
-        const w = series.slice(-12);
+        // Window from the query: "2 years" / "18 months" / default 1 year,
+        // capped to the data we actually have.
+        const ym = t.match(/(\d+)\s*(?:year|yr|y)s?\b/);
+        const mm = t.match(/(\d+)\s*months?\b/);
+        let reqMonths = 12;
+        if (ym) reqMonths = Number(ym[1]) * 12;
+        else if (mm) reqMonths = Number(mm[1]);
+        reqMonths = Math.max(1, reqMonths);
+        const useMonths = Math.min(reqMonths, series.length);
+        const capped = reqMonths > series.length;
+
+        const w = series.slice(-useMonths);
         const start = w[0];
         const end = w[w.length - 1];
         const changePct = ((end - start) / Math.max(1, start)) * 100;
@@ -85,7 +96,18 @@ export function answerPropertyQuestion(
           changePct > 1 ? "risen" : changePct < -1 ? "eased" : "stayed broadly flat";
         const unit = isRent ? "sqft/yr" : "sqft";
         const label = isRent ? "Rents" : "Sale prices";
-        return `${label} in ${title} have ${dir} over the past year — about AED ${Math.round(
+
+        const base =
+          useMonths % 12 === 0 && useMonths >= 12
+            ? useMonths / 12 === 1
+              ? "year"
+              : `${useMonths / 12} years`
+            : `${useMonths} months`;
+        const when = capped
+          ? `over the past ${base} (the longest span on record)`
+          : `over the past ${base}`;
+
+        return `${label} in ${title} have ${dir} ${when} — about AED ${Math.round(
           start,
         ).toLocaleString()} → AED ${Math.round(end).toLocaleString()} per ${unit} (${
           changePct >= 0 ? "+" : ""
