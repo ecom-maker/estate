@@ -1,5 +1,5 @@
 import { formatAED } from "@/lib/utils";
-import type { Txn } from "@/lib/property/market-insights";
+import type { MarketInsights } from "@/lib/property/market-insights";
 
 type PropertyForAnswer = {
   title: string;
@@ -37,7 +37,7 @@ function fmtDate(v?: string | null): string | null {
 export function answerPropertyQuestion(
   question: string,
   p: PropertyForAnswer,
-  insights?: { sold: Txn[]; rented: Txn[] },
+  insights?: MarketInsights,
 ): string | null {
   const t = question.toLowerCase();
   const has = (...kw: string[]) => kw.some((k) => t.includes(k));
@@ -48,9 +48,50 @@ export function answerPropertyQuestion(
   // Building transaction questions (from the market-insights comparables). Kept
   // before price/area so "price per sqft" / "last transaction" resolve here.
   if (insights) {
-    const { sold, rented } = insights;
-    const psf = (x: Txn) =>
+    const { sold, rented, trend } = insights;
+    const psf = (x: { aed: number; area: number }) =>
       Math.round(x.aed / Math.max(1, x.area)).toLocaleString();
+
+    // Price / rent direction over the last year.
+    if (
+      has(
+        "trend",
+        "increasing",
+        "increase",
+        "decreasing",
+        "going up",
+        "going down",
+        "coming down",
+        "come down",
+        "rising",
+        "falling",
+        "appreciat",
+        "depreciat",
+        "growth",
+        "outlook",
+        "forecast",
+        "higher or lower",
+        "up or down",
+      )
+    ) {
+      const isRent = has("rent", "rental", "lease");
+      const series = isRent ? trend.rent.primary : trend.sale.primary;
+      if (series.length >= 2) {
+        const w = series.slice(-12);
+        const start = w[0];
+        const end = w[w.length - 1];
+        const changePct = ((end - start) / Math.max(1, start)) * 100;
+        const dir =
+          changePct > 1 ? "risen" : changePct < -1 ? "eased" : "stayed broadly flat";
+        const unit = isRent ? "sqft/yr" : "sqft";
+        const label = isRent ? "Rents" : "Sale prices";
+        return `${label} in ${title} have ${dir} over the past year — about AED ${Math.round(
+          start,
+        ).toLocaleString()} → AED ${Math.round(end).toLocaleString()} per ${unit} (${
+          changePct >= 0 ? "+" : ""
+        }${changePct.toFixed(1)}%).`;
+      }
+    }
 
     if (
       has(
