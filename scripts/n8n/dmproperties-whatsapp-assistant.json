@@ -9,7 +9,7 @@
       "name": "WhatsApp Trigger",
       "type": "n8n-nodes-base.whatsAppTrigger",
       "typeVersion": 1,
-      "position": [-120, 300],
+      "position": [-160, 300],
       "webhookId": "dmproperties-whatsapp",
       "credentials": {
         "whatsAppTriggerApi": {
@@ -42,7 +42,17 @@
       "name": "Only Text Messages",
       "type": "n8n-nodes-base.filter",
       "typeVersion": 2,
-      "position": [120, 300]
+      "position": [60, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Per-sender memory: look up this phone number's last intent/session.\nconst store = $getWorkflowStaticData('global');\nstore.sessions = store.sessions || {};\n\nconst msg = items[0].json;\nconst from = msg.messages[0].from;\nconst text = msg.messages[0].text.body;\nconst phoneNumberId = msg.metadata.phone_number_id;\nconst prior = store.sessions[from] || {};\n\n// Build the /api/chat request body, carrying context forward when we have it.\nconst body = { messages: [{ role: 'user', content: text }] };\nif (prior.sessionId) body.sessionId = prior.sessionId;\nif (prior.intent) body.previousIntent = prior.intent;\n\nreturn [{ json: { from, text, phoneNumberId, requestBody: JSON.stringify(body) } }];"
+      },
+      "id": "a1b2c3d4-0003-4a10-9000-000000000003",
+      "name": "Load Memory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 300]
     },
     {
       "parameters": {
@@ -50,35 +60,46 @@
         "url": "https://estate-sugg.vercel.app/api/chat",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ messages: [ { role: 'user', content: $json.messages[0].text.body } ] }) }}",
+        "jsonBody": "={{ $json.requestBody }}",
         "options": {
           "response": {
             "response": {
-              "responseFormat": "text"
+              "responseFormat": "text",
+              "fullResponse": true
             }
           },
           "timeout": 30000
         }
       },
-      "id": "a1b2c3d4-0003-4a10-9000-000000000003",
+      "id": "a1b2c3d4-0004-4a10-9000-000000000004",
       "name": "Ask Property Database",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [360, 300]
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Save the conversation context returned by /api/chat for the next message.\nconst store = $getWorkflowStaticData('global');\nstore.sessions = store.sessions || {};\n\nconst res = items[0].json; // { body, headers, statusCode } (fullResponse)\nconst headers = res.headers || {};\nconst load = $('Load Memory').first().json;\n\nlet intent = null;\nconst h = headers['x-search-intent'];\nif (h) {\n  try { intent = JSON.parse(Buffer.from(h, 'base64url').toString('utf8')); } catch (e) {}\n}\nconst sessionId = headers['x-chat-session'] || load.sessionId || null;\n\nstore.sessions[load.from] = { intent, sessionId, updatedAt: new Date().toISOString() };\n\n// Light cap so static data can't grow forever (keep the 500 most recent).\nconst keys = Object.keys(store.sessions);\nif (keys.length > 500) {\n  keys\n    .sort((a, b) => new Date(store.sessions[a].updatedAt) - new Date(store.sessions[b].updatedAt))\n    .slice(0, keys.length - 500)\n    .forEach((k) => delete store.sessions[k]);\n}\n\nreturn [{ json: { reply: res.body, from: load.from, phoneNumberId: load.phoneNumberId } }];"
+      },
+      "id": "a1b2c3d4-0005-4a10-9000-000000000005",
+      "name": "Save Memory",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
     },
     {
       "parameters": {
         "operation": "send",
-        "phoneNumberId": "={{ $('WhatsApp Trigger').item.json.metadata.phone_number_id }}",
-        "recipientPhoneNumber": "={{ $('WhatsApp Trigger').item.json.messages[0].from }}",
+        "phoneNumberId": "={{ $json.phoneNumberId }}",
+        "recipientPhoneNumber": "={{ $json.from }}",
         "messageType": "text",
-        "textBody": "={{ $json.data }}"
+        "textBody": "={{ $json.reply }}"
       },
-      "id": "a1b2c3d4-0004-4a10-9000-000000000004",
+      "id": "a1b2c3d4-0006-4a10-9000-000000000006",
       "name": "Reply on WhatsApp",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [600, 300],
+      "position": [940, 300],
       "credentials": {
         "whatsAppApi": {
           "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
@@ -92,9 +113,15 @@
       "main": [[{ "node": "Only Text Messages", "type": "main", "index": 0 }]]
     },
     "Only Text Messages": {
+      "main": [[{ "node": "Load Memory", "type": "main", "index": 0 }]]
+    },
+    "Load Memory": {
       "main": [[{ "node": "Ask Property Database", "type": "main", "index": 0 }]]
     },
     "Ask Property Database": {
+      "main": [[{ "node": "Save Memory", "type": "main", "index": 0 }]]
+    },
+    "Save Memory": {
       "main": [[{ "node": "Reply on WhatsApp", "type": "main", "index": 0 }]]
     }
   },
@@ -102,6 +129,6 @@
   "active": false,
   "pinData": {},
   "meta": {
-    "description": "Incoming WhatsApp message -> POST /api/chat (DMProperties conversational search) -> reply with the structured answer. Uses Meta WhatsApp Business Cloud."
+    "description": "WhatsApp -> /api/chat with per-sender memory. Load Memory reads the sender's last intent/session from workflow static data and sends them as previousIntent/sessionId; Save Memory stores the X-Search-Intent / X-Chat-Session from the response for the next message. Enables follow-ups like 'only waterfront'."
   }
 }
