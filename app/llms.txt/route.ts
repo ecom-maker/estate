@@ -18,11 +18,16 @@ export function GET() {
 
 ## Endpoints
 
+- GET ${SITE_URL}/api/v1/search — natural-language or structured search (q, type, community, developer, minBedrooms, minPrice, maxPrice, offPlan); returns interpreted intent + ranked matches
 - GET ${SITE_URL}/api/v1/properties — list properties (filters: type, community, developer, minBedrooms, minPrice, maxPrice, offPlan, limit, offset)
 - GET ${SITE_URL}/api/v1/properties/{slug} — full property with its entity graph
 - GET ${SITE_URL}/api/v1/projects — off-plan projects
-- GET ${SITE_URL}/api/v1/communities — communities with nearby landmarks
+- GET ${SITE_URL}/api/v1/projects/{slug} — one project (off-plan development)
 - GET ${SITE_URL}/api/v1/developers — developers
+- GET ${SITE_URL}/api/v1/developers/{slug} — one developer with their listings
+- GET ${SITE_URL}/api/v1/communities — communities with nearby landmarks
+- GET ${SITE_URL}/api/v1/communities/{slug} — one community with its listings
+- GET ${SITE_URL}/api/v1/locations — cities and communities directory
 
 ## Entity graph
 

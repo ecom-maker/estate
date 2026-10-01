@@ -18,11 +18,16 @@ export function GET() {
     openapi: `${base}/openapi.json`,
     documentation: `${SITE_URL}/api-docs`,
     endpoints: {
+      search: `${base}/search`,
       properties: `${base}/properties`,
       property: `${base}/properties/{slug}`,
       projects: `${base}/projects`,
-      communities: `${base}/communities`,
+      project: `${base}/projects/{slug}`,
       developers: `${base}/developers`,
+      developer: `${base}/developers/{slug}`,
+      communities: `${base}/communities`,
+      community: `${base}/communities/{slug}`,
+      locations: `${base}/locations`,
     },
     entities: [
       "developer",
