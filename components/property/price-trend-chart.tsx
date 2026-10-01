@@ -37,6 +37,7 @@ export function PriceTrendChart({
 }: Props) {
   const [range, setRange] = useState<(typeof RANGES)[number]["id"]>("1Y");
   const [deal, setDeal] = useState<(typeof DEALS)[number]["id"]>("sale");
+  const [hover, setHover] = useState<number | null>(null);
 
   const view = useMemo(() => {
     const series = deal === "sale" ? sale : rent;
@@ -72,6 +73,10 @@ export function PriceTrendChart({
 
   const fmtK = (v: number) =>
     v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${Math.round(v)}`;
+
+  // Clamp in case the range/deal toggle shrank the series since last hover.
+  const hoverIdx =
+    hover !== null ? Math.min(hover, view.p.length - 1) : null;
 
   return (
     <div>
@@ -124,11 +129,24 @@ export function PriceTrendChart({
         </div>
       </div>
 
+      <div className="relative">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         role="img"
         aria-label={`Price per sqft trend for ${primaryLabel}`}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const relX = (e.clientX - rect.left) / rect.width;
+          const plotStart = PAD.left / W;
+          const plotEnd = (W - PAD.right) / W;
+          const f = Math.min(
+            1,
+            Math.max(0, (relX - plotStart) / (plotEnd - plotStart)),
+          );
+          setHover(Math.round(f * (view.p.length - 1)));
+        }}
+        onMouseLeave={() => setHover(null)}
       >
         {view.ticks.map((t, i) => {
           const y = view.y(t);
@@ -183,7 +201,66 @@ export function PriceTrendChart({
           className="stroke-primary"
           strokeWidth={2.5}
         />
+
+        {hoverIdx !== null ? (
+          <g>
+            <line
+              x1={view.x(hoverIdx, view.p.length)}
+              x2={view.x(hoverIdx, view.p.length)}
+              y1={PAD.top}
+              y2={H - PAD.bottom}
+              className="stroke-muted"
+              strokeWidth={1}
+              strokeDasharray="4 4"
+            />
+            <circle
+              cx={view.x(hoverIdx, view.s.length)}
+              cy={view.y(view.s[hoverIdx])}
+              r={5}
+              className="fill-accent"
+            />
+            <circle
+              cx={view.x(hoverIdx, view.p.length)}
+              cy={view.y(view.p[hoverIdx])}
+              r={5}
+              className="fill-primary"
+            />
+          </g>
+        ) : null}
       </svg>
+
+      {hoverIdx !== null ? (
+        <div
+          className="pointer-events-none absolute top-1 z-10 w-max max-w-[220px] rounded-md border border-border bg-card p-3 text-xs shadow-lg"
+          style={{
+            left: `${(view.x(hoverIdx, view.p.length) / W) * 100}%`,
+            transform:
+              hoverIdx / Math.max(1, view.p.length - 1) > 0.6
+                ? "translateX(-105%)"
+                : "translateX(5%)",
+          }}
+        >
+          <p className="font-medium text-muted">{view.m[hoverIdx]}</p>
+          <div className="mt-2 space-y-1">
+            <p className="flex items-center gap-1.5 text-primary">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
+              {primaryLabel}:{" "}
+              <span className="font-semibold">
+                AED {view.p[hoverIdx].toLocaleString()}
+              </span>
+            </p>
+            <p className="flex items-center gap-1.5 text-muted">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+              {secondaryLabel}:{" "}
+              <span className="font-semibold">
+                AED {view.s[hoverIdx].toLocaleString()}
+              </span>
+            </p>
+          </div>
+        </div>
+      ) : null}
+      </div>
+
       <p className="mt-2 text-center text-[11px] text-muted">
         {deal === "sale" ? "AED / sqft" : "AED / sqft / year"}
       </p>
