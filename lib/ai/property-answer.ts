@@ -73,6 +73,30 @@ export function answerPropertyQuestion(
       }
     }
 
+    // Plural "history"/"transactions" → list recent rows (checked before the
+    // singular "last sale" so "recent sales history" lists several).
+    if (
+      has(
+        "transactions",
+        "transaction history",
+        "sales history",
+        "recent sales",
+        "sold history",
+        "price history",
+        "past sales",
+      )
+    ) {
+      if (sold.length) {
+        const lines = sold
+          .slice(0, 3)
+          .map(
+            (x) => `${x.date} — ${formatAED(x.aed)} (${x.area.toLocaleString()} sqft)`,
+          )
+          .join("; ");
+        return `Recent sales in ${title}: ${lines}.`;
+      }
+    }
+
     if (
       has(
         "last transaction",
@@ -106,27 +130,6 @@ export function answerPropertyQuestion(
       if (rented.length) {
         const x = rented[0];
         return `The most recent rental in ${title} was ${formatAED(x.aed)}/year — ${x.area.toLocaleString()} sqft (AED ${psf(x)}/sqft/yr), on ${x.date}.`;
-      }
-    }
-
-    if (
-      has(
-        "transactions",
-        "transaction history",
-        "sales history",
-        "recent sales",
-        "sold history",
-        "price history",
-      )
-    ) {
-      if (sold.length) {
-        const lines = sold
-          .slice(0, 3)
-          .map(
-            (x) => `${x.date} — ${formatAED(x.aed)} (${x.area.toLocaleString()} sqft)`,
-          )
-          .join("; ");
-        return `Recent sales in ${title}: ${lines}.`;
       }
     }
   }
