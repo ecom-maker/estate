@@ -1,3 +1,5 @@
+import { after } from "next/server";
+import { randomUUID } from "node:crypto";
 import { extractSearchIntent, isRealEstateQuery } from "@/lib/ai/intent";
 import { answerPropertyQuestion } from "@/lib/ai/property-answer";
 import { buildMarketInsights } from "@/lib/property/market-insights";
@@ -77,20 +79,44 @@ export async function POST(request: Request) {
       return failure("VALIDATION_ERROR", "No user message provided", 400);
     }
 
-    let sessionId = body.sessionId;
-    if (!sessionId) {
-      const session = await prisma.chatSession.create({
-        data: { title: lastUser.content.slice(0, 80) },
+    // Generate the session id locally when the client didn't supply one, so the
+    // response never waits on a DB insert just to learn the id. The row itself
+    // is written off the critical path (see `persistTurn` below).
+    const isNewSession = !body.sessionId;
+    const chatSessionId = body.sessionId ?? randomUUID();
+
+    // Writes the session row (if new) + the user's message, in FK order.
+    const writeInbound = async () => {
+      if (isNewSession) {
+        await prisma.chatSession.create({
+          data: { id: chatSessionId, title: lastUser.content.slice(0, 80) },
+        });
+      }
+      await prisma.message.create({
+        data: {
+          sessionId: chatSessionId,
+          role: "USER",
+          content: lastUser.content,
+        },
       });
-      sessionId = session.id;
-    }
-    const chatSessionId = sessionId;
+    };
 
-    await prisma.message.create({
-      data: { sessionId: chatSessionId, role: "USER", content: lastUser.content },
-    });
-
-    const prompts = await getPrompts(["system", "search", "propertyAssistant"]);
+    // All transcript persistence runs AFTER the response has been streamed, so
+    // DB-write latency never adds to the user's perceived response time. Each
+    // turn schedules exactly one `after` callback that writes the inbound rows
+    // then the assistant reply / logs, in order. Use this only from within the
+    // request scope (not from a stream's onComplete, which runs after the
+    // handler returns — there, await `writeInbound` + the writes directly).
+    const persistTurn = (writes: () => Promise<void>): void => {
+      after(async () => {
+        try {
+          await writeInbound();
+          await writes();
+        } catch {
+          // Best-effort: a failed transcript write must not break the chat.
+        }
+      });
+    };
 
     // Prior turns (exclude the current user message) for conversation continuity.
     const history: ChatTurn[] = body.messages
@@ -100,6 +126,7 @@ export async function POST(request: Request) {
 
     // ---------------- Property assistant branch ----------------
     if (body.propertyId) {
+      const prompts = await getPrompts(["system", "propertyAssistant"]);
       const property = await prisma.property.findFirst({
         where: { id: body.propertyId, deletedAt: null },
         include: {
@@ -114,8 +141,14 @@ export async function POST(request: Request) {
       if (!property) {
         const answer =
           "I could not find this property in inventory, so I have no facts to share about it.";
-        await prisma.message.create({
-          data: { sessionId: chatSessionId, role: "ASSISTANT", content: answer },
+        persistTurn(async () => {
+          await prisma.message.create({
+            data: {
+              sessionId: chatSessionId,
+              role: "ASSISTANT",
+              content: answer,
+            },
+          });
         });
         return streamText(answer, { "X-Chat-Session": chatSessionId });
       }
@@ -146,12 +179,8 @@ export async function POST(request: Request) {
           : null,
       ].filter((l): l is string => Boolean(l));
 
-      const knowledge = await gatherKnowledge(
-        `${property.title} ${property.community?.name ?? ""} ${lastUser.content}`,
-      );
-      const context = `${factLines.join("\n")}${knowledge ? `\n\nCommunity / knowledge:\n${knowledge}` : ""}`;
-
-      const persist = async (text: string, usage?: CompletionUsage) => {
+      // Writes the assistant reply + usage log for this property turn.
+      const writeAssistant = async (text: string, usage?: CompletionUsage) => {
         await prisma.message.create({
           data: {
             sessionId: chatSessionId,
@@ -171,6 +200,10 @@ export async function POST(request: Request) {
         });
       };
 
+      // In-scope persistence (direct answers / fallbacks): defer via `after`.
+      const persist = (text: string, usage?: CompletionUsage) =>
+        persistTurn(() => writeAssistant(text, usage));
+
       // Specific factual questions get a direct answer (fast, exact) instead of
       // the whole fact sheet. Open-ended questions fall through to the LLM.
       const insights = buildMarketInsights({
@@ -186,16 +219,31 @@ export async function POST(request: Request) {
         insights,
       );
       if (direct) {
-        await persist(direct);
+        persist(direct);
         return streamText(direct, { "X-Chat-Session": chatSessionId });
       }
+
+      // The LLM path needs retrieved knowledge; only fetch it when we get here.
+      const knowledge = await gatherKnowledge(
+        `${property.title} ${property.community?.name ?? ""} ${lastUser.content}`,
+      );
+      const context = `${factLines.join("\n")}${knowledge ? `\n\nCommunity / knowledge:\n${knowledge}` : ""}`;
 
       const stream = await streamGroundedResponse({
         system: `${prompts.system}\n${prompts.propertyAssistant}`,
         history,
         question: lastUser.content,
         context,
-        onComplete: persist,
+        // onComplete fires after the handler returns (during stream drain), so
+        // it is outside the `after` scope — await the writes directly here.
+        onComplete: async (text, usage) => {
+          try {
+            await writeInbound();
+            await writeAssistant(text, usage);
+          } catch {
+            // Best-effort transcript write.
+          }
+        },
       });
       if (stream) {
         return new Response(stream, {
@@ -210,7 +258,7 @@ export async function POST(request: Request) {
         "",
         "I only answer from the facts above and retrieved knowledge.",
       ].join("\n");
-      await persist(answer);
+      persist(answer);
       return streamText(answer, { "X-Chat-Session": chatSessionId });
     }
 
@@ -225,8 +273,14 @@ export async function POST(request: Request) {
         "properties, communities, projects and prices — I don't have an answer " +
         "for that. Try asking about villas, apartments, off-plan projects, or a " +
         "specific community like Palm Jumeirah.";
-      await prisma.message.create({
-        data: { sessionId: chatSessionId, role: "ASSISTANT", content: answer },
+      persistTurn(async () => {
+        await prisma.message.create({
+          data: {
+            sessionId: chatSessionId,
+            role: "ASSISTANT",
+            content: answer,
+          },
+        });
       });
       return streamText(answer, { "X-Chat-Session": chatSessionId });
     }
@@ -246,37 +300,6 @@ export async function POST(request: Request) {
       "X-Chat-Session": chatSessionId,
       "X-Search-Intent": Buffer.from(JSON.stringify(intent)).toString("base64url"),
       "X-Property-Ids": shown.map((p) => p.id).join(","),
-    };
-
-    const persistSearch = async (text: string, usage?: CompletionUsage) => {
-      // Independent writes run concurrently to shave latency.
-      await Promise.all([
-        prisma.chatSession.update({
-          where: { id: chatSessionId },
-          data: { intent, summary: text.slice(0, 500) },
-        }),
-        prisma.message.create({
-          data: {
-            sessionId: chatSessionId,
-            role: "ASSISTANT",
-            content: text,
-            searchIntent: intent,
-            propertyReferences: shown.map((p) => p.id),
-          },
-        }),
-        prisma.searchHistory.create({
-          data: { query: lastUser.content, intent },
-        }),
-        logAiUsage({
-          feature: "conversational_search",
-          model: chatModel(),
-          status: "ok",
-          latencyMs: Date.now() - started,
-          sessionId: chatSessionId,
-          inputTokens: usage?.inputTokens,
-          outputTokens: usage?.outputTokens,
-        }),
-      ]);
     };
 
     // Search results use a deterministic, structured summary (no LLM call) —
@@ -314,7 +337,35 @@ export async function POST(request: Request) {
       "",
       "You can refine with follow-ups like “only waterfront” or “under AED 25M”.",
     ].join("\n");
-    await persistSearch(answer);
+
+    // Persist the whole turn after the response streams — the client already
+    // has its answer and results, so none of these writes block it.
+    persistTurn(async () => {
+      await prisma.chatSession.update({
+        where: { id: chatSessionId },
+        data: { intent, summary: answer.slice(0, 500) },
+      });
+      await prisma.message.create({
+        data: {
+          sessionId: chatSessionId,
+          role: "ASSISTANT",
+          content: answer,
+          searchIntent: intent,
+          propertyReferences: shown.map((p) => p.id),
+        },
+      });
+      await prisma.searchHistory.create({
+        data: { query: lastUser.content, intent },
+      });
+      await logAiUsage({
+        feature: "conversational_search",
+        model: chatModel(),
+        status: "ok",
+        latencyMs: Date.now() - started,
+        sessionId: chatSessionId,
+      });
+    });
+
     return streamText(answer, searchHeaders);
   } catch (error) {
     await logAiUsage({
