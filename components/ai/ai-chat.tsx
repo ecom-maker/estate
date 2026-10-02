@@ -31,6 +31,59 @@ function saveHistory(list: HistoryEntry[]) {
   }
 }
 
+// --- Auto-send result cache ------------------------------------------------
+// The /search page re-mounts the assistant with the URL query on every refresh
+// and browser back/forward. Replaying that query would re-hit /api/chat (and,
+// for non-search turns, the LLM) for a result the user already saw. We cache
+// the completed turn per query in sessionStorage (tab-scoped, so it naturally
+// clears when the tab closes) and replay it instead of re-requesting.
+const AUTOSEND_CACHE_KEY = "dmp_autosend_cache";
+
+type CachedTurn = {
+  messages: ChatMessage[];
+  propertyIds: string[] | null; // null = response had no property-ids header
+  intent: Record<string, unknown> | null;
+  sessionId?: string;
+};
+
+function autoSendCacheKey(propertyId: string | undefined, query: string) {
+  return `${propertyId ?? ""}::${query.trim()}`;
+}
+
+function readAutoSend(
+  propertyId: string | undefined,
+  query: string,
+): CachedTurn | null {
+  try {
+    const raw = sessionStorage.getItem(AUTOSEND_CACHE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw) as Record<string, CachedTurn>;
+    return map[autoSendCacheKey(propertyId, query)] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeAutoSend(
+  propertyId: string | undefined,
+  query: string,
+  turn: CachedTurn,
+) {
+  try {
+    const raw = sessionStorage.getItem(AUTOSEND_CACHE_KEY);
+    const map = (raw ? JSON.parse(raw) : {}) as Record<string, CachedTurn>;
+    map[autoSendCacheKey(propertyId, query)] = turn;
+    // Keep the cache bounded (drop oldest keys beyond a small cap).
+    const keys = Object.keys(map);
+    if (keys.length > 30) {
+      for (const k of keys.slice(0, keys.length - 30)) delete map[k];
+    }
+    sessionStorage.setItem(AUTOSEND_CACHE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore (private mode / blocked / quota)
+  }
+}
+
 type AIChatProps = {
   placeholder?: string;
   propertyId?: string;
@@ -103,6 +156,16 @@ export function AIChat({
     setHistoryOpen(false);
   }
 
+  // Restore a previously-cached auto-send turn (refresh / browser back) without
+  // calling the API. Kept as its own function so the mount effect never calls
+  // setState synchronously in its body.
+  function hydrateFromCache(cached: CachedTurn) {
+    setMessages(cached.messages);
+    setPreviousIntent(cached.intent);
+    if (cached.sessionId) setSessionId(cached.sessionId);
+    if (cached.propertyIds !== null) onPropertyIds?.(cached.propertyIds);
+  }
+
   async function openSession(id: string) {
     setHistoryOpen(false);
     try {
@@ -140,7 +203,11 @@ export function AIChat({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
 
-  async function send(text: string, baseMessages?: ChatMessage[]) {
+  async function send(
+    text: string,
+    baseMessages?: ChatMessage[],
+    cacheKey?: string,
+  ) {
     const trimmed = text.trim();
     if (!trimmed || streaming) return;
 
@@ -168,18 +235,23 @@ export function AIChat({
       });
 
       const intentHeader = res.headers.get("X-Search-Intent");
+      let turnIntent: Record<string, unknown> | null = previousIntent;
       onIntent?.(intentHeader);
       if (intentHeader) {
         const decoded = decodeBase64UrlJson<Record<string, unknown>>(intentHeader);
-        if (decoded) setPreviousIntent(decoded);
+        if (decoded) {
+          setPreviousIntent(decoded);
+          turnIntent = decoded;
+        }
       }
 
       // Header present but empty means "a search ran and matched nothing" —
       // still notify (with []) so the results grid clears instead of keeping
       // the previous search's cards. Only a missing header (null) is skipped.
       const idsHeader = res.headers.get("X-Property-Ids");
-      if (idsHeader !== null) {
-        onPropertyIds?.(idsHeader.split(",").filter(Boolean));
+      const turnIds = idsHeader !== null ? idsHeader.split(",").filter(Boolean) : null;
+      if (turnIds !== null) {
+        onPropertyIds?.(turnIds);
       }
 
       const nextSession = res.headers.get("X-Chat-Session");
@@ -209,6 +281,17 @@ export function AIChat({
           { role: "assistant", content: assistant },
         ]);
       }
+
+      // Cache the completed turn so a refresh / browser-back replays it from
+      // storage instead of re-hitting the API (and any LLM cost).
+      if (cacheKey) {
+        writeAutoSend(propertyId, cacheKey, {
+          messages: [...nextMessages, { role: "assistant", content: assistant }],
+          propertyIds: turnIds,
+          intent: turnIntent,
+          sessionId: nextSession ?? sessionId,
+        });
+      }
     } catch {
       setMessages([
         ...nextMessages,
@@ -227,7 +310,19 @@ export function AIChat({
   useEffect(() => {
     if (!autoSendOnMount || autoSent.current) return;
     autoSent.current = true;
-    void send(autoSendOnMount, []);
+
+    // On refresh / browser back, replay the cached turn instead of re-running
+    // the query against the API — the user already paid for this result.
+    const cached = readAutoSend(propertyId, autoSendOnMount);
+    if (cached) {
+      // One-time restore of prior results from sessionStorage (an external
+      // system) — the intended use of an effect, not a derived-state loop.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      hydrateFromCache(cached);
+      return;
+    }
+
+    void send(autoSendOnMount, [], autoSendOnMount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSendOnMount]);
 
