@@ -126,7 +126,6 @@ export async function POST(request: Request) {
 
     // ---------------- Property assistant branch ----------------
     if (body.propertyId) {
-      const prompts = await getPrompts(["system", "propertyAssistant"]);
       const property = await prisma.property.findFirst({
         where: { id: body.propertyId, deletedAt: null },
         include: {
@@ -223,35 +222,50 @@ export async function POST(request: Request) {
         return streamText(direct, { "X-Chat-Session": chatSessionId });
       }
 
-      // The LLM path needs retrieved knowledge; only fetch it when we get here.
-      const knowledge = await gatherKnowledge(
-        `${property.title} ${property.community?.name ?? ""} ${lastUser.content}`,
-      );
-      const context = `${factLines.join("\n")}${knowledge ? `\n\nCommunity / knowledge:\n${knowledge}` : ""}`;
+      // Open-ended questions are the only ones that reach the (paid) LLM. Gate
+      // them so cost is controllable: the LLM runs only when explicitly enabled
+      // (AI_PROPERTY_LLM_ENABLED=true) AND the caller is under a dedicated
+      // per-IP LLM cap. Otherwise we serve the deterministic fact sheet below —
+      // no model call, no charge.
+      const llmEnabled = process.env.AI_PROPERTY_LLM_ENABLED === "true";
+      const llmCap = Number(process.env.AI_PROPERTY_LLM_RATE ?? "10");
+      const llmAllowed =
+        llmEnabled && rateLimit(`chat-llm:${ip}`, llmCap, 60_000).ok;
 
-      const stream = await streamGroundedResponse({
-        system: `${prompts.system}\n${prompts.propertyAssistant}`,
-        history,
-        question: lastUser.content,
-        context,
-        // onComplete fires after the handler returns (during stream drain), so
-        // it is outside the `after` scope — await the writes directly here.
-        onComplete: async (text, usage) => {
-          try {
-            await writeInbound();
-            await writeAssistant(text, usage);
-          } catch {
-            // Best-effort transcript write.
-          }
-        },
-      });
-      if (stream) {
-        return new Response(stream, {
-          headers: { ...LLM_HEADERS, "X-Chat-Session": chatSessionId },
+      if (llmAllowed) {
+        // The LLM path needs prompts + retrieved knowledge; only fetch them
+        // when we actually get here (direct answers / gated-off turns skip both).
+        const prompts = await getPrompts(["system", "propertyAssistant"]);
+        const knowledge = await gatherKnowledge(
+          `${property.title} ${property.community?.name ?? ""} ${lastUser.content}`,
+        );
+        const context = `${factLines.join("\n")}${knowledge ? `\n\nCommunity / knowledge:\n${knowledge}` : ""}`;
+
+        const stream = await streamGroundedResponse({
+          system: `${prompts.system}\n${prompts.propertyAssistant}`,
+          history,
+          question: lastUser.content,
+          context,
+          // onComplete fires after the handler returns (during stream drain), so
+          // it is outside the `after` scope — await the writes directly here.
+          onComplete: async (text, usage) => {
+            try {
+              await writeInbound();
+              await writeAssistant(text, usage);
+            } catch {
+              // Best-effort transcript write.
+            }
+          },
         });
+        if (stream) {
+          return new Response(stream, {
+            headers: { ...LLM_HEADERS, "X-Chat-Session": chatSessionId },
+          });
+        }
       }
 
-      // Fallback: deterministic fact sheet.
+      // Fallback: deterministic fact sheet (also used when the LLM is gated off
+      // or over its cap).
       const answer = [
         `Regarding **${property.title}**:`,
         ...factLines.slice(1).map((l) => `- ${l}`),
