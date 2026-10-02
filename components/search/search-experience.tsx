@@ -74,6 +74,9 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
         <AIChat
           placeholder="Ask a follow-up..."
           showHistory
+          whatsappNumber={
+            process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "971501234567"
+          }
           autoSendOnMount={initialQuery || undefined}
           initialMessages={
             initialQuery ? [{ role: "user", content: initialQuery }] : []

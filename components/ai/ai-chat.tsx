@@ -248,7 +248,11 @@ export function AIChat({
   function shareOnWhatsApp() {
     if (typeof window === "undefined" || !whatsappNumber) return;
     const url = window.location.href;
-    const message = `Hi, I'd like more information about this property:\n${url}`;
+    // Property pages reference the specific listing; browse pages send a
+    // general enquiry with the page they were looking at.
+    const message = propertyId
+      ? `Hi, I'd like more information about this property:\n${url}`
+      : `Hi, I'd like help finding a property on DMProperties.\n${url}`;
     const number = whatsappNumber.replace(/[^\d]/g, "");
     window.open(
       `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
