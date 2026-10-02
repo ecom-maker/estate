@@ -283,25 +283,29 @@ export function AIChat({
 
         {showHistory ? (
           <div className={cn("flex items-center gap-1", whatsappNumber ? "" : "ml-auto")}>
-            <button
-              type="button"
-              onClick={startNewChat}
-              aria-label="New chat"
-              title="New chat"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-accent/10 hover:text-accent"
-            >
-              <SquarePen className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={toggleHistory}
-              aria-label="Chat history"
-              title="Chat history"
-              aria-expanded={historyOpen}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-accent/10 hover:text-accent"
-            >
-              <History className="h-4 w-4" />
-            </button>
+            <span className="group relative">
+              <button
+                type="button"
+                onClick={startNewChat}
+                aria-label="New chat"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-accent/10 hover:text-accent"
+              >
+                <SquarePen className="h-4 w-4" />
+              </button>
+              <Tooltip>New chat</Tooltip>
+            </span>
+            <span className="group relative">
+              <button
+                type="button"
+                onClick={toggleHistory}
+                aria-label="Chat history"
+                aria-expanded={historyOpen}
+                className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-accent/10 hover:text-accent"
+              >
+                <History className="h-4 w-4" />
+              </button>
+              <Tooltip>Chat history</Tooltip>
+            </span>
           </div>
         ) : null}
 
@@ -419,6 +423,18 @@ export function AIChat({
         </p>
       </form>
     </div>
+  );
+}
+
+/** Instant, styled hover/focus tooltip for the header icon buttons. */
+function Tooltip({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute left-1/2 top-full z-40 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-md transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+    >
+      {children}
+    </span>
   );
 }
 
