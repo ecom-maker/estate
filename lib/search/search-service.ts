@@ -23,13 +23,13 @@ export async function searchProperties(intent: SearchIntent) {
   } else if (intent.propertyType) {
     where.type = TYPE_MAP[intent.propertyType];
   }
-  // A list is an exact any-of; a single value is an exact count too — asking
-  // for "3 baths" must not return 5-bath homes. Use a list (e.g. "3 or 4 bed")
-  // to match several counts.
+  // A list is an exact any-of. For a single value: bedrooms mean "N or more"
+  // (the common portal convention), but bathrooms are an exact count — asking
+  // for "3 baths" must not return 5-bath homes.
   if (intent.bedroomsList?.length) {
     where.bedrooms = { in: intent.bedroomsList };
   } else if (intent.bedrooms != null) {
-    where.bedrooms = intent.bedrooms;
+    where.bedrooms = { gte: intent.bedrooms };
   }
   if (intent.bathroomsList?.length) {
     where.bathrooms = { in: intent.bathroomsList };
