@@ -350,6 +350,24 @@ export function extractSearchIntentHeuristic(
       break;
     }
   }
+  // 1b) Short uppercase abbreviations embedded in the name, e.g. "JVC" from
+  //     "JVC (Jumeirah Village Circle)" or "JBR" from "... (JBR)". Matched as a
+  //     whole word, case-insensitive, exact only — so "jvc" and "jvt" never
+  //     collide (these are too short for the distinctive-token step below).
+  if (!detected) {
+    const msgWords = new Set(
+      text.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean),
+    );
+    for (const community of communities) {
+      const abbrevs = (community.match(/\b[A-Z]{2,5}\b/g) ?? []).map((a) =>
+        a.toLowerCase(),
+      );
+      if (abbrevs.some((a) => msgWords.has(a))) {
+        detected = community;
+        break;
+      }
+    }
+  }
   // 2) Fuzzy whole-name match for typos ("emirates hils", "palm jumeria").
   if (!detected) {
     for (const community of communities) {
