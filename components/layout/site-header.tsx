@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HeaderAuth } from "@/components/layout/header-auth";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
 
@@ -45,8 +46,9 @@ export async function SiteHeader() {
           <HeaderAuth variant="desktop" />
         </nav>
 
-        <div className="md:hidden">
+        <div className="flex items-center gap-2 md:hidden">
           <HeaderAuth variant="mobile" />
+          <MobileNav nav={nav} />
         </div>
       </div>
     </header>

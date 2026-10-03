@@ -179,16 +179,9 @@ export function HeaderAuth({ variant }: HeaderAuthProps) {
     );
   }
 
-  return (
-    <div className="flex items-center gap-4">
-      <Link href="/login" className="text-sm font-medium text-primary">
-        Sign in
-      </Link>
-      <Link href="/signup" className="text-sm font-medium text-accent">
-        Sign up
-      </Link>
-    </div>
-  );
+  // Mobile, signed out: the hamburger (MobileNav) carries Sign in / Sign up,
+  // so render nothing here to avoid duplicate controls.
+  return null;
 }
 
 function MenuLink({
