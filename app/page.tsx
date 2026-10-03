@@ -2,7 +2,7 @@ import { HeroChatBar } from "@/components/ai/hero-chat-bar";
 
 export default function HomePage() {
   return (
-    <section className="relative -mt-[65px] min-h-[100svh] overflow-hidden pt-[65px]">
+    <section className="relative -mt-[65px] min-h-[100svh] pt-[65px]">
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -16,7 +16,7 @@ export default function HomePage() {
         aria-hidden
       />
 
-      <div className="relative mx-auto flex min-h-[calc(100svh-65px)] max-w-7xl flex-col justify-end px-6 pb-16 pt-24 md:justify-center md:px-10 md:pb-24">
+      <div className="relative mx-auto flex min-h-[calc(100svh-65px)] max-w-7xl flex-col justify-start px-6 pb-16 pt-20 md:px-10 md:pt-24 md:pb-24">
         <div className="max-w-3xl">
           {/* Gold-on-black logo: `screen` blend drops the black so only the
               gold mark shows over the dark hero. */}
