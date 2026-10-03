@@ -124,6 +124,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             include: { roles: { include: { role: true } } },
           });
           token.roles = dbUser?.roles.map((r) => r.role.name) ?? [];
+          // Keep name/image fresh from the DB — the PrismaAdapter stores the
+          // Google profile picture here on OAuth sign-in, so the avatar can use it.
+          if (dbUser) {
+            token.name = dbUser.name ?? token.name;
+            token.picture = dbUser.image ?? token.picture ?? null;
+          }
         } catch (error) {
           console.error("[auth] jwt role lookup failed", error);
           token.roles = [];
@@ -136,6 +142,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.sub ?? "";
         (session.user as { roles?: string[] }).roles =
           (token.roles as string[]) ?? [];
+        session.user.image = (token.picture as string | null) ?? null;
       }
       return session;
     },
