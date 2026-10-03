@@ -24,7 +24,7 @@ export default function HomePage() {
           <img
             src="/dm-global-logo.webp"
             alt="DM Global — Global Luxury Real Estate"
-            className="w-60 max-w-full md:w-80"
+            className="w-72 max-w-full md:w-[26rem]"
             style={{ mixBlendMode: "screen" }}
           />
         </div>
