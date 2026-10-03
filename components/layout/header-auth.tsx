@@ -25,9 +25,13 @@ export function HeaderAuth({ variant }: HeaderAuthProps) {
     if (variant === "desktop") {
       return (
         <div className="flex items-center gap-3">
-          <span className="max-w-[160px] truncate text-sm text-muted" title={label}>
+          <Link
+            href="/account"
+            className="max-w-[160px] truncate text-sm font-medium text-muted transition hover:text-accent"
+            title={`${label} — my profile`}
+          >
             {label}
-          </span>
+          </Link>
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: "/" })}
@@ -39,13 +43,18 @@ export function HeaderAuth({ variant }: HeaderAuthProps) {
       );
     }
     return (
-      <button
-        type="button"
-        onClick={() => signOut({ callbackUrl: "/" })}
-        className="text-sm font-medium text-primary"
-      >
-        Sign out
-      </button>
+      <div className="flex items-center gap-4">
+        <Link href="/account" className="text-sm font-medium text-primary">
+          Profile
+        </Link>
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/" })}
+          className="text-sm font-medium text-primary"
+        >
+          Sign out
+        </button>
+      </div>
     );
   }
 

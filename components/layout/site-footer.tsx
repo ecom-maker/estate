@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/rbac/check";
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const session = await auth();
+  const showAdmin = isAdmin(
+    (session?.user as { roles?: string[] } | undefined)?.roles,
+  );
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10">
@@ -16,9 +23,11 @@ export function SiteFooter() {
           <Link href="/search" className="hover:text-primary">
             Search
           </Link>
-          <Link href="/admin" className="hover:text-primary">
-            Admin
-          </Link>
+          {showAdmin ? (
+            <Link href="/admin" className="hover:text-primary">
+              Admin
+            </Link>
+          ) : null}
           <Link href="/docs" className="hover:text-primary">
             Docs
           </Link>

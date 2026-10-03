@@ -90,9 +90,29 @@ model User {
   notifications  Notification[]
   auditLogs      AuditLog[]
   aiLogs         AiLog[]
+  aiSetting      UserAiSetting?
 
   @@index([companyId])
   @@map("users")
+}
+
+/// Per-user "bring your own" LLM credentials. When enabled, this user's
+/// AI requests use this provider/key (billed to them) instead of the company
+/// default. The API key is stored encrypted (see lib/crypto/secrets).
+model UserAiSetting {
+  id             String   @id @default(cuid())
+  userId         String   @unique @map("user_id")
+  enabled        Boolean  @default(true)
+  baseUrl        String?  @map("base_url")
+  model          String?
+  embeddingModel String?  @map("embedding_model")
+  apiKeyEnc      String?  @map("api_key_enc")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_ai_settings")
 }
 
 model Account {

@@ -31,12 +31,28 @@ async function resolveStoredKey(): Promise<string | null> {
 }
 
 /**
- * Resolve the active LLM provider config from env (highest priority) or the
- * admin-configured, encrypted settings. Works with any OpenAI-compatible
- * provider (OpenAI, OpenRouter, Gemini compat, Groq, custom). Returns null when
- * nothing is configured, so callers fall back to deterministic behavior.
+ * Resolve the active LLM provider config.
+ *
+ * Priority:
+ *   1. The signed-in user's personal ("bring your own") key, when `userId` is
+ *      given and they have an enabled config — so usage is billed to them.
+ *   2. Environment variables.
+ *   3. The admin-configured, encrypted company settings.
+ *
+ * Works with any OpenAI-compatible provider (OpenAI, OpenRouter, Gemini compat,
+ * Groq, custom). Returns null when nothing is configured, so callers fall back
+ * to deterministic behavior.
  */
-export async function resolveLLMConfig(): Promise<LLMConfig | null> {
+export async function resolveLLMConfig(
+  opts?: { userId?: string | null },
+): Promise<LLMConfig | null> {
+  if (opts?.userId) {
+    // Lazy import avoids a circular dependency (user-llm imports this module's type).
+    const { resolveUserLLMConfig } = await import("@/lib/ai/user-llm");
+    const userCfg = await resolveUserLLMConfig(opts.userId);
+    if (userCfg) return userCfg;
+  }
+
   const envKey =
     process.env.OPENAI_API_KEY?.trim() || process.env.LLM_API_KEY?.trim();
   if (envKey) {

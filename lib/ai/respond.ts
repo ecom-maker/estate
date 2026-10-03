@@ -42,9 +42,11 @@ export async function streamGroundedResponse(opts: {
   question: string;
   context: string;
   temperature?: number;
+  /** When set, use this user's personal LLM key (billed to them) if configured. */
+  userId?: string | null;
   onComplete?: (fullText: string, usage?: CompletionUsage) => Promise<void> | void;
 }): Promise<ReadableStream<Uint8Array> | null> {
-  const cfg = await resolveLLMConfig();
+  const cfg = await resolveLLMConfig({ userId: opts.userId });
   if (!cfg) return null;
 
   const messages: ChatTurn[] = [

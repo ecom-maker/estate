@@ -1,15 +1,23 @@
 import Link from "next/link";
 import { HeaderAuth } from "@/components/layout/header-auth";
+import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/rbac/check";
 
-const nav = [
+const baseNav = [
   { href: "/search", label: "Search" },
   { href: "/properties", label: "Properties" },
   { href: "/projects", label: "Projects" },
   { href: "/agent", label: "Agent" },
-  { href: "/admin", label: "Admin" },
 ];
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const session = await auth();
+  const roles = (session?.user as { roles?: string[] } | undefined)?.roles;
+  // Admin link is only shown to staff admins — customers/agents never see it.
+  const nav = isAdmin(roles)
+    ? [...baseNav, { href: "/admin", label: "Admin" }]
+    : baseNav;
+
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:px-10">

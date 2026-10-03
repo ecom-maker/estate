@@ -502,6 +502,7 @@ Known communities (map misspellings/variants and partial names to the closest on
 export async function extractSearchIntent(
   message: string,
   previous?: SearchIntent | null,
+  opts?: { userId?: string | null },
 ): Promise<SearchIntent> {
   // The heuristic is fast (<5ms) and handles typos, communities, multi-select,
   // price/area/beds, status and deal type — so it's the default. The LLM pass
@@ -509,7 +510,9 @@ export async function extractSearchIntent(
   const llmEnabled = process.env.AI_INTENT_ENABLED === "true";
   const knownCommunities = await getKnownCommunities();
 
-  const cfg = llmEnabled ? await resolveLLMConfig() : null;
+  // When the LLM pass is enabled, prefer the signed-in user's own key so their
+  // intent extraction is billed to them, not the company account.
+  const cfg = llmEnabled ? await resolveLLMConfig({ userId: opts?.userId }) : null;
   if (cfg) {
     const llmIntent = await extractWithLLM(
       message,

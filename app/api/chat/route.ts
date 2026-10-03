@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { randomUUID } from "node:crypto";
+import { auth } from "@/lib/auth";
 import { extractSearchIntent, isRealEstateQuery } from "@/lib/ai/intent";
 import { answerPropertyQuestion } from "@/lib/ai/property-answer";
 import { buildMarketInsights } from "@/lib/property/market-insights";
@@ -78,6 +79,10 @@ export async function POST(request: Request) {
     if (!lastUser) {
       return failure("VALIDATION_ERROR", "No user message provided", 400);
     }
+
+    // Signed-in users with their own LLM key have AI usage billed to them.
+    const session = await auth();
+    const userId = session?.user?.id ?? null;
 
     // Generate the session id locally when the client didn't supply one, so the
     // response never waits on a DB insert just to learn the id. The row itself
@@ -246,6 +251,7 @@ export async function POST(request: Request) {
           history,
           question: lastUser.content,
           context,
+          userId,
           // onComplete fires after the handler returns (during stream drain), so
           // it is outside the `after` scope — await the writes directly here.
           onComplete: async (text, usage) => {
@@ -278,7 +284,7 @@ export async function POST(request: Request) {
 
     // ---------------- Conversational search branch ----------------
     const previous = (body.previousIntent ?? undefined) as SearchIntent | undefined;
-    const intent = await extractSearchIntent(lastUser.content, previous);
+    const intent = await extractSearchIntent(lastUser.content, previous, { userId });
 
     // Decline off-topic questions instead of running a blind property search.
     if (!isRealEstateQuery(lastUser.content, intent)) {
