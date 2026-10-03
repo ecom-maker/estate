@@ -1,4 +1,53 @@
+import Link from "next/link";
+import {
+  Search,
+  Heart,
+  Bookmark,
+  Users,
+  CalendarClock,
+  MessagesSquare,
+} from "lucide-react";
+
 export const metadata = { title: "Agent" };
+
+const cards = [
+  {
+    title: "AI Search",
+    href: "/search",
+    desc: "Run a conversational property search.",
+    Icon: Search,
+  },
+  {
+    title: "Favorites",
+    href: "/agent/favorites",
+    desc: "Properties you've saved.",
+    Icon: Heart,
+  },
+  {
+    title: "Saved Searches",
+    href: "/agent/saved-searches",
+    desc: "Your stored search criteria.",
+    Icon: Bookmark,
+  },
+  {
+    title: "Customers",
+    href: "/agent/customers",
+    desc: "Registered customers.",
+    Icon: Users,
+  },
+  {
+    title: "Appointments",
+    href: "/agent/appointments",
+    desc: "Viewings and meetings.",
+    Icon: CalendarClock,
+  },
+  {
+    title: "Chat History",
+    href: "/agent/chat-history",
+    desc: "Past assistant conversations.",
+    Icon: MessagesSquare,
+  },
+];
 
 export default function AgentPage() {
   return (
@@ -11,17 +60,24 @@ export default function AgentPage() {
         AI search, favorites, saved searches, customers, and chat history.
       </p>
       <div className="mt-10 grid gap-4 md:grid-cols-3">
-        {["AI Search", "Favorites", "Saved Searches", "Customers", "Appointments", "Chat History"].map(
-          (item) => (
-            <div
-              key={item}
-              className="rounded-sm border border-border bg-card p-5"
-            >
-              <h2 className="font-serif text-xl text-primary">{item}</h2>
-              <p className="mt-2 text-sm text-muted">Available after auth & data layers.</p>
+        {cards.map(({ title, href, desc, Icon }) => (
+          <Link
+            key={title}
+            href={href}
+            className="group rounded-sm border border-border bg-card p-5 transition hover:border-accent hover:shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="font-serif text-xl text-primary">{title}</h2>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-accent transition group-hover:bg-accent group-hover:text-primary-foreground">
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
             </div>
-          ),
-        )}
+            <p className="mt-2 text-sm text-muted">{desc}</p>
+            <span className="mt-4 inline-block text-sm font-medium text-accent">
+              Open →
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
   );
