@@ -51,18 +51,31 @@ export function HeaderAuth({ variant }: HeaderAuthProps) {
 
   if (variant === "desktop") {
     return (
-      <Link
-        href="/login"
-        className="rounded-sm border border-primary/20 px-4 py-2 text-sm font-medium text-primary transition hover:border-accent hover:text-accent"
-      >
-        Sign in
-      </Link>
+      <div className="flex items-center gap-3">
+        <Link
+          href="/login"
+          className="rounded-sm border border-primary/20 px-4 py-2 text-sm font-medium text-primary transition hover:border-accent hover:text-accent"
+        >
+          Sign in
+        </Link>
+        <Link
+          href="/signup"
+          className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
+        >
+          Sign up
+        </Link>
+      </div>
     );
   }
 
   return (
-    <Link href="/login" className="text-sm font-medium text-primary">
-      Sign in
-    </Link>
+    <div className="flex items-center gap-4">
+      <Link href="/login" className="text-sm font-medium text-primary">
+        Sign in
+      </Link>
+      <Link href="/signup" className="text-sm font-medium text-accent">
+        Sign up
+      </Link>
+    </div>
   );
 }

@@ -213,6 +213,13 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
         )}
       </div>
 
+      <p className="text-sm text-muted">
+        Don&apos;t have an account?{" "}
+        <Link href="/signup" className="font-medium text-accent hover:underline">
+          Create one
+        </Link>
+      </p>
+
       <p className="text-xs text-muted">
         Prefer browsing first?{" "}
         <Link href="/search" className="text-accent hover:underline">
