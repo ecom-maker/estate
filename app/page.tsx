@@ -24,17 +24,19 @@ export default function HomePage() {
           <img
             src="/dm-global-logo.webp"
             alt="DM Global — Global Luxury Real Estate"
-            className="mb-6 w-60 max-w-full md:w-80"
+            className="w-60 max-w-full md:w-80"
             style={{ mixBlendMode: "screen" }}
           />
-          <h1 className="font-serif text-4xl leading-tight text-white md:text-6xl md:leading-[1.1]">
-            A luxury real estate advisor, powered by conversation.
-          </h1>
         </div>
 
+        {/* Search sits directly below the logo. */}
         <div className="mt-8">
           <HeroChatBar />
         </div>
+
+        <h1 className="mt-10 max-w-3xl font-serif text-4xl leading-tight text-white md:text-5xl md:leading-[1.1]">
+          A luxury real estate advisor, powered by conversation.
+        </h1>
       </div>
     </section>
   );
