@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F7E6AC"/>
+      <stop offset="38%" stop-color="#CBA64E"/>
+      <stop offset="58%" stop-color="#9A7A2D"/>
+      <stop offset="100%" stop-color="#EEDCA0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" rx="52" fill="#0B0B0C"/>
+  <rect x="8" y="8" width="240" height="240" rx="46" fill="none" stroke="url(#gold)" stroke-width="4" opacity="0.65"/>
+  <text x="50%" y="52%" text-anchor="middle" dominant-baseline="central"
+        font-family="Georgia, 'Times New Roman', serif" font-weight="700"
+        font-size="130" letter-spacing="2" fill="url(#gold)">DM</text>
+</svg>
