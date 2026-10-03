@@ -329,6 +329,7 @@ export async function POST(request: Request) {
       `Type: ${intent.propertyTypes?.length ? intent.propertyTypes.join("/") : (intent.propertyType ?? "any")}`,
       `Location: ${intent.community ?? intent.location ?? "any"}`,
       `Bedrooms: ${intent.bedroomsList?.length ? intent.bedroomsList.join(", ") : (intent.bedrooms ?? "any")}`,
+      `Bathrooms: ${intent.bathroomsList?.length ? intent.bathroomsList.join(", ") : (intent.bathrooms ?? "any")}`,
       `Budget: ${
         intent.minPriceAED != null || intent.maxPriceAED != null
           ? `${intent.minPriceAED ? formatAED(intent.minPriceAED) : "any"} – ${intent.maxPriceAED ? formatAED(intent.maxPriceAED) : "any"}`

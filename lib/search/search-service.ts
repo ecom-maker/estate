@@ -23,16 +23,18 @@ export async function searchProperties(intent: SearchIntent) {
   } else if (intent.propertyType) {
     where.type = TYPE_MAP[intent.propertyType];
   }
-  // A list is an exact any-of; a single value keeps the "N or more" behaviour.
+  // A list is an exact any-of; a single value is an exact count too — asking
+  // for "3 baths" must not return 5-bath homes. Use a list (e.g. "3 or 4 bed")
+  // to match several counts.
   if (intent.bedroomsList?.length) {
     where.bedrooms = { in: intent.bedroomsList };
   } else if (intent.bedrooms != null) {
-    where.bedrooms = { gte: intent.bedrooms };
+    where.bedrooms = intent.bedrooms;
   }
   if (intent.bathroomsList?.length) {
     where.bathrooms = { in: intent.bathroomsList };
   } else if (intent.bathrooms != null) {
-    where.bathrooms = { gte: intent.bathrooms };
+    where.bathrooms = intent.bathrooms;
   }
   if (intent.minPriceAED != null || intent.maxPriceAED != null) {
     where.priceAed = {
