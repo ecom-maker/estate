@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         <p style="margin:12px 0 4px"><strong>Property description:</strong></p>
         <p style="margin:0;white-space:pre-wrap">${escapeHtml(body.description)}</p>
         <hr style="margin:16px 0;border:none;border-top:1px solid #eee" />
-        <p style="margin:0;color:#666;font-size:12px">Submitted via DMProperties AI · ${new Date().toUTCString()}</p>
+        <p style="margin:0;color:#666;font-size:12px">Submitted via DM Global · ${new Date().toUTCString()}</p>
       </div>`;
 
     const email = await sendEmail({

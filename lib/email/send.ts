@@ -14,7 +14,7 @@ export async function sendEmail(params: {
 
   // resend.dev is Resend's test sender (delivers to the account owner's email);
   // set EMAIL_FROM to a verified domain address for production sending.
-  const from = process.env.EMAIL_FROM || "DMProperties <onboarding@resend.dev>";
+  const from = process.env.EMAIL_FROM || "DM Global <onboarding@resend.dev>";
 
   try {
     const res = await fetch("https://api.resend.com/emails", {

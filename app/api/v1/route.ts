@@ -9,7 +9,7 @@ export function OPTIONS() {
 export function GET() {
   const base = `${SITE_URL}/api/v1`;
   return apiJson({
-    name: "DMProperties AI — Property Data Layer",
+    name: "DM Global — Property Data Layer",
     version: "1.0.0",
     description:
       "A canonical, source-agnostic API over luxury real-estate inventory. " +

@@ -41,11 +41,11 @@ export async function POST(request: Request) {
       const link = `${originFrom(request)}/reset-password?token=${raw}`;
       await sendEmail({
         to: user.email,
-        subject: "Reset your DMProperties password",
+        subject: "Reset your DM Global password",
         html: `
           <div style="font-family:Arial,sans-serif;font-size:15px;color:#1a1a1a;line-height:1.6">
             <p>Hi${user.name ? ` ${escapeHtml(user.name)}` : ""},</p>
-            <p>We received a request to reset your DMProperties password.
+            <p>We received a request to reset your DM Global password.
             Click the button below to choose a new one. This link expires in 1 hour.</p>
             <p style="margin:24px 0">
               <a href="${link}" style="background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:4px;text-decoration:none">Reset password</a>

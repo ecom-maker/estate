@@ -21,8 +21,8 @@ const libreCaslon = Libre_Caslon_Text({
 
 export const metadata: Metadata = {
   title: {
-    default: "DMProperties AI",
-    template: "%s · DMProperties AI",
+    default: "DM Global",
+    template: "%s · DM Global",
   },
   description:
     "AI-native luxury real estate discovery — conversational search for villas, residences, and investment properties.",

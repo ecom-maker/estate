@@ -18,9 +18,15 @@ export default function HomePage() {
 
       <div className="relative mx-auto flex min-h-[calc(100svh-65px)] max-w-7xl flex-col justify-end px-6 pb-16 pt-24 md:justify-center md:px-10 md:pb-24">
         <div className="max-w-3xl">
-          <p className="mb-4 font-sans text-xs font-medium uppercase tracking-[0.28em] text-accent">
-            DMProperties AI
-          </p>
+          {/* Gold-on-black logo: `screen` blend drops the black so only the
+              gold mark shows over the dark hero. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/dm-global-logo.webp"
+            alt="DM Global — Global Luxury Real Estate"
+            className="mb-6 w-60 max-w-full md:w-80"
+            style={{ mixBlendMode: "screen" }}
+          />
           <h1 className="font-serif text-4xl leading-tight text-white md:text-6xl md:leading-[1.1]">
             A luxury real estate advisor, powered by conversation.
           </h1>

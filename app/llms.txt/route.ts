@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 // https://llmstxt.org — a map of this site's data for AI agents.
 export function GET() {
-  const body = `# DMProperties AI
+  const body = `# DM Global
 
 > A luxury real-estate portal for the UAE with an AI-native data layer. The
 > inventory is exposed as a canonical, queryable API so AI agents can read and

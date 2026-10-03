@@ -25,11 +25,11 @@ export async function SiteHeader() {
         <Link
           href="/"
           className="font-serif text-xl tracking-tight text-primary"
-          aria-label="DMProperties AI home"
+          aria-label="DM Global home"
         >
-          <span className="text-accent">DM</span>Properties
+          <span className="text-accent">DM</span> Global
           <span className="ml-1 align-super text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-accent">
-            AI
+            Luxury
           </span>
         </Link>
 

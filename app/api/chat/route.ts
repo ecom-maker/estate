@@ -289,7 +289,7 @@ export async function POST(request: Request) {
     // Decline off-topic questions instead of running a blind property search.
     if (!isRealEstateQuery(lastUser.content, intent)) {
       const answer =
-        "I'm the DMProperties real-estate assistant, so I can only help with " +
+        "I'm the DM Global real-estate assistant, so I can only help with " +
         "properties, communities, projects and prices — I don't have an answer " +
         "for that. Try asking about villas, apartments, off-plan projects, or a " +
         "specific community like Palm Jumeirah.";

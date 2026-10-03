@@ -4,7 +4,7 @@ import { SITE_URL } from "@/lib/data-layer/canonical";
 export const metadata = {
   title: "Property Data Layer — API",
   description:
-    "Canonical REST API over DMProperties inventory for websites and AI agents.",
+    "Canonical REST API over DM Global inventory for websites and AI agents.",
 };
 
 const ENDPOINTS = [

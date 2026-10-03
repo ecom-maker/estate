@@ -9,7 +9,7 @@ export function GET() {
   const spec = {
     openapi: "3.1.0",
     info: {
-      title: "DMProperties AI — Property Data Layer",
+      title: "DM Global — Property Data Layer",
       version: "1.0.0",
       description:
         "Canonical REST API over luxury real-estate inventory for websites and AI agents. " +

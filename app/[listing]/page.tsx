@@ -103,7 +103,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!resolved) return { title: "Not found" };
 
   const { parsed, localityName, properties } = resolved;
-  const title = `${listingTitle(parsed, localityName)} | DMProperties`;
+  const title = `${listingTitle(parsed, localityName)} | DM Global`;
   const count = properties.length;
   const description =
     `${count > 0 ? `${count}+ ` : ""}${parsed.typeDef.label.toLowerCase()} ` +

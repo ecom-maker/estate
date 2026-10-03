@@ -50,7 +50,7 @@ export default async function AdminPage() {
       </p>
       <h1 className="mt-3 font-serif text-4xl text-primary">Overview</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
-        Premium operational dashboard for DMProperties inventory, AI, and sync.
+        Premium operational dashboard for DM Global inventory, AI, and sync.
       </p>
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
