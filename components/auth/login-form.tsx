@@ -146,6 +146,11 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
         >
           Sign in
         </button>
+        <p className="text-right text-xs">
+          <Link href="/forgot-password" className="text-accent hover:underline">
+            Forgot password?
+          </Link>
+        </p>
         <p className="text-xs text-muted">
           Seeded admin: <code>admin@dmproperties.ai</code> /{" "}
           <code>Admin123!</code>
