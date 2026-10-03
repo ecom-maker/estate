@@ -13,6 +13,9 @@ type PropertyForAnswer = {
   community: { name: string } | null;
   developer: { name: string } | null;
   amenities: { amenity: { name: string } }[];
+  floors?: number | null;
+  floor?: number | null;
+  description?: string | null;
   paymentPlan?: unknown;
   metadata?: unknown;
 };
@@ -226,6 +229,38 @@ export function answerPropertyQuestion(
     return p.bathrooms != null
       ? `${title} has ${p.bathrooms} bathroom${p.bathrooms === 1 ? "" : "s"}.`
       : `The number of bathrooms isn't listed for ${title}.`;
+
+  // "Which floor is the unit on" — the unit's own level (check before the
+  // building-height case so "what floor is this unit" isn't caught by it).
+  if (has("which floor", "what floor", "which level", "what level"))
+    return p.floor != null
+      ? `This unit is on floor ${p.floor} of ${title}.`
+      : `The unit's floor level isn't listed for ${title}.`;
+
+  // Number of floors / storeys in the building. Prefer the structured field,
+  // else pull it from the description ("twin towers rising up to 22 floors").
+  if (
+    has(
+      "how many floor",
+      "number of floor",
+      "total floor",
+      "floors are",
+      "floors in",
+      "how many stor",
+      "storey",
+      "stories",
+      "how many level",
+      "how tall",
+    )
+  ) {
+    if (p.floors != null)
+      return `${title} has ${p.floors} floor${p.floors === 1 ? "" : "s"}.`;
+    const m = p.description?.match(
+      /(?:up to\s*)?(\d{1,3})\s*-?\s*(?:floors?|storeys?|stor(?:ies|eys))\b/i,
+    );
+    if (m) return `${title} rises up to ${m[1]} floors.`;
+    return `I don't have the number of floors on file for ${title}.`;
+  }
 
   if (has("how big", "how large", "area", "size", "sqft", "sq ft", "square f", "built up", "built-up"))
     return p.areaSqft != null
