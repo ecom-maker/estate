@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Building2 } from "lucide-react";
 
 // A few luxury gradients; the project title picks one deterministically so a
@@ -56,9 +56,21 @@ export function ProjectImage({
   title: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const ref = useRef<HTMLImageElement>(null);
+
+  // onError can be missed when the image already failed before React hydrated,
+  // so also check for a broken image (loaded, zero intrinsic size) on mount.
+  useEffect(() => {
+    const img = ref.current;
+    if (img && img.complete && img.naturalWidth === 0) {
+      setFailed(true);
+    }
+  }, []);
+
   if (!url || failed) return <Fallback title={title} />;
   return (
     <Image
+      ref={ref}
       src={url}
       alt={alt ?? title}
       fill
