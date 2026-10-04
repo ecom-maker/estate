@@ -2,14 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "images.unsplash.com" },
-      // Imported listing/project media (Reelly) and other S3 buckets.
-      { protocol: "https", hostname: "reelly-backend.s3.amazonaws.com" },
-      { protocol: "https", hostname: "**.amazonaws.com" },
-      // Admin-uploaded media in Supabase Storage.
-      { protocol: "https", hostname: "**.supabase.co" },
-    ],
+    // Custom loader (image-loader.ts): serve S3/Supabase images directly and
+    // optimize Unsplash via its CDN — the default optimizer can't fetch our
+    // imported media. With a custom loader, remotePatterns is not used.
+    loader: "custom",
+    loaderFile: "./image-loader.ts",
   },
   experimental: {
     serverActions: {
