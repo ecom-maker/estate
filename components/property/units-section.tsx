@@ -92,7 +92,9 @@ export function UnitsSection({
                             {u.layoutType}
                           </td>
                           <td className="text-muted">
-                            {u.areaSqft ? u.areaSqft.toLocaleString() : "—"}
+                            {u.areaSqft
+                              ? Math.round(u.areaSqft).toLocaleString()
+                              : "—"}
                           </td>
                           <td className="text-muted">{u.bathrooms ?? "—"}</td>
                           <td className="px-4 py-2 text-right">

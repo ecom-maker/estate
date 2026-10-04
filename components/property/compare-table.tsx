@@ -29,7 +29,7 @@ export function CompareTable({ items }: { items: CompareItem[] }) {
     ["Price", (i) => formatAED(i.priceAed)],
     ["Bedrooms", (i) => String(i.bedrooms ?? "—")],
     ["Bathrooms", (i) => String(i.bathrooms ?? "—")],
-    ["Area", (i) => (i.areaSqft ? `${i.areaSqft} sqft` : "—")],
+    ["Area", (i) => (i.areaSqft ? `${Math.round(i.areaSqft).toLocaleString()} sqft` : "—")],
     ["Community", (i) => i.community ?? "—"],
     ["Developer", (i) => i.developer ?? "—"],
     [

@@ -150,7 +150,12 @@ export default async function PropertyDetailPage({ params }: Props) {
           {[
             ["Bedrooms", property.bedrooms ?? "—"],
             ["Bathrooms", property.bathrooms ?? "—"],
-            ["Area", property.areaSqft ? `${property.areaSqft} sqft` : "—"],
+            [
+              "Area",
+              property.areaSqft
+                ? `${Math.round(property.areaSqft).toLocaleString()} sqft`
+                : "—",
+            ],
             ["Type", property.type],
             ["Waterfront", property.waterfront ? "Yes" : "No"],
             ["Off-plan", property.offPlan ? "Yes" : "No"],

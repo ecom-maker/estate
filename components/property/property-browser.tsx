@@ -183,7 +183,10 @@ export function PropertyBrowser({
                     <p className="mt-2 text-sm text-muted">
                       {property.bedrooms ?? "—"} bed ·{" "}
                       {property.bathrooms ?? "—"} bath ·{" "}
-                      {property.areaSqft?.toLocaleString() ?? "—"} sqft
+                      {property.areaSqft != null
+                        ? Math.round(property.areaSqft).toLocaleString()
+                        : "—"}{" "}
+                      sqft
                     </p>
                     <div className="mt-3 flex items-center gap-2">
                       <p className="text-sm font-medium text-primary">
