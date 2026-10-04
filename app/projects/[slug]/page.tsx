@@ -168,13 +168,18 @@ export default async function ProjectDetailPage({ params }: Props) {
           {project.developer.name}
         </p>
       ) : null}
-      <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="font-serif text-4xl text-primary md:text-5xl">
-          {project.title}
-        </h1>
+      <h1 className="mt-2 font-serif text-4xl text-primary md:text-5xl">
+        {project.title}
+      </h1>
+      <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+        <span>
+          {project.community?.name ?? "Dubai"} · from{" "}
+          {formatAED(project.priceAed)}
+          {handover ? ` · Handover ${handover}` : ""}
+        </span>
         <span
           className={cn(
-            "rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-wide",
+            "rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
             project.offPlan
               ? "bg-accent/15 text-accent"
               : "bg-primary/10 text-primary",
@@ -182,10 +187,6 @@ export default async function ProjectDetailPage({ params }: Props) {
         >
           {project.offPlan ? "Off-plan" : "Ready"}
         </span>
-      </div>
-      <p className="mt-2 text-sm text-muted">
-        {project.community?.name ?? "Dubai"} · from {formatAED(project.priceAed)}
-        {handover ? ` · Handover ${handover}` : ""}
       </p>
 
       <ProjectGallery
