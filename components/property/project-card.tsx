@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { formatAED } from "@/lib/utils";
+import { ProjectImage } from "@/components/property/project-image";
 import type { ProjectCardData } from "@/lib/property/project-card";
 
 export function ProjectCard({ p }: { p: ProjectCardData }) {
@@ -11,15 +11,7 @@ export function ProjectCard({ p }: { p: ProjectCardData }) {
     >
       {/* Image + badges */}
       <div className="relative aspect-[16/11] bg-primary/10">
-        {p.imageUrl ? (
-          <Image
-            src={p.imageUrl}
-            alt={p.imageAlt ?? p.title}
-            fill
-            sizes="(max-width:768px) 100vw, 45vw"
-            className="object-cover transition duration-500 group-hover:scale-[1.02]"
-          />
-        ) : null}
+        <ProjectImage url={p.imageUrl} alt={p.imageAlt} title={p.title} />
         <div className="absolute left-3 top-3 flex items-center gap-2">
           {p.offPlan ? (
             <span className="rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary shadow-sm">
