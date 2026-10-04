@@ -38,12 +38,17 @@ function saveHistory(list: HistoryEntry[]) {
 // the completed turn per query in sessionStorage (tab-scoped, so it naturally
 // clears when the tab closes) and replay it instead of re-requesting.
 const AUTOSEND_CACHE_KEY = "dmp_autosend_cache";
+// Cached turns expire after this long so a fix/new data deploy isn't masked by
+// a stale replay. Entries written before this field existed are treated as
+// expired too (no `ts`).
+const AUTOSEND_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 type CachedTurn = {
   messages: ChatMessage[];
   propertyIds: string[] | null; // null = response had no property-ids header
   intent: Record<string, unknown> | null;
   sessionId?: string;
+  ts: number; // when this turn was cached (Date.now())
 };
 
 function autoSendCacheKey(propertyId: string | undefined, query: string) {
@@ -58,7 +63,15 @@ function readAutoSend(
     const raw = sessionStorage.getItem(AUTOSEND_CACHE_KEY);
     if (!raw) return null;
     const map = JSON.parse(raw) as Record<string, CachedTurn>;
-    return map[autoSendCacheKey(propertyId, query)] ?? null;
+    const entry = map[autoSendCacheKey(propertyId, query)];
+    if (!entry) return null;
+    // Expired (or legacy entry without a timestamp) — drop it and miss.
+    if (typeof entry.ts !== "number" || Date.now() - entry.ts > AUTOSEND_TTL_MS) {
+      delete map[autoSendCacheKey(propertyId, query)];
+      sessionStorage.setItem(AUTOSEND_CACHE_KEY, JSON.stringify(map));
+      return null;
+    }
+    return entry;
   } catch {
     return null;
   }
@@ -67,14 +80,19 @@ function readAutoSend(
 function writeAutoSend(
   propertyId: string | undefined,
   query: string,
-  turn: CachedTurn,
+  turn: Omit<CachedTurn, "ts">,
 ) {
   try {
     const raw = sessionStorage.getItem(AUTOSEND_CACHE_KEY);
     const map = (raw ? JSON.parse(raw) : {}) as Record<string, CachedTurn>;
-    map[autoSendCacheKey(propertyId, query)] = turn;
-    // Keep the cache bounded (drop oldest keys beyond a small cap).
-    const keys = Object.keys(map);
+    const now = Date.now();
+    // Drop expired entries before adding the new one.
+    for (const [k, v] of Object.entries(map)) {
+      if (typeof v.ts !== "number" || now - v.ts > AUTOSEND_TTL_MS) delete map[k];
+    }
+    map[autoSendCacheKey(propertyId, query)] = { ...turn, ts: now };
+    // Keep the cache bounded — keep the most recently cached entries.
+    const keys = Object.keys(map).sort((a, b) => (map[a].ts ?? 0) - (map[b].ts ?? 0));
     if (keys.length > 30) {
       for (const k of keys.slice(0, keys.length - 30)) delete map[k];
     }
