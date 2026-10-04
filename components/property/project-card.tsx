@@ -68,13 +68,6 @@ export function ProjectCard({ p }: { p: ProjectCardData }) {
           </div>
         ) : null}
 
-        {/* Summary line */}
-        <p className="mt-3 text-xs text-muted">
-          {[p.bedRange, p.bathRange, p.sizeRange ? `${p.sizeRange}` : null]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-
         {/* Footer */}
         <div className="mt-4 flex items-end justify-between gap-3 border-t border-border pt-4">
           <div>
