@@ -1,6 +1,10 @@
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { PropertyBrowser } from "@/components/property/property-browser";
+import { ProjectBrowser } from "@/components/property/project-browser";
+import {
+  toProjectCardData,
+  projectCardInclude,
+  type ProjectCardData,
+} from "@/lib/property/project-card";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -9,37 +13,27 @@ export const metadata = {
     "Off-plan developments from leading developers — explore new projects, payment plans, unit types and floor plans.",
 };
 
-type ProjectCard = Prisma.PropertyGetPayload<{
-  include: { images: true; community: true; developer: true };
-}>;
-
 export default async function ProjectsPage() {
-  let projects: ProjectCard[] = [];
+  let projects: ProjectCardData[] = [];
   try {
-    projects = await prisma.property.findMany({
+    const rows = await prisma.property.findMany({
       where: {
         deletedAt: null,
         status: { in: ["ACTIVE", "RESERVED"] },
         offPlan: true,
       },
-      include: {
-        images: { orderBy: { sortOrder: "asc" }, take: 1 },
-        community: true,
-        developer: true,
-      },
+      include: projectCardInclude,
       orderBy: { createdAt: "desc" },
       take: 24,
     });
+    projects = rows.map(toProjectCardData);
   } catch {
     projects = [];
   }
 
   return (
-    <PropertyBrowser
-      initialProperties={projects}
-      cardBasePath="/projects"
-      eyebrowField="developer"
-      showFromPrice
+    <ProjectBrowser
+      initialProjects={projects}
       eyebrowLabel="New Developments"
       heading="Projects"
       subheading={`${projects.length} off-plan developments from leading developers`}
