@@ -118,8 +118,11 @@ export function ProjectGallery({
                 tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
+                  // Resolve the official (outdoor) Street View panorama server
+                  // side, then redirect — a plain pano URL would snap to the
+                  // nearest 360 photo, which can be a user upload on a balcony.
                   window.open(
-                    `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${coords.lat},${coords.lng}`,
+                    `/api/streetview?lat=${coords.lat}&lng=${coords.lng}`,
                     "_blank",
                     "noopener",
                   );
