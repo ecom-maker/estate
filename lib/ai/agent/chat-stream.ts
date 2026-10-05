@@ -77,6 +77,7 @@ export function agentChatResponse(opts: {
       };
 
       let result: Awaited<ReturnType<typeof runSalesAgent>> = null;
+      let failure = "";
       try {
         result = await runSalesAgent({
           history: opts.history,
@@ -85,9 +86,23 @@ export function agentChatResponse(opts: {
           sessionId: opts.sessionId,
           currentProperty: opts.currentProperty,
           userId: opts.userId,
+          onFailure: (reason) => {
+            failure = reason;
+          },
         });
       } catch (error) {
-        console.error("sales agent failed", error);
+        failure = error instanceof Error ? error.message : String(error);
+      }
+
+      if (!result) {
+        // Visible in ai_logs: why this turn got the fallback reply.
+        await logAiUsage({
+          feature: "sales_agent",
+          status: "error",
+          error: (failure || "unknown").slice(0, 1000),
+          latencyMs: Date.now() - opts.started,
+          sessionId: opts.sessionId,
+        });
       }
 
       if (!result) {

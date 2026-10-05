@@ -48,9 +48,15 @@ export async function runSalesAgent(opts: {
   phone?: string | null;
   currentProperty?: { id: string; title: string } | null;
   userId?: string | null;
+  /** Why the agent gave up (provider error, timeout...), for the caller to log. */
+  onFailure?: (reason: string) => void;
 }): Promise<AgentResult | null> {
+  const fail = (reason: string) => {
+    opts.onFailure?.(reason);
+    return null;
+  };
   const cfg = await resolveLLMConfig({ userId: opts.userId });
-  if (!cfg) return null;
+  if (!cfg) return fail("No LLM configured");
   const started = Date.now();
 
   const { salesAgent } = await getPrompts(["salesAgent"]);
@@ -84,21 +90,24 @@ export async function runSalesAgent(opts: {
     // Last round: no more tools, the model must answer with what it has.
     const finalRound = round === MAX_ROUNDS;
     let message: ApiMessage | null = null;
+    let lastReason = "";
     for (let attempt = 0; !message; attempt++) {
       const remaining = TOTAL_BUDGET_MS - (Date.now() - started);
-      if (remaining < 3_000) return null;
+      if (remaining < 3_000) return fail(`Out of time after ${round} rounds. ${lastReason}`);
       const out = await complete({ ...cfg, model: models[active] }, messages, finalRound, Math.min(CALL_TIMEOUT_MS, remaining), result);
       if ("message" in out) {
         message = out.message;
         result.model = models[active];
       } else if (!out.retryable) {
-        return null;
+        return fail(out.reason);
       } else if (attempt === 0 && !out.quotaExhausted) {
+        lastReason = out.reason;
         await new Promise((r) => setTimeout(r, 800));
       } else if (active < models.length - 1) {
+        lastReason = out.reason;
         active++;
       } else {
-        return null;
+        return fail(`All models failed. Last: ${out.reason}`);
       }
     }
 
@@ -130,7 +139,7 @@ export async function runSalesAgent(opts: {
     messages.push(...outputs);
   }
 
-  if (!result.reply) return null;
+  if (!result.reply) return fail(`Empty reply from ${result.model}`);
   result.propertyIds = ctx.shownPropertyIds ?? null;
   result.lastSearch = ctx.lastSearch ?? null;
   result.leadIds = ctx.leadIds ?? [];
@@ -149,7 +158,9 @@ function fallbackModels(baseUrl: string): string[] {
 }
 
 /** quotaExhausted: a 429 that will not clear by retrying (daily quota) — move on. */
-type Completion = { message: ApiMessage } | { retryable: boolean; quotaExhausted?: boolean };
+type Completion =
+  | { message: ApiMessage }
+  | { retryable: boolean; quotaExhausted?: boolean; reason: string };
 
 async function complete(
   cfg: { baseUrl: string; apiKey: string; model: string },
@@ -182,6 +193,7 @@ async function complete(
       return {
         retryable: res.status === 429 || res.status >= 500,
         quotaExhausted: res.status === 429 && /quota/i.test(detail),
+        reason: `${cfg.model} HTTP ${res.status}: ${detail.replace(/\s+/g, " ").slice(0, 300)}`,
       };
     }
     const data = (await res.json()) as {
@@ -191,11 +203,14 @@ async function complete(
     usage.inputTokens += data.usage?.prompt_tokens ?? 0;
     usage.outputTokens += data.usage?.completion_tokens ?? 0;
     const message = data.choices?.[0]?.message;
-    return message ? { message } : { retryable: true };
+    return message ? { message } : { retryable: true, reason: `${cfg.model}: no message in response` };
   } catch (error) {
     // Timeout or network error: worth another try.
     console.error("sales agent LLM call failed", cfg.model, error instanceof Error ? error.message : error);
-    return { retryable: true };
+    return {
+      retryable: true,
+      reason: `${cfg.model}: ${error instanceof Error ? error.message : String(error)}`,
+    };
   } finally {
     clearTimeout(timer);
   }

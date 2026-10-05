@@ -225,6 +225,7 @@ export async function POST(request: Request) {
         content: m.content,
       }));
 
+    let agentFailure = "";
     const agent =
       process.env.AI_AGENT_ENABLED !== "false"
         ? await runSalesAgent({
@@ -233,6 +234,9 @@ export async function POST(request: Request) {
             channel: "whatsapp",
             sessionId: session.id,
             phone,
+            onFailure: (reason) => {
+              agentFailure = reason;
+            },
           })
         : null;
 
@@ -243,6 +247,15 @@ export async function POST(request: Request) {
       model = agent.model;
       tokens = { inputTokens: agent.inputTokens, outputTokens: agent.outputTokens };
     } else {
+      if (agentFailure) {
+        // Visible in ai_logs: why this message got the fallback reply.
+        await logAiUsage({
+          feature: "whatsapp_agent",
+          status: "error",
+          error: agentFailure.slice(0, 1000),
+          sessionId: session.id,
+        });
+      }
       feature = "whatsapp_search";
       model = chatModel();
       // Merged intent drives the search, so "only waterfront" refines the last
