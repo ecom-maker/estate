@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Libre_Caslon_Text } from "next/font/google";
+import { DM_Sans } from "next/font/google";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Providers } from "@/components/providers";
@@ -9,13 +9,6 @@ import "./globals.css";
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
-  display: "swap",
-});
-
-const libreCaslon = Libre_Caslon_Text({
-  variable: "--font-libre-caslon",
-  subsets: ["latin"],
-  weight: ["400", "700"],
   display: "swap",
 });
 
@@ -37,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${libreCaslon.variable} h-full antialiased`}
+      className={`${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>
