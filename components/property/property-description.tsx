@@ -41,7 +41,7 @@ export function PropertyDescription({
       <h2 className="font-serif text-2xl text-primary">{title}</h2>
       <div className="max-w-3xl">
         {summary ? (
-          <p className="mt-3 text-base leading-relaxed text-primary">{summary}</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted">{summary}</p>
         ) : null}
         {highlights.length ? (
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">
