@@ -1,3 +1,4 @@
+import { descriptionSections, highlightList } from "@/lib/property/description";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getAppUrl } from "@/lib/app-url";
@@ -539,13 +540,26 @@ function cleanText(s: string | null | undefined, max: number): string | null {
   return t.length > max ? `${t.slice(0, max)}…` : t;
 }
 
+/** The description as the agent sees it: the About and Location sections. */
+function describe(p: AgentProperty) {
+  const sections = descriptionSections(p);
+  const text = (key: string, max: number) =>
+    cleanText(sections.find((s) => s.key === key)?.paragraphs.join(" "), max);
+  return {
+    description: text("about", 600) ?? cleanText(p.description, 600),
+    locationNotes: text("location", 500),
+  };
+}
+
 export function propertyDetails(p: AgentProperty) {
   const m = meta(p);
   const done = completion(p);
   return {
     ...summarize({ p }),
     listingStatus: p.status,
-    description: cleanText(p.description, 700),
+    summary: p.summary || null,
+    keyPoints: highlightList(p.highlights),
+    ...describe(p),
     district: m.district ?? null,
     unitsByBedrooms: groupByBedrooms(unitTypes(p)).map(describeGroup),
     paymentPlans: paymentPlans(p),

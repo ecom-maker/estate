@@ -1,5 +1,6 @@
 "use server";
 
+import { splitDescription } from "@/lib/property/description";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
@@ -111,6 +112,7 @@ export async function createProperty(
         status: input.status,
         source: "MANUAL",
         description: input.description,
+        descriptionSections: splitDescription(input.description) as Prisma.InputJsonValue,
         priceAed: input.priceAed,
         bedrooms: input.bedrooms,
         bathrooms: input.bathrooms,
@@ -161,7 +163,7 @@ export async function updateProperty(
       : undefined;
     const existing = await prisma.property.findUnique({
       where: { id },
-      select: { metadata: true },
+      select: { metadata: true, description: true },
     });
     const metadata: Record<string, unknown> = {
       ...((existing?.metadata as Record<string, unknown> | null) ?? {}),
@@ -177,6 +179,15 @@ export async function updateProperty(
         type,
         status: input.status,
         description: input.description,
+        // A changed description gets new sections, and its AI summary/key
+        // points are cleared so scripts/structure-descriptions.ts rewrites them.
+        ...(input.description !== (existing?.description ?? null)
+          ? {
+              descriptionSections: splitDescription(input.description) as Prisma.InputJsonValue,
+              summary: null,
+              highlights: Prisma.DbNull,
+            }
+          : {}),
         priceAed: input.priceAed,
         bedrooms: input.bedrooms,
         bathrooms: input.bathrooms,

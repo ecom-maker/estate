@@ -248,6 +248,12 @@ model Property {
   type           PropertyType
   status         PropertyStatus @default(DRAFT)
   description    String?        @db.Text
+  /// Description split into sections by its headings (lib/property/description.ts).
+  descriptionSections Json?     @map("description_sections")
+  /// AI-written 2-3 sentence summary of the description (scripts/structure-descriptions.ts).
+  summary        String?        @db.Text
+  /// AI-written key points, a JSON array of strings.
+  highlights     Json?
   priceAed       Float?         @map("price_aed")
   areaSqft       Float?         @map("area_sqft")
   plotAreaSqft   Float?         @map("plot_area_sqft")

@@ -11,6 +11,8 @@ import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import type { Metadata } from "next";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { PropertyDescription } from "@/components/property/property-description";
+import { metaDescription } from "@/lib/property/description";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +25,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!property) return { title: "Property" };
     return {
       title: property.title,
-      description: property.description?.slice(0, 160),
+      description: metaDescription(property),
       openGraph: {
         title: property.title,
-        description: property.description?.slice(0, 160),
+        description: metaDescription(property),
       },
     };
   } catch {
@@ -175,12 +177,9 @@ export default async function PropertyDetailPage({ params }: Props) {
           ))}
         </div>
 
-        <section className="mt-10">
-          <h2 className="font-serif text-2xl text-primary">Description</h2>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
-            {property.description}
-          </p>
-        </section>
+        <div className="mt-10">
+          <PropertyDescription title="Description" property={property} />
+        </div>
 
         <section className="mt-10">
           <h2 className="font-serif text-2xl text-primary">Amenities</h2>

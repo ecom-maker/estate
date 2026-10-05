@@ -11,6 +11,8 @@ import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { PropertyDescription } from "@/components/property/property-description";
+import { metaDescription } from "@/lib/property/description";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +29,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const title = `${project.title}${project.developer ? ` by ${project.developer.name}` : ""}`;
     return {
       title,
-      description: project.description?.slice(0, 160),
-      openGraph: { title, description: project.description?.slice(0, 160) },
+      description: metaDescription(project),
+      openGraph: { title, description: metaDescription(project) },
     };
   } catch {
     return { title: "Project" };
@@ -203,12 +205,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.5fr_0.8fr]">
         <div>
           {/* Overview */}
-          <section>
-            <h2 className="font-serif text-2xl text-primary">Overview</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
-              {project.description}
-            </p>
-          </section>
+          <PropertyDescription title="Overview" property={project} />
 
           {/* Highlights */}
           <section className="mt-10">
