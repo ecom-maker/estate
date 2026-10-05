@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { ProjectGallery } from "@/components/property/project-gallery";
+import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -353,9 +354,8 @@ export default async function ProjectDetailPage({ params }: Props) {
             <AIChat
               propertyId={project.id}
               placeholder="Ask about this project..."
-              whatsappNumber={
-                process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "971501234567"
-              }
+              propertyTitle={project.title}
+              whatsappNumber={WHATSAPP_NUMBER}
             />
           </div>
           {project.videos[0] ? (

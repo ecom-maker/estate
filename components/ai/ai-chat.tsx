@@ -108,6 +108,8 @@ function writeAutoSend(
 type AIChatProps = {
   placeholder?: string;
   propertyId?: string;
+  /** Named in the pre-filled WhatsApp message on property / project pages. */
+  propertyTitle?: string;
   className?: string;
   initialMessages?: ChatMessage[];
   autoSendOnMount?: string;
@@ -129,6 +131,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 export function AIChat({
   placeholder = "Ask anything...",
   propertyId,
+  propertyTitle,
   className,
   initialMessages = [],
   autoSendOnMount,
@@ -387,12 +390,13 @@ export function AIChat({
 
   function shareOnWhatsApp() {
     if (typeof window === "undefined" || !whatsappNumber) return;
-    const url = window.location.href;
-    // Property pages reference the specific listing; browse pages send a
-    // general enquiry with the page they were looking at.
-    const message = propertyId
-      ? `Hi, I'd like more information about this property:\n${url}`
-      : `Hi, I'd like help finding a property on DM Global.\n${url}`;
+    // A short greeting the person can send as-is (no website link): the
+    // project name on project pages, a general enquiry everywhere else.
+    const message = propertyTitle
+      ? `Hi, I'm interested in ${propertyTitle}. Could you share more details?`
+      : propertyId
+        ? "Hi, I'm interested in a project I saw on DM Global. Could you share more details?"
+        : "Hi, I'm looking for a project. Can you help me?";
     const number = whatsappNumber.replace(/[^\d]/g, "");
     window.open(
       `https://wa.me/${number}?text=${encodeURIComponent(message)}`,

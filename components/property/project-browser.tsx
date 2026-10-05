@@ -7,6 +7,7 @@ import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { ProjectCard } from "@/components/property/project-card";
 import type { ProjectCardData } from "@/lib/property/project-card";
+import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 export function ProjectBrowser({
   initialProjects,
@@ -69,9 +70,7 @@ export function ProjectBrowser({
           <AIChat
             placeholder={chatPlaceholder}
             showHistory
-            whatsappNumber={
-              process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "971501234567"
-            }
+            whatsappNumber={WHATSAPP_NUMBER}
             onPropertyIds={(next) => setIds(next)}
             onStreaming={setSearching}
           />

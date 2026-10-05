@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
+import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import type { AgentChannel } from "./prompt";
 import {
   areaOverview,
@@ -14,9 +15,7 @@ import {
 } from "./inventory";
 
 /** The business WhatsApp line a human specialist answers. */
-export function whatsappNumber() {
-  return (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "16509105069").replace(/\D/g, "");
-}
+const whatsappNumber = () => WHATSAPP_NUMBER;
 
 // ------------------------------------------------------------- definitions
 
