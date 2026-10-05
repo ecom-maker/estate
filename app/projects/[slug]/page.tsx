@@ -134,7 +134,7 @@ export default async function ProjectDetailPage({ params }: Props) {
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
+    <div className="mx-auto max-w-7xl px-6 pb-28 pt-14 md:px-10">
       <JsonLd
         data={propertyJsonLd({
           title: project.title,
