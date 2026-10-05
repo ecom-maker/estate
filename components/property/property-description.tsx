@@ -27,7 +27,7 @@ export function PropertyDescription({
 
   const Section = ({ s }: { s: (typeof sections)[number] }) => (
     <div className="mt-6">
-      <h3 className="text-[11px] uppercase tracking-wider text-muted">{s.heading}</h3>
+      <h3 className="font-serif text-xl text-primary">{s.heading}</h3>
       {s.paragraphs.map((p, i) => (
         <p key={i} className="mt-2 text-sm leading-relaxed text-muted">
           {p}
