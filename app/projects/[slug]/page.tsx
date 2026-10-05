@@ -196,9 +196,11 @@ export default async function ProjectDetailPage({ params }: Props) {
         images={project.images}
         title={project.title}
         mapQuery={
-          project.community
-            ? `${project.community.name}, Dubai`
-            : `${project.title}, Dubai`
+          project.latitude != null && project.longitude != null
+            ? `${project.latitude},${project.longitude}`
+            : project.community
+              ? `${project.community.name}, Dubai`
+              : `${project.title}, Dubai`
         }
       />
 
