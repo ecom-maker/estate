@@ -93,7 +93,7 @@ export async function runSalesAgent(opts: {
         result.model = models[active];
       } else if (!out.retryable) {
         return null;
-      } else if (attempt === 0) {
+      } else if (attempt === 0 && !out.quotaExhausted) {
         await new Promise((r) => setTimeout(r, 800));
       } else if (active < models.length - 1) {
         active++;
@@ -141,10 +141,15 @@ export async function runSalesAgent(opts: {
 function fallbackModels(baseUrl: string): string[] {
   const env = process.env.LLM_FALLBACK_MODELS?.split(",").map((m) => m.trim()).filter(Boolean);
   if (env?.length) return env;
-  return baseUrl.includes("generativelanguage.googleapis.com") ? ["gemini-flash-latest"] : [];
+  // Gemini quotas are per model, so another Flash model keeps the agent up
+  // when one is overloaded or out of quota.
+  return baseUrl.includes("generativelanguage.googleapis.com")
+    ? ["gemini-flash-latest", "gemini-3.7-flash", "gemini-3.6-flash"]
+    : [];
 }
 
-type Completion = { message: ApiMessage } | { retryable: boolean };
+/** quotaExhausted: a 429 that will not clear by retrying (daily quota) — move on. */
+type Completion = { message: ApiMessage } | { retryable: boolean; quotaExhausted?: boolean };
 
 async function complete(
   cfg: { baseUrl: string; apiKey: string; model: string },
@@ -172,8 +177,12 @@ async function complete(
       signal: controller.signal,
     });
     if (!res.ok) {
-      console.error("sales agent LLM error", cfg.model, res.status, (await res.text()).slice(0, 300));
-      return { retryable: res.status === 429 || res.status >= 500 };
+      const detail = await res.text();
+      console.error("sales agent LLM error", cfg.model, res.status, detail.slice(0, 300));
+      return {
+        retryable: res.status === 429 || res.status >= 500,
+        quotaExhausted: res.status === 429 && /quota/i.test(detail),
+      };
     }
     const data = (await res.json()) as {
       choices?: { message?: ApiMessage }[];
