@@ -64,20 +64,20 @@ export function ProjectGallery({
       <div
         className={cn(
           "mt-8 grid gap-2",
-          side.length ? "md:grid-cols-[1.7fr_1fr]" : "",
+          side.length ? "md:grid-cols-2" : "",
         )}
       >
         <button
           type="button"
           onClick={() => setIndex(0)}
-          className="group relative aspect-[16/10] overflow-hidden rounded-sm bg-primary/10"
+          className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-primary/10"
         >
           <Image
             src={hero.url}
             alt={hero.alt ?? title}
             fill
             priority
-            sizes="(max-width:768px) 100vw, 55vw"
+            sizes="(max-width:768px) 100vw, 50vw"
             className="object-cover transition duration-500 group-hover:scale-[1.02]"
           />
           {/* Floor plans / Map overlay */}
@@ -144,7 +144,7 @@ export function ProjectGallery({
                   key={i}
                   type="button"
                   onClick={() => setIndex(i + 1)}
-                  className="group relative aspect-[4/3] overflow-hidden rounded-sm bg-primary/10"
+                  className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-primary/10"
                 >
                   <Image
                     src={img.url}
