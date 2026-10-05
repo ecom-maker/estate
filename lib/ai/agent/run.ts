@@ -59,7 +59,7 @@ export async function runSalesAgent(opts: {
   if (!cfg) return fail("No LLM configured");
   const started = Date.now();
 
-  const { salesAgent } = await getPrompts(["salesAgent"]);
+  const salesAgent = await salesAgentPrompt();
   const messages: ApiMessage[] = [
     { role: "system", content: `${salesAgent}\n\n${agentContext(opts)}` },
     ...opts.history
@@ -144,6 +144,16 @@ export async function runSalesAgent(opts: {
   result.lastSearch = ctx.lastSearch ?? null;
   result.leadIds = ctx.leadIds ?? [];
   return result;
+}
+
+/** The (admin-editable) prompt, cached a minute per instance to save a DB round trip. */
+let promptCache: { at: number; text: string } | null = null;
+async function salesAgentPrompt(): Promise<string> {
+  if (!promptCache || Date.now() - promptCache.at > 60_000) {
+    const { salesAgent } = await getPrompts(["salesAgent"]);
+    promptCache = { at: Date.now(), text: salesAgent };
+  }
+  return promptCache.text;
 }
 
 /** Models to fall back to, comma-separated in LLM_FALLBACK_MODELS. */

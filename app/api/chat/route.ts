@@ -438,6 +438,7 @@ export async function POST(request: Request) {
         userId,
         currentProperty,
         started,
+        keepAlive: (work) => after(() => work),
         fallback: async () => {
           const turn = await deterministicTurn(persistNow, false);
           if ("response" in turn) throw new Error("unexpected stream");

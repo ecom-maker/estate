@@ -295,42 +295,44 @@ export async function POST(request: Request) {
 
     // --- 5. Save the conversation ----------------------------------------
     // The app writes both sides, so n8n holds no state and needs no DB access.
-    await prisma.message.create({
-      data: { sessionId: session.id, role: "USER", content: body.message },
-    });
-    await prisma.message.create({
-      data: {
+    // n8n waits for this response, so independent writes run in parallel.
+    const [, , , logId] = await Promise.all([
+      prisma.message.create({
+        data: { sessionId: session.id, role: "USER", content: body.message, createdAt: new Date(started) },
+      }),
+      prisma.message.create({
+        data: {
+          sessionId: session.id,
+          role: "ASSISTANT",
+          content: reply,
+          createdAt: new Date(),
+          searchIntent: (intent ?? undefined) as never,
+          propertyReferences: shownIds as never,
+        },
+      }),
+      prisma.chatSession.update({
+        where: { id: session.id },
+        data: {
+          ...(intent ? { intent: intent as never } : {}),
+          summary: reply.slice(0, 500),
+        },
+      }),
+      log({
+        status: "ok",
+        reply,
         sessionId: session.id,
-        role: "ASSISTANT",
-        content: reply,
-        searchIntent: (intent ?? undefined) as never,
-        propertyReferences: shownIds as never,
-      },
-    });
-    await prisma.chatSession.update({
-      where: { id: session.id },
-      data: {
-        ...(intent ? { intent: intent as never } : {}),
-        summary: reply.slice(0, 500),
-      },
-    });
-
-    const logId = await log({
-      status: "ok",
-      reply,
-      sessionId: session.id,
-      intent,
-      propertyIds: shownIds,
-    });
-
-    await logAiUsage({
-      feature,
-      model,
-      status: "ok",
-      latencyMs: Date.now() - started,
-      sessionId: session.id,
-      ...tokens,
-    });
+        intent,
+        propertyIds: shownIds,
+      }),
+      logAiUsage({
+        feature,
+        model,
+        status: "ok",
+        latencyMs: Date.now() - started,
+        sessionId: session.id,
+        ...tokens,
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,

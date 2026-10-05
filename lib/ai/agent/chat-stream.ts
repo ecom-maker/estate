@@ -63,99 +63,116 @@ export function agentChatResponse(opts: {
   currentProperty: { id: string; title: string } | null;
   started: number;
   fallback: FallbackTurn;
+  /** Keeps the function alive until the transcript is written (Next's `after`). */
+  keepAlive?: (work: Promise<void>) => void;
 }): Response {
   const encoder = new TextEncoder();
+  let finished!: () => void;
+  opts.keepAlive?.(new Promise<void>((resolve) => (finished = resolve)));
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const write = async (text: string) => {
-        // Small chunks so the reply appears progressively, like the old stream.
-        for (const chunk of text.match(/[\s\S]{1,48}/g) ?? [text]) {
-          controller.enqueue(encoder.encode(chunk));
-          await new Promise((r) => setTimeout(r, 6));
-        }
+      try {
+        await turn(controller);
+      } finally {
+        finished();
+      }
+    },
+  });
+
+  async function turn(controller: ReadableStreamDefaultController<Uint8Array>) {
+    const write = async (text: string) => {
+      // Small chunks so the reply appears progressively, like the old stream.
+      for (const chunk of text.match(/[\s\S]{1,48}/g) ?? [text]) {
+        controller.enqueue(encoder.encode(chunk));
+        await new Promise((r) => setTimeout(r, 6));
+      }
+    };
+
+    let result: Awaited<ReturnType<typeof runSalesAgent>> = null;
+    let failure = "";
+    try {
+      result = await runSalesAgent({
+        history: opts.history,
+        message: opts.message,
+        channel: "web",
+        sessionId: opts.sessionId,
+        currentProperty: opts.currentProperty,
+        userId: opts.userId,
+        onFailure: (reason) => {
+          failure = reason;
+        },
+      });
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+    }
+
+    if (!result) {
+      // Visible in ai_logs: why this turn got the fallback reply. Written
+      // alongside the fallback, not before it, so the person isn't kept waiting.
+      const logged = logAiUsage({
+        feature: "sales_agent",
+        status: "error",
+        error: (failure || "unknown").slice(0, 1000),
+        latencyMs: Date.now() - opts.started,
+        sessionId: opts.sessionId,
+      });
+      try {
+        const { text, meta } = await opts.fallback();
+        await write(text);
+        controller.enqueue(encoder.encode(META_SEPARATOR + JSON.stringify(meta)));
+      } catch {
+        await write("Sorry, I had trouble answering just now. Please try again in a moment.");
+      }
+      controller.close();
+      await logged;
+      return;
+    }
+
+    const intent = toSearchIntent(result.lastSearch);
+    await write(result.reply);
+    const meta: StreamMeta = {};
+    if (result.propertyIds) meta.propertyIds = result.propertyIds;
+    if (intent) meta.intent = intent;
+    controller.enqueue(encoder.encode(META_SEPARATOR + JSON.stringify(meta)));
+    // Close now: the page waits for the end of the stream before showing the
+    // results grid. The transcript is written after, kept alive by keepAlive.
+    controller.close();
+
+    try {
+      const now = new Date();
+      const sessionData = {
+        ...(intent ? { intent: intent as never } : {}),
+        summary: result.reply.slice(0, 500),
       };
-
-      let result: Awaited<ReturnType<typeof runSalesAgent>> = null;
-      let failure = "";
-      try {
-        result = await runSalesAgent({
-          history: opts.history,
-          message: opts.message,
-          channel: "web",
-          sessionId: opts.sessionId,
-          currentProperty: opts.currentProperty,
-          userId: opts.userId,
-          onFailure: (reason) => {
-            failure = reason;
-          },
-        });
-      } catch (error) {
-        failure = error instanceof Error ? error.message : String(error);
-      }
-
-      if (!result) {
-        // Visible in ai_logs: why this turn got the fallback reply.
-        await logAiUsage({
-          feature: "sales_agent",
-          status: "error",
-          error: (failure || "unknown").slice(0, 1000),
-          latencyMs: Date.now() - opts.started,
-          sessionId: opts.sessionId,
+      if (opts.isNewSession) {
+        await prisma.chatSession.create({
+          data: { id: opts.sessionId, userId: opts.userId, title: opts.message.slice(0, 80), ...sessionData },
         });
       }
-
-      if (!result) {
-        try {
-          const { text, meta } = await opts.fallback();
-          await write(text);
-          controller.enqueue(encoder.encode(META_SEPARATOR + JSON.stringify(meta)));
-        } catch {
-          await write("Sorry, I had trouble answering just now. Please try again in a moment.");
-        }
-        controller.close();
-        return;
-      }
-
-      const intent = toSearchIntent(result.lastSearch);
-      await write(result.reply);
-      const meta: StreamMeta = {};
-      if (result.propertyIds) meta.propertyIds = result.propertyIds;
-      if (intent) meta.intent = intent;
-      controller.enqueue(encoder.encode(META_SEPARATOR + JSON.stringify(meta)));
-
-      // Transcript + usage, written before closing so a serverless host does
-      // not freeze the function mid-write. The person already has the text.
-      try {
-        if (opts.isNewSession) {
-          await prisma.chatSession.create({
-            data: { id: opts.sessionId, userId: opts.userId, title: opts.message.slice(0, 80) },
-          });
-        }
-        await prisma.message.create({
-          data: { sessionId: opts.sessionId, role: "USER", content: opts.message },
-        });
-        await prisma.message.create({
+      // Independent writes in parallel: each is a round trip to the database.
+      await Promise.all([
+        prisma.message.create({
+          data: { sessionId: opts.sessionId, role: "USER", content: opts.message, createdAt: new Date(opts.started) },
+        }),
+        prisma.message.create({
           data: {
             sessionId: opts.sessionId,
             role: "ASSISTANT",
             content: result.reply,
+            createdAt: now,
             searchIntent: (intent ?? undefined) as never,
             propertyReferences: (result.propertyIds ??
               (opts.currentProperty ? [opts.currentProperty.id] : undefined)) as never,
           },
-        });
-        await prisma.chatSession.update({
-          where: { id: opts.sessionId },
-          data: {
-            ...(intent ? { intent: intent as never } : {}),
-            summary: result.reply.slice(0, 500),
-          },
-        });
-        if (intent) {
-          await prisma.searchHistory.create({ data: { query: opts.message, intent: intent as never } });
-        }
-        await logAiUsage({
+        }),
+        opts.isNewSession
+          ? null
+          : prisma.chatSession.update({ where: { id: opts.sessionId }, data: sessionData }),
+        intent
+          ? prisma.searchHistory.create({ data: { query: opts.message, intent: intent as never } })
+          : null,
+        logAiUsage({
           feature: "sales_agent",
           model: result.model,
           status: "ok",
@@ -163,13 +180,12 @@ export function agentChatResponse(opts: {
           outputTokens: result.outputTokens,
           latencyMs: Date.now() - opts.started,
           sessionId: opts.sessionId,
-        });
-      } catch {
-        // Best-effort: a failed transcript write must not break the chat.
-      }
-      controller.close();
-    },
-  });
+        }),
+      ]);
+    } catch {
+      // Best-effort: a failed transcript write must not break the chat.
+    }
+  }
 
   return new Response(stream, {
     headers: {

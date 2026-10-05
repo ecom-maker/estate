@@ -260,13 +260,29 @@ function completion(p: AgentProperty) {
 }
 
 /** Properties the agent may offer: live, not sold, not withdrawn. */
-export async function loadInventory(): Promise<AgentProperty[]> {
-  return prisma.property.findMany({
-    where: { deletedAt: null, status: { in: ["ACTIVE", "RESERVED"] } },
-    include: agentInclude,
-    orderBy: { updatedAt: "desc" },
-    take: 500,
-  });
+/**
+ * Cached per server instance for a short while: the database can be far from
+ * the functions (Singapore DB, US functions = ~1-2s per load), and listings
+ * change rarely. Edits and syncs show up within INVENTORY_TTL_MS.
+ */
+const INVENTORY_TTL_MS = 120_000;
+let inventoryCache: { at: number; rows: Promise<AgentProperty[]> } | null = null;
+
+export function loadInventory(): Promise<AgentProperty[]> {
+  if (!inventoryCache || Date.now() - inventoryCache.at > INVENTORY_TTL_MS) {
+    const rows = prisma.property.findMany({
+      where: { deletedAt: null, status: { in: ["ACTIVE", "RESERVED"] } },
+      include: agentInclude,
+      orderBy: { updatedAt: "desc" },
+      take: 500,
+    });
+    inventoryCache = { at: Date.now(), rows };
+    // A failed load must not be served from the cache.
+    rows.catch(() => {
+      inventoryCache = null;
+    });
+  }
+  return inventoryCache.rows;
 }
 
 // ---------------------------------------------------------------- search
