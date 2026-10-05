@@ -31,7 +31,7 @@ export function UnitsSection({
   const [plan, setPlan] = useState<{ url: string; title: string } | null>(null);
 
   return (
-    <section className="mt-10">
+    <section id="units" className="mt-10 scroll-mt-24">
       <h2 className="font-serif text-2xl text-primary">Units</h2>
       <p className="mt-1 text-sm text-muted">from developer</p>
 
