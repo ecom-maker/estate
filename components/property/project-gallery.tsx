@@ -18,10 +18,12 @@ export function ProjectGallery({
   images,
   title,
   mapQuery,
+  coords,
 }: {
   images: Img[];
   title: string;
   mapQuery?: string;
+  coords?: { lat: number; lng: number } | null;
 }) {
   const [index, setIndex] = useState<number | null>(null);
   const count = images.length;
@@ -108,6 +110,23 @@ export function ProjectGallery({
                 className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary shadow-sm"
               >
                 <MapPin className="h-3.5 w-3.5" /> Map
+              </span>
+            ) : null}
+            {coords ? (
+              <span
+                role="link"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(
+                    `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${coords.lat},${coords.lng}`,
+                    "_blank",
+                    "noopener",
+                  );
+                }}
+                className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary shadow-sm"
+              >
+                <Camera className="h-3.5 w-3.5" /> Street view
               </span>
             ) : null}
           </span>

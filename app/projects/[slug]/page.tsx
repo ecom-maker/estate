@@ -202,6 +202,11 @@ export default async function ProjectDetailPage({ params }: Props) {
               ? `${project.community.name}, Dubai`
               : `${project.title}, Dubai`
         }
+        coords={
+          project.latitude != null && project.longitude != null
+            ? { lat: project.latitude, lng: project.longitude }
+            : null
+        }
       />
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.5fr_0.8fr]">
