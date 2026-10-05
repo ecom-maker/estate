@@ -140,7 +140,7 @@ export default async function ProjectDetailPage({ params }: Props) {
           title: project.title,
           slug: project.slug,
           type: project.type,
-          description: project.description,
+          description: project.summary ?? project.description,
           priceAed: project.priceAed,
           bedrooms: project.bedrooms,
           bathrooms: project.bathrooms,

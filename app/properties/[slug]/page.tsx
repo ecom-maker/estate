@@ -81,7 +81,7 @@ export default async function PropertyDetailPage({ params }: Props) {
           title: property.title,
           slug: property.slug,
           type: property.type,
-          description: property.description,
+          description: property.summary ?? property.description,
           priceAed: property.priceAed,
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,
