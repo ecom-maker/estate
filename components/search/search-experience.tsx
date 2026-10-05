@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { ProjectImage } from "@/components/property/project-image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
@@ -137,15 +137,11 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                   className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-accent"
                 >
                   <div className="relative aspect-[4/3] bg-primary/10">
-                    {image?.url ? (
-                      <Image
-                        src={image.url}
-                        alt={image.alt ?? property.title}
-                        fill
-                        className="object-cover transition duration-500 group-hover:scale-[1.02]"
-                        sizes="(max-width:768px) 100vw, 40vw"
-                      />
-                    ) : null}
+                    <ProjectImage
+                      url={image?.url ?? null}
+                      alt={image?.alt ?? null}
+                      title={property.title}
+                    />
                   </div>
                   <div className="p-4">
                     <p className="text-xs uppercase tracking-wider text-muted">

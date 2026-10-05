@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { ProjectImage } from "@/components/property/project-image";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
@@ -18,6 +18,7 @@ export type BrowserCard = {
   bathrooms: number | null;
   areaSqft: number | null;
   offPlan?: boolean | null;
+  handover?: string | null; // e.g. "Sept 2027"
   images?: { url: string; alt: string | null }[] | null;
   community?: { name: string } | null;
   developer?: { name: string } | null;
@@ -162,15 +163,22 @@ export function PropertyBrowser({
                   className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-accent"
                 >
                   <div className="relative aspect-[4/3] bg-primary/10">
-                    {image?.url ? (
-                      <Image
-                        src={image.url}
-                        alt={image.alt ?? property.title}
-                        fill
-                        sizes="(max-width:768px) 100vw, 40vw"
-                        className="object-cover transition duration-500 group-hover:scale-[1.02]"
-                      />
-                    ) : null}
+                    <ProjectImage
+                      url={image?.url ?? null}
+                      alt={image?.alt ?? null}
+                      title={property.title}
+                    />
+                    {/* Status + handover badges, consistent with project cards. */}
+                    <div className="absolute left-3 top-3 flex items-center gap-2">
+                      <span className="rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary shadow-sm">
+                        {property.offPlan ? "Off-plan" : "Completed"}
+                      </span>
+                      {property.offPlan && property.handover ? (
+                        <span className="rounded-md bg-primary/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground shadow-sm">
+                          Handover {property.handover}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="p-4">
                     <p className="text-xs uppercase tracking-wider text-muted">
@@ -180,29 +188,24 @@ export function PropertyBrowser({
                       {property.title}
                     </h2>
                     <p className="mt-2 text-sm text-muted">
-                      {property.bedrooms ?? "—"} bed ·{" "}
-                      {property.bathrooms ?? "—"} bath ·{" "}
-                      {property.areaSqft != null
-                        ? Math.round(property.areaSqft).toLocaleString()
-                        : "—"}{" "}
-                      sqft
+                      {[
+                        property.bedrooms != null
+                          ? `${property.bedrooms} bed`
+                          : null,
+                        property.bathrooms != null
+                          ? `${property.bathrooms} bath`
+                          : null,
+                        property.areaSqft != null
+                          ? `${Math.round(property.areaSqft).toLocaleString()} sqft`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
-                    <div className="mt-3 flex items-center gap-2">
-                      <p className="text-sm font-medium text-primary">
-                        {showFromPrice ? "from " : ""}
-                        {formatAED(property.priceAed)}
-                      </p>
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-                          property.offPlan
-                            ? "bg-accent/15 text-accent"
-                            : "bg-primary/10 text-primary",
-                        )}
-                      >
-                        {property.offPlan ? "Off-plan" : "Completed"}
-                      </span>
-                    </div>
+                    <p className="mt-3 text-sm font-medium text-primary">
+                      {showFromPrice ? "from " : ""}
+                      {formatAED(property.priceAed)}
+                    </p>
                   </div>
                 </Link>
               );

@@ -1,18 +1,17 @@
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { PropertyBrowser } from "@/components/property/property-browser";
+import {
+  PropertyBrowser,
+  type BrowserCard,
+} from "@/components/property/property-browser";
+import { handoverLabel } from "@/lib/property/handover";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Properties" };
 
-type PropertyCard = Prisma.PropertyGetPayload<{
-  include: { images: true; community: true };
-}>;
-
 export default async function PropertiesPage() {
-  let properties: PropertyCard[] = [];
+  let properties: BrowserCard[] = [];
   try {
-    properties = await prisma.property.findMany({
+    const rows = await prisma.property.findMany({
       where: { deletedAt: null, status: "ACTIVE" },
       include: {
         images: { orderBy: { sortOrder: "asc" }, take: 1 },
@@ -21,6 +20,7 @@ export default async function PropertiesPage() {
       orderBy: { createdAt: "desc" },
       take: 24,
     });
+    properties = rows.map((p) => ({ ...p, handover: handoverLabel(p.metadata) }));
   } catch {
     properties = [];
   }

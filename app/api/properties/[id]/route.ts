@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { failure, success } from "@/lib/api/response";
+import { handoverLabel } from "@/lib/property/handover";
 
 export async function GET(
   _request: Request,
@@ -30,7 +31,7 @@ export async function GET(
       return failure("NOT_FOUND", "Property not found", 404);
     }
 
-    return success(property);
+    return success({ ...property, handover: handoverLabel(property.metadata) });
   } catch (error) {
     return failure(
       "PROPERTY_ERROR",
