@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { ProjectImage } from "@/components/property/project-image";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
@@ -163,15 +163,11 @@ export function PropertyBrowser({
                   className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-accent"
                 >
                   <div className="relative aspect-[4/3] bg-primary/10">
-                    {image?.url ? (
-                      <Image
-                        src={image.url}
-                        alt={image.alt ?? property.title}
-                        fill
-                        sizes="(max-width:768px) 100vw, 40vw"
-                        className="object-cover transition duration-500 group-hover:scale-[1.02]"
-                      />
-                    ) : null}
+                    <ProjectImage
+                      url={image?.url ?? null}
+                      alt={image?.alt ?? null}
+                      title={property.title}
+                    />
                   </div>
                   <div className="p-4">
                     <p className="text-xs uppercase tracking-wider text-muted">
