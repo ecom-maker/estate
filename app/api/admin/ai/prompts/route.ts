@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { failure, success } from "@/lib/api/response";
 import { assertPermission } from "@/lib/rbac/guards";
 import { EDITABLE_PROMPTS } from "@/lib/ai/get-prompt";
+import { DEFAULT_PROMPTS } from "@/lib/ai/prompts";
 
 export async function POST(request: Request) {
   try {
@@ -33,14 +34,16 @@ export async function POST(request: Request) {
     for (const { key, label } of EDITABLE_PROMPTS) {
       if (!(key in raw)) continue;
       const content = String(raw[key] ?? "").trim();
-      if (content) {
+      // Text identical to the built-in default is not stored, so later code
+      // improvements to the default still reach the site.
+      if (content && content !== DEFAULT_PROMPTS[key].trim()) {
         await prisma.promptTemplate.upsert({
           where: { key },
           update: { content, name: label },
           create: { key, name: label, content },
         });
       } else {
-        // Blank → revert to the built-in default.
+        // Blank or unchanged → use the built-in default.
         await prisma.promptTemplate.deleteMany({ where: { key } });
       }
     }

@@ -6,6 +6,9 @@ import { Sparkles, Send, History, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { decodeBase64UrlJson } from "@/lib/encoding";
 
+/** End-of-turn metadata follows this character in agent replies (see lib/ai/agent/chat-stream.ts). */
+const META_SEPARATOR = "";
+
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type HistoryEntry = { id: string; title: string; updatedAt: number };
@@ -267,7 +270,7 @@ export function AIChat({
       // still notify (with []) so the results grid clears instead of keeping
       // the previous search's cards. Only a missing header (null) is skipped.
       const idsHeader = res.headers.get("X-Property-Ids");
-      const turnIds = idsHeader !== null ? idsHeader.split(",").filter(Boolean) : null;
+      let turnIds = idsHeader !== null ? idsHeader.split(",").filter(Boolean) : null;
       if (turnIds !== null) {
         onPropertyIds?.(turnIds);
       }
@@ -288,16 +291,40 @@ export function AIChat({
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      let raw = "";
       let assistant = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        assistant += decoder.decode(value, { stream: true });
+        raw += decoder.decode(value, { stream: true });
+        assistant = raw.split(META_SEPARATOR)[0];
         setMessages([
           ...nextMessages,
           { role: "assistant", content: assistant },
         ]);
+      }
+
+      // Agent replies end with a metadata trailer instead of headers: the
+      // properties to show and the search criteria, decided after its tools ran.
+      const sep = raw.indexOf(META_SEPARATOR);
+      if (sep !== -1) {
+        try {
+          const meta = JSON.parse(raw.slice(sep + 1)) as {
+            propertyIds?: string[];
+            intent?: Record<string, unknown> | null;
+          };
+          if (meta.propertyIds) {
+            turnIds = meta.propertyIds;
+            onPropertyIds?.(meta.propertyIds);
+          }
+          if (meta.intent) {
+            turnIntent = meta.intent;
+            setPreviousIntent(meta.intent);
+          }
+        } catch {
+          // malformed trailer: keep the text, skip the extras
+        }
       }
 
       // Cache the completed turn so a refresh / browser-back replays it from
@@ -468,8 +495,8 @@ export function AIChat({
             </span>
             <p className="mt-3 font-serif text-lg text-primary">How can I help?</p>
             <p className="mt-1 max-w-xs text-sm text-muted">
-              Ask about inventory, yields, schools, or payment plans. I won&apos;t
-              invent missing facts.
+              Tell me what you&apos;re looking for, or ask about any project,
+              price, payment plan or handover. I only use verified data.
             </p>
           </div>
         )}
@@ -501,7 +528,13 @@ export function AIChat({
                       : "max-w-[85%] pt-0.5 text-foreground",
                   )}
                 >
-                  {showTyping ? <TypingDots /> : message.content}
+                  {showTyping ? (
+                    <TypingDots />
+                  ) : isUser ? (
+                    message.content
+                  ) : (
+                    <RichText text={message.content} />
+                  )}
                 </div>
               </motion.div>
             );
@@ -541,6 +574,43 @@ export function AIChat({
       </form>
     </div>
   );
+}
+
+/**
+ * Assistant text with the little formatting the agent uses: [label](url)
+ * links, bare URLs and **bold**. Everything else stays plain text (React
+ * escapes it), so model output can never inject markup.
+ */
+function RichText({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  const pattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]*)\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])|\*\*([^*]+)\*\*/g;
+  let last = 0;
+  let key = 0;
+  for (const m of text.matchAll(pattern)) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m[4] != null) {
+      parts.push(<strong key={key++}>{m[4]}</strong>);
+    } else {
+      const href = m[2] ?? m[3];
+      const label = m[1] ?? m[3];
+      const internal =
+        href.startsWith("/") ||
+        (typeof window !== "undefined" && href.startsWith(window.location.origin));
+      parts.push(
+        <a
+          key={key++}
+          href={href}
+          {...(internal ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+          className="font-medium text-accent underline underline-offset-2 hover:opacity-80"
+        >
+          {label}
+        </a>,
+      );
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
 }
 
 /** Instant, styled hover/focus tooltip for the header icon buttons. */

@@ -6,6 +6,11 @@ export type PromptKey = keyof typeof DEFAULT_PROMPTS;
 /** Prompt keys the admin can edit (and that the chat actually uses). */
 export const EDITABLE_PROMPTS: { key: PromptKey; label: string; help: string }[] = [
   {
+    key: "salesAgent",
+    label: "Sales agent prompt",
+    help: "The consultative sales agent used by the website chat and WhatsApp (discovery, grounded recommendations, objections, next steps). Session context (date, channel, current page) is appended automatically.",
+  },
+  {
     key: "system",
     label: "System prompt",
     help: "Core behavior + guardrails, applied to every response.",

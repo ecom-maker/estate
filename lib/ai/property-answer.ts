@@ -288,10 +288,13 @@ export function answerPropertyQuestion(
       duringConstructionPct?: number;
       onHandoverPct?: number;
     };
-    const down = pp.downPaymentPct ?? 20;
-    const during = pp.duringConstructionPct ?? 40;
-    const handover = pp.onHandoverPct ?? 40;
-    return `Payment plan for ${title}: ${down}% down payment at sales launch, ${during}% during construction, and ${handover}% on handover.`;
+    // Never fill a missing plan with a typical split — say it is not on file.
+    if (pp.downPaymentPct == null)
+      return `The payment plan isn't on file for ${title}. A property specialist can confirm it.`;
+    const parts = [`${pp.downPaymentPct}% down payment`];
+    if (pp.duringConstructionPct != null) parts.push(`${pp.duringConstructionPct}% during construction`);
+    if (pp.onHandoverPct != null) parts.push(`${pp.onHandoverPct}% on handover`);
+    return `Payment plan for ${title}: ${parts.join(", ")}.`;
   }
 
   if (has("timeline", "handover", "completion", "complete", "when will", "when is", "ready by", "delivery", "construction")) {
@@ -304,16 +307,16 @@ export function answerPropertyQuestion(
       };
     };
     const tl = meta.timeline ?? {};
-    // Same sensible defaults the project page shows.
-    const construction = fmtDate(tl.constructionStart ?? "2026-02-01");
-    const completion = fmtDate(
-      tl.completion ?? meta.handoverDate ?? "2029-09-01",
-    );
+    // Only dates on file — no assumed construction/handover dates.
+    const construction = fmtDate(tl.constructionStart);
+    const completion = fmtDate(tl.completion ?? meta.handoverDate);
     const parts: string[] = [];
     if (fmtDate(tl.announced)) parts.push(`announced ${fmtDate(tl.announced)}`);
     if (construction) parts.push(`construction started ${construction}`);
     if (completion) parts.push(`expected completion / handover ${completion}`);
-    return `Project timeline for ${title}: ${parts.join(", ")}.`;
+    return parts.length
+      ? `Project timeline for ${title}: ${parts.join(", ")}.`
+      : `The construction and handover dates aren't on file for ${title}. A property specialist can confirm them.`;
   }
 
   if (has("off-plan", "off plan", "offplan", "ready", "status", "under construction"))
