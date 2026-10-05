@@ -77,9 +77,12 @@ const res = items[0].json;
 const SORRY =
   "Sorry, I had trouble looking that up just now. Please send your message again in a moment.";
 
+// With "Response Format: Text" + full response, n8n puts the body in "data"
+// (not "body"). Accept either, so a node-version change cannot break this.
+const raw = res.data ?? res.body;
 let body = null;
 try {
-  body = typeof res.body === "string" ? JSON.parse(res.body) : res.body;
+  body = typeof raw === "string" ? JSON.parse(raw) : raw;
 } catch (e) {
   body = null;
 }
@@ -87,9 +90,9 @@ try {
 const ok = Boolean(body && body.success === true && body.reply);
 let error = null;
 if (!ok) {
-  if (body && body.error) error = body.error;
+  if (body && body.error) error = typeof body.error === "string" ? body.error : (body.error.message || JSON.stringify(body.error));
   else if (res.error) error = res.error.message || String(res.error);
-  else error = "HTTP " + (res.statusCode ?? "?") + ": " + String(res.body ?? "").slice(0, 200);
+  else error = "HTTP " + (res.statusCode ?? "?") + ": " + String(raw ?? "").slice(0, 200);
 }
 
 return [{
