@@ -38,6 +38,13 @@
   /* Headings now use DM Sans too (kept under the `font-serif` name so every
      heading picks it up without changing each className). */
   --font-serif: var(--font-dm-sans);
+  /* Body text bumped ~1pt (headings use text-xl and up, left unchanged). */
+  --text-xs: 0.8125rem; /* 13px (was 12) */
+  --text-xs--line-height: 1.1rem;
+  --text-sm: 0.9375rem; /* 15px (was 14) */
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1.0625rem; /* 17px (was 16) */
+  --text-base--line-height: 1.6rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
