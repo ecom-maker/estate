@@ -75,7 +75,7 @@ export default async function PropertyDetailPage({ params }: Props) {
   const unitGroups = buildUnitGroups(property);
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-10 px-6 py-28 lg:grid-cols-[1.4fr_0.8fr] md:px-10">
+    <div className="mx-auto grid max-w-7xl gap-10 px-6 pb-28 pt-14 lg:grid-cols-[1.4fr_0.8fr] md:px-10">
       <JsonLd
         data={propertyJsonLd({
           title: property.title,
