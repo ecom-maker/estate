@@ -69,6 +69,41 @@ return [{
 """
 
 
+READ_RESPONSE_JS = """// Turns whatever came back from the app into one shape the rest of the flow can
+// trust. "Ask the App" reads the body as TEXT and never stops the run, so a
+// timeout, an HTML error page or a network failure all arrive here instead of
+// crashing the workflow and leaving the customer in silence.
+const res = items[0].json;
+const SORRY =
+  "Sorry, I had trouble looking that up just now. Please send your message again in a moment.";
+
+let body = null;
+try {
+  body = typeof res.body === "string" ? JSON.parse(res.body) : res.body;
+} catch (e) {
+  body = null;
+}
+
+const ok = Boolean(body && body.success === true && body.reply);
+let error = null;
+if (!ok) {
+  if (body && body.error) error = body.error;
+  else if (res.error) error = res.error.message || String(res.error);
+  else error = "HTTP " + (res.statusCode ?? "?") + ": " + String(res.body ?? "").slice(0, 200);
+}
+
+return [{
+  json: {
+    ok,
+    // The app always sends a sentence, even on failure; fall back to our own.
+    reply: (body && body.reply) || SORRY,
+    error,
+    log_id: (body && body.log_id) || null,
+  },
+}];
+"""
+
+
 def node(name, type_, type_version, position, parameters, **extra):
     n = {
         "parameters": parameters,
@@ -121,10 +156,25 @@ nodes = [
         },
     ),
     node(
+        "Is It a Message?",
+        "n8n-nodes-base.if",
+        2,
+        [-20, 300],
+        # WhatsApp also posts delivery / read receipts to this webhook. They have
+        # no "messages" array; they end here quietly instead of failing a run.
+        condition(
+            "cond-has-message",
+            "={{ ($json.messages || []).length > 0 }}",
+            "={{ true }}",
+            operation="true",
+            type_="boolean",
+        ),
+    ),
+    node(
         "Is It Text?",
         "n8n-nodes-base.if",
         2,
-        [0, 300],
+        [180, 300],
         condition(
             "cond-text-only",
             "={{ $json.messages[0].type }}",
@@ -160,7 +210,10 @@ nodes = [
                 "response": {
                     "response": {
                         "fullResponse": True,
-                        "responseFormat": "json",
+                        # Text, not JSON: a non-JSON body (timeout page, HTML
+                        # error) must not abort the run. "Read App Response"
+                        # parses it.
+                        "responseFormat": "text",
                         # Without this a 500 aborts the run and the customer is
                         # left in silence. We want the body either way, so the
                         # failure can be read AND something still gets sent.
@@ -169,6 +222,16 @@ nodes = [
                 },
             },
         },
+        # Network errors and timeouts are not HTTP responses, so neverError does
+        # not cover them; continue with the error instead of stopping.
+        onError="continueRegularOutput",
+    ),
+    node(
+        "Read App Response",
+        "n8n-nodes-base.code",
+        2,
+        [550, 200],
+        {"jsCode": READ_RESPONSE_JS},
     ),
     node(
         "Did It Work?",
@@ -177,7 +240,7 @@ nodes = [
         [660, 200],
         condition(
             "cond-success",
-            "={{ $json.body.success }}",
+            "={{ $json.ok }}",
             "={{ true }}",
             operation="true",
             type_="boolean",
@@ -193,7 +256,7 @@ nodes = [
             "phoneNumberId": "={{ $('Build Request').first().json.phone_number_id }}",
             "recipientPhoneNumber": "={{ $('Build Request').first().json.phone }}",
             "messageType": "text",
-            "textBody": "={{ $json.body.reply }}",
+            "textBody": "={{ $json.reply }}",
         },
         credentials={
             "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
@@ -210,7 +273,7 @@ nodes = [
             "recipientPhoneNumber": "={{ $('Build Request').first().json.phone }}",
             "messageType": "text",
             # The app always returns a sentence to show, even on failure.
-            "textBody": "={{ $json.body.reply }}",
+            "textBody": "={{ $json.reply }}",
         },
         credentials={
             "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
@@ -222,9 +285,8 @@ nodes = [
         1,
         [1140, 300],
         {
-            "errorMessage": "={{ 'App error: ' + ($('Ask the App').first().json.body.error "
-            "|| 'HTTP ' + $('Ask the App').first().json.statusCode) "
-            "+ ' | log_id: ' + ($('Ask the App').first().json.body.log_id || 'none') }}"
+            "errorMessage": "={{ 'App error: ' + $('Read App Response').first().json.error "
+            "+ ' | log_id: ' + ($('Read App Response').first().json.log_id || 'none') }}"
         },
     ),
     node(
@@ -259,11 +321,13 @@ def link(src, dest, output=0):
 
 connections = {}
 for src, dest, output in [
-    link("WhatsApp Trigger", "Is It Text?"),
+    link("WhatsApp Trigger", "Is It a Message?"),
+    link("Is It a Message?", "Is It Text?", 0),    # false -> receipt, ends here
     link("Is It Text?", "Build Request", 0),       # true  -> text
     link("Is It Text?", "Explain Text Only", 1),   # false -> everything else
     link("Build Request", "Ask the App"),
-    link("Ask the App", "Did It Work?"),
+    link("Ask the App", "Read App Response"),
+    link("Read App Response", "Did It Work?"),
     link("Did It Work?", "Send Reply", 0),         # true  -> normal answer
     link("Did It Work?", "Send Sorry Message", 1), # false -> apology, then red
     link("Send Sorry Message", "Mark Execution Failed"),

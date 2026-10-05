@@ -34,6 +34,39 @@
           },
           "conditions": [
             {
+              "id": "cond-has-message",
+              "leftValue": "={{ ($json.messages || []).length > 0 }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-it-a-message?",
+      "name": "Is It a Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -20,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
               "id": "cond-text-only",
               "leftValue": "={{ $json.messages[0].type }}",
               "rightValue": "text",
@@ -52,7 +85,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        0,
+        180,
         300
       ]
     },
@@ -90,7 +123,7 @@
           "response": {
             "response": {
               "fullResponse": true,
-              "responseFormat": "json",
+              "responseFormat": "text",
               "neverError": true
             }
           }
@@ -102,6 +135,20 @@
       "typeVersion": 4.2,
       "position": [
         440,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns whatever came back from the app into one shape the rest of the flow can\n// trust. \"Ask the App\" reads the body as TEXT and never stops the run, so a\n// timeout, an HTML error page or a network failure all arrive here instead of\n// crashing the workflow and leaving the customer in silence.\nconst res = items[0].json;\nconst SORRY =\n  \"Sorry, I had trouble looking that up just now. Please send your message again in a moment.\";\n\nlet body = null;\ntry {\n  body = typeof res.body === \"string\" ? JSON.parse(res.body) : res.body;\n} catch (e) {\n  body = null;\n}\n\nconst ok = Boolean(body && body.success === true && body.reply);\nlet error = null;\nif (!ok) {\n  if (body && body.error) error = body.error;\n  else if (res.error) error = res.error.message || String(res.error);\n  else error = \"HTTP \" + (res.statusCode ?? \"?\") + \": \" + String(res.body ?? \"\").slice(0, 200);\n}\n\nreturn [{\n  json: {\n    ok,\n    // The app always sends a sentence, even on failure; fall back to our own.\n    reply: (body && body.reply) || SORRY,\n    error,\n    log_id: (body && body.log_id) || null,\n  },\n}];\n"
+      },
+      "id": "read-app-response",
+      "name": "Read App Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        550,
         200
       ]
     },
@@ -117,7 +164,7 @@
           "conditions": [
             {
               "id": "cond-success",
-              "leftValue": "={{ $json.body.success }}",
+              "leftValue": "={{ $json.ok }}",
               "rightValue": "={{ true }}",
               "operator": {
                 "type": "boolean",
@@ -144,7 +191,7 @@
         "phoneNumberId": "={{ $('Build Request').first().json.phone_number_id }}",
         "recipientPhoneNumber": "={{ $('Build Request').first().json.phone }}",
         "messageType": "text",
-        "textBody": "={{ $json.body.reply }}"
+        "textBody": "={{ $json.reply }}"
       },
       "id": "send-reply",
       "name": "Send Reply",
@@ -167,7 +214,7 @@
         "phoneNumberId": "={{ $('Build Request').first().json.phone_number_id }}",
         "recipientPhoneNumber": "={{ $('Build Request').first().json.phone }}",
         "messageType": "text",
-        "textBody": "={{ $json.body.reply }}"
+        "textBody": "={{ $json.reply }}"
       },
       "id": "send-sorry-message",
       "name": "Send Sorry Message",
@@ -186,7 +233,7 @@
     },
     {
       "parameters": {
-        "errorMessage": "={{ 'App error: ' + ($('Ask the App').first().json.body.error || 'HTTP ' + $('Ask the App').first().json.statusCode) + ' | log_id: ' + ($('Ask the App').first().json.body.log_id || 'none') }}"
+        "errorMessage": "={{ 'App error: ' + $('Read App Response').first().json.error + ' | log_id: ' + ($('Read App Response').first().json.log_id || 'none') }}"
       },
       "id": "mark-execution-failed",
       "name": "Mark Execution Failed",
@@ -239,6 +286,17 @@
       "main": [
         [
           {
+            "node": "Is It a Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is It a Message?": {
+      "main": [
+        [
+          {
             "node": "Is It Text?",
             "type": "main",
             "index": 0
@@ -276,6 +334,17 @@
       ]
     },
     "Ask the App": {
+      "main": [
+        [
+          {
+            "node": "Read App Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read App Response": {
       "main": [
         [
           {
