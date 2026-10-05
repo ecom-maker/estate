@@ -7,6 +7,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { cn, formatAED } from "@/lib/utils";
+import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 type PropertyCard = {
   id: string;
@@ -74,9 +75,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
         <AIChat
           placeholder="Ask a follow-up..."
           showHistory
-          whatsappNumber={
-            process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "971501234567"
-          }
+          whatsappNumber={WHATSAPP_NUMBER}
           autoSendOnMount={initialQuery || undefined}
           initialMessages={
             initialQuery ? [{ role: "user", content: initialQuery }] : []

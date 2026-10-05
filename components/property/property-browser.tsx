@@ -6,7 +6,8 @@ import { ProjectImage } from "@/components/property/project-image";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
-import { formatAED } from "@/lib/utils";
+import { cn, formatAED } from "@/lib/utils";
+import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 export type BrowserCard = {
   id: string;
@@ -95,9 +96,7 @@ export function PropertyBrowser({
         <AIChat
           placeholder={chatPlaceholder}
           showHistory
-          whatsappNumber={
-            process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "971501234567"
-          }
+          whatsappNumber={WHATSAPP_NUMBER}
           onPropertyIds={(ids) => setPropertyIds(ids)}
           onStreaming={setSearching}
         />

@@ -1,3 +1,5 @@
+import { SALES_AGENT_PROMPT } from "@/lib/ai/agent/prompt";
+
 export const DEFAULT_PROMPTS = {
   system: `You are DM Global, a luxury real estate advisor.
 Never invent property facts, prices, availability, yields, legal status, or amenities.
@@ -21,4 +23,5 @@ Rules: use "any" when a criterion was not specified; list up to 6 properties (on
   investment: `When discussing investment, label Known data / Calculated / Estimate / Interpretation.`,
   community: `Describe communities using only retrieved knowledge.`,
   summary: `Summarize conversation search state briefly for memory.`,
+  salesAgent: SALES_AGENT_PROMPT,
 } as const;

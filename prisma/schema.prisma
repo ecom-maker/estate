@@ -285,6 +285,7 @@ model Property {
   rentalHistory  RentalHistory[]
   offplanHistory OffplanHistory[]
   favorites      Favorite[]
+  leads          Lead[]
 
   @@unique([source, externalId])
   @@index([type, status, priceAed])
@@ -461,6 +462,13 @@ model OffplanHistory {
 model ChatSession {
   id        String    @id @default(cuid())
   userId    String?   @map("user_id")
+  /// Which surface this conversation happened on: "web" or "whatsapp".
+  /// Sessions are never shared across channels - a WhatsApp conversation only
+  /// ever reads WhatsApp history, even for a person who also uses the website.
+  channel   String    @default("web")
+  /// WhatsApp sender in E.164 digits, e.g. "971501234567". Null for web chats.
+  /// This is the identity for WhatsApp: there is no login on that channel.
+  phone     String?
   title     String?
   summary   String?   @db.Text
   intent    Json?     @map("intent_snapshot")
@@ -470,7 +478,71 @@ model ChatSession {
   messages  Message[]
 
   @@index([userId, createdAt])
+  @@index([channel, phone, updatedAt])
   @@map("chat_sessions")
+}
+
+/// One row per inbound WhatsApp message, written whether it succeeded or failed.
+///
+/// n8n's own execution history is pruned and cannot be searched, so this is the
+/// permanent, queryable record: "show me every failure this week", "what did we
+/// tell this customer?". `executionId` links a row straight back to the n8n run
+/// that produced it.
+model WhatsappLog {
+  id          String   @id @default(cuid())
+  /// n8n's $execution.id - the run that delivered this message.
+  executionId String?  @map("execution_id")
+  /// WhatsApp's own message id (wamid...). Unique, so a webhook that WhatsApp
+  /// retries is answered exactly once instead of replying to the customer twice.
+  waMessageId String?  @unique @map("wa_message_id")
+  phone       String
+  sessionId   String?  @map("session_id")
+  message     String   @db.Text
+  reply       String?  @db.Text
+  /// "ok" | "error" | "duplicate"
+  status      String
+  error       String?  @db.Text
+  intent      Json?
+  propertyIds Json?    @map("property_ids")
+  latencyMs   Int?     @map("latency_ms")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([status, createdAt])
+  @@index([phone, createdAt])
+  @@index([executionId])
+  @@map("whatsapp_logs")
+}
+
+/// A next step the AI sales agent captured: a viewing request, a callback, a
+/// brochure request, a hand-off to a human, or a plain enquiry with contact
+/// details. Nothing here is confirmed to the customer as booked - a property
+/// specialist works the row and confirms. `requirements` holds whatever the
+/// agent learned in discovery (purpose, budget, area, timeline, financing...).
+model Lead {
+  id            String    @id @default(cuid())
+  /// enquiry | viewing | brochure | callback | contact_request | human_handoff
+  kind          String
+  /// new | contacted | closed
+  status        String    @default("new")
+  /// web | whatsapp
+  channel       String    @default("web")
+  sessionId     String?   @map("session_id")
+  propertyId    String?   @map("property_id")
+  name          String?
+  phone         String?
+  email         String?
+  preferredDate String?   @map("preferred_date")
+  preferredTime String?   @map("preferred_time")
+  requirements  Json?
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  property      Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([sessionId])
+  @@index([phone])
+  @@map("leads")
 }
 
 model Message {

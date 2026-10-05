@@ -10,6 +10,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import type { Metadata } from "next";
+import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 export const dynamic = "force-dynamic";
 
@@ -220,9 +221,8 @@ export default async function PropertyDetailPage({ params }: Props) {
           <AIChat
             propertyId={property.id}
             placeholder="Ask about this property..."
-            whatsappNumber={
-              process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "971501234567"
-            }
+            propertyTitle={property.title}
+              whatsappNumber={WHATSAPP_NUMBER}
           />
         </div>
         {property.videos[0] ? (
