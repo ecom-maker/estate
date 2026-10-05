@@ -328,6 +328,7 @@ export async function POST(request: Request) {
     const criteria = [
       `Type: ${intent.propertyTypes?.length ? intent.propertyTypes.join("/") : (intent.propertyType ?? "any")}`,
       `Location: ${intent.community ?? intent.location ?? "any"}`,
+      ...(intent.developer ? [`Developer: ${intent.developer}`] : []),
       `Bedrooms: ${intent.bedroomsList?.length ? intent.bedroomsList.join(", ") : intent.bedrooms != null ? `${intent.bedrooms}+` : "any"}`,
       `Bathrooms: ${intent.bathroomsList?.length ? intent.bathroomsList.join(", ") : (intent.bathrooms ?? "any")}`,
       `Budget: ${

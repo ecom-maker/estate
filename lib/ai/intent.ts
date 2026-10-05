@@ -197,6 +197,7 @@ export function extractSearchIntentHeuristic(
   message: string,
   previous?: SearchIntent | null,
   knownCommunities: string[] = FALLBACK_COMMUNITIES,
+  knownDevelopers: string[] = [],
 ): SearchIntent {
   const text = message.toLowerCase();
   const next: SearchIntent = { ...(previous ?? {}), queryText: message };
@@ -417,6 +418,11 @@ export function extractSearchIntentHeuristic(
     next.location = undefined;
   }
 
+  // Developer named in THIS message ("options from Binghatti") wins over any
+  // developer carried over from a previous search.
+  const dev = detectDeveloper(text, knownDevelopers);
+  if (dev) next.developer = dev;
+
   if (text.includes("only waterfront")) next.waterfront = true;
 
   return SearchIntentSchema.parse(next);
@@ -443,6 +449,47 @@ async function getKnownCommunities(): Promise<string[]> {
     merged.push(name.trim());
   }
   return merged;
+}
+
+/** Known developer names from the DB (for "options from Binghatti" queries). */
+async function getKnownDevelopers(): Promise<string[]> {
+  try {
+    const rows = await prisma.developer.findMany({ select: { name: true } });
+    return rows
+      .map((r) => r.name?.trim())
+      .filter((n): n is string => Boolean(n));
+  } catch {
+    return [];
+  }
+}
+
+// Words in developer names that aren't distinctive enough to match on their own.
+const DEV_GENERIC = new Set([
+  "properties", "property", "development", "developments", "developer",
+  "developers", "group", "real", "estate", "holding", "holdings", "llc",
+  "international", "dubai", "uae", "the", "and", "for",
+]);
+
+/** Detect a known developer named in the message (e.g. "from Binghatti"). */
+function detectDeveloper(text: string, knownDevelopers: string[]): string | null {
+  if (!knownDevelopers.length) return null;
+  const lower = text.toLowerCase();
+  const sorted = [...knownDevelopers].sort((a, b) => b.length - a.length);
+  // 1) Full-name substring (longest first), e.g. "ade properties".
+  for (const d of sorted) {
+    if (lower.includes(d.toLowerCase())) return d;
+  }
+  // 2) A distinctive single word of the name, e.g. "binghatti", "emaar".
+  const words = new Set(
+    lower.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean),
+  );
+  for (const d of sorted) {
+    for (const w of d.toLowerCase().split(/\s+/)) {
+      if (w.length < 4 || DEV_GENERIC.has(w)) continue;
+      if (words.has(w)) return d;
+    }
+  }
+  return null;
 }
 
 async function extractWithLLM(
@@ -526,7 +573,10 @@ export async function extractSearchIntent(
   // price/area/beds, status and deal type — so it's the default. The LLM pass
   // (slower, and its timeout doesn't reliably abort) is opt-in via env.
   const llmEnabled = process.env.AI_INTENT_ENABLED === "true";
-  const knownCommunities = await getKnownCommunities();
+  const [knownCommunities, knownDevelopers] = await Promise.all([
+    getKnownCommunities(),
+    getKnownDevelopers(),
+  ]);
 
   // When the LLM pass is enabled, prefer the signed-in user's own key so their
   // intent extraction is billed to them, not the company account.
@@ -543,7 +593,13 @@ export async function extractSearchIntent(
     // bay" switches away from an earlier "palm jumeirah" instead of keeping it.
     // Passing previous=null limits detection to this message only.
     if (llmIntent) {
-      const fresh = extractSearchIntentHeuristic(message, null, knownCommunities);
+      const fresh = extractSearchIntentHeuristic(
+        message,
+        null,
+        knownCommunities,
+        knownDevelopers,
+      );
+      if (fresh.developer) llmIntent.developer = fresh.developer;
       const broaden =
         !fresh.community && mentionsBroadLocation(message.toLowerCase());
       if (fresh.community) {
@@ -573,5 +629,10 @@ export async function extractSearchIntent(
       return llmIntent;
     }
   }
-  return extractSearchIntentHeuristic(message, previous, knownCommunities);
+  return extractSearchIntentHeuristic(
+    message,
+    previous,
+    knownCommunities,
+    knownDevelopers,
+  );
 }
