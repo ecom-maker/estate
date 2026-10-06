@@ -96,39 +96,24 @@ function stripWebRef(text: string): string {
 type WaSession = Awaited<ReturnType<typeof prisma.chatSession.create>>;
 
 /**
- * Resolve the WhatsApp session for a website handoff.
+ * Start a fresh WhatsApp thread for a website handoff, seeded ONLY with that
+ * web conversation.
  *
- * A handoff continues one specific web conversation, so it gets its OWN clean
- * WhatsApp thread seeded only with that web history — never merged into an
- * existing WhatsApp session, whose older context would otherwise bleed into
- * (and dominate) the recap. A SYSTEM sentinel records which web conversation
- * seeded the thread, so re-sending the same ref resumes it instead of
- * duplicating. Returns `bridged: true` only when a fresh thread was seeded.
+ * Every handoff gets its own clean thread — never the sender's existing
+ * WhatsApp session, whose older context would otherwise be mistaken for this
+ * conversation (the recap and "what did we discuss" answers would be wrong).
+ * We don't resume by sentinel: WhatsApp's automatic retries are already handled
+ * by the duplicate guard, so the only way here is a genuine new handoff, and a
+ * fresh seeded thread is always the correct, predictable result. When the web
+ * conversation can't be loaded we still return a clean (empty) thread rather
+ * than falling back to the old session, so stale context never bleeds in.
+ * `bridged: true` means the thread was actually seeded with web history.
  */
-async function startOrResumeHandoff(
+async function startHandoff(
   phone: string,
   webSessionId: string,
   fallbackTitle: string,
-): Promise<{ session: WaSession | null; bridged: boolean }> {
-  const marker = `[bridged-from:${webSessionId}]`;
-
-  // Already handed this web conversation off before — resume that thread.
-  const prior = await prisma.message.findFirst({
-    where: {
-      role: "SYSTEM",
-      content: marker,
-      session: { channel: "whatsapp", phone },
-    },
-    orderBy: { createdAt: "desc" },
-    select: { sessionId: true },
-  });
-  if (prior) {
-    const existing = await prisma.chatSession.findUnique({
-      where: { id: prior.sessionId },
-    });
-    if (existing) return { session: existing, bridged: false };
-  }
-
+): Promise<{ session: WaSession; bridged: boolean }> {
   const web = await prisma.chatSession.findFirst({
     where: { id: webSessionId, channel: "web" },
     include: {
@@ -139,20 +124,20 @@ async function startOrResumeHandoff(
       },
     },
   });
-  // Nothing to continue — let the caller fall back to a normal session.
-  if (!web || web.messages.length === 0) return { session: null, bridged: false };
 
   const session = await prisma.chatSession.create({
     data: {
       channel: "whatsapp",
       phone,
-      title: (web.title ?? fallbackTitle).slice(0, 80),
+      title: (web?.title ?? fallbackTitle).slice(0, 80),
       // Carry the web search intent so WhatsApp refinements keep working.
-      intent: (web.intent ?? undefined) as never,
+      intent: (web?.intent ?? undefined) as never,
     },
   });
 
-  // Backdate the imported turns so they sort before the handoff message that
+  if (!web || web.messages.length === 0) return { session, bridged: false };
+
+  // Backdate the seeded turns so they sort before the handoff message that
   // triggered this (written at `started`), preserving order.
   const base = Date.now() - web.messages.length - 1;
   await prisma.$transaction([
@@ -160,7 +145,7 @@ async function startOrResumeHandoff(
       data: {
         sessionId: session.id,
         role: "SYSTEM",
-        content: marker,
+        content: `[bridged-from:${webSessionId}]`,
         createdAt: new Date(base),
       },
     }),
@@ -304,7 +289,7 @@ export async function POST(request: Request) {
     let session: WaSession | null = null;
     if (webRef) {
       try {
-        const handoff = await startOrResumeHandoff(phone, webRef, message);
+        const handoff = await startHandoff(phone, webRef, message);
         session = handoff.session;
         bridged = handoff.bridged;
       } catch (error) {
