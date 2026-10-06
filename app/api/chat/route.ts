@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { extractSearchIntent, isRealEstateQuery } from "@/lib/ai/intent";
 import { answerPropertyQuestion } from "@/lib/ai/property-answer";
-import { buildMarketInsights } from "@/lib/property/market-insights";
+import { getMarketInsights } from "@/lib/property/market-data";
 import { getPrompts } from "@/lib/ai/get-prompt";
 import { logAiUsage } from "@/lib/ai/usage";
 import {
@@ -238,13 +238,10 @@ export async function POST(request: Request) {
 
         // Specific factual questions get a direct answer (fast, exact) instead of
         // the whole fact sheet. Open-ended questions fall through to the LLM.
-        const insights = buildMarketInsights({
-          id: property.id,
-          title: property.title,
-          priceAed: property.priceAed,
-          areaSqft: property.areaSqft,
-          community: property.community,
-        });
+        // Real DLD comparables, or undefined when there are too few. The agent
+        // must never quote an estimated price to a customer, so when this is
+        // null the market questions simply go unanswered rather than invented.
+        const insights = (await getMarketInsights(property)) ?? undefined;
         const direct = answerPropertyQuestion(
           lastUser.content,
           property,

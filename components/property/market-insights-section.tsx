@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { buildMarketInsights } from "@/lib/property/market-insights";
+import { getMarketInsights } from "@/lib/property/market-data";
 import { PriceTrendChart } from "@/components/property/price-trend-chart";
 import { TransactionsBlock } from "@/components/property/transactions-block";
 import { cn } from "@/lib/utils";
@@ -32,8 +32,15 @@ function deliveryLabel(offPlan: boolean, handoverDate?: string): string {
   return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
 }
 
-export function MarketInsightsSection({ property }: { property: PropertyInput }) {
-  const insights = buildMarketInsights(property);
+export async function MarketInsightsSection({
+  property,
+}: {
+  property: PropertyInput;
+}) {
+  // Real DLD transactions for comparable units, or null when there are too few
+  // to say anything. Nothing here is estimated — if the data is thin, the
+  // transactions table and the trend chart are simply not rendered.
+  const insights = await getMarketInsights(property);
   const image = property.images?.[0];
   const pp = (property.paymentPlan ?? {}) as { downPaymentPct?: number };
   const meta = (property.metadata ?? {}) as { handoverDate?: string };
@@ -128,32 +135,40 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
         </div>
       </section>
 
-      {/* Transactions for this building */}
-      <TransactionsBlock
-        sold={insights.sold}
-        rented={insights.rented}
-        buildingName={property.title}
-        subtitle={`${property.bedrooms ?? "—"} Bed ${titleCase(property.type)}s in ${property.title}`}
-      />
-
-      {/* Prices & trends */}
-      <section>
-        <h2 className="font-serif text-2xl text-primary">Prices &amp; trends</h2>
-        <p className="mt-1 text-sm text-muted">
-          {property.bedrooms ?? "—"} bedroom{" "}
-          {titleCase(property.type).toLowerCase()}s in {property.title} vs{" "}
-          {communityName}
-        </p>
-        <div className="mt-5 rounded-sm border border-border bg-card p-5">
-          <PriceTrendChart
-            months={insights.trend.months}
-            sale={insights.trend.sale}
-            rent={insights.trend.rent}
-            primaryLabel={insights.trend.primaryLabel}
-            secondaryLabel={insights.trend.secondaryLabel}
+      {insights ? (
+        <>
+          {/* Transactions for similar properties */}
+          <TransactionsBlock
+            sold={insights.sold}
+            rented={insights.rented}
+            buildingName={communityName}
+            subtitle={`${property.bedrooms ?? "—"} Bed ${titleCase(property.type)}s in ${communityName}`}
           />
-        </div>
-      </section>
+
+          {/* Prices & trends */}
+          <section>
+            <h2 className="font-serif text-2xl text-primary">
+              Prices &amp; trends
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {insights.trend.primaryLabel} vs {insights.trend.secondaryLabel}
+            </p>
+            <div className="mt-5 rounded-sm border border-border bg-card p-5">
+              <PriceTrendChart
+                months={insights.trend.months}
+                sale={insights.trend.sale}
+                rent={insights.trend.rent}
+                primaryLabel={insights.trend.primaryLabel}
+                secondaryLabel={insights.trend.secondaryLabel}
+              />
+            </div>
+            <p className="mt-3 text-[11px] text-muted">
+              Based on recorded Dubai Land Department transactions for
+              comparable units in {communityName}.
+            </p>
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }
