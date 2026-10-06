@@ -81,7 +81,8 @@ function normalisePhone(raw: string): string {
  * "(ref: web-<sessionId>)" in the first message so we can continue that exact
  * conversation here instead of starting over.
  */
-const WEB_REF = /\(?\s*ref:\s*web-([a-z0-9]+)\s*\)?/i;
+// Session ids are UUIDs/cuids, so the capture must allow hyphens.
+const WEB_REF = /\(?\s*ref:\s*web-([a-z0-9-]+)\s*\)?/i;
 
 function parseWebRef(text: string): string | null {
   return text.match(WEB_REF)?.[1] ?? null;
@@ -291,9 +292,10 @@ export async function POST(request: Request) {
 
     // Website handoff: import that web conversation once so this thread
     // continues from it. Non-fatal — a failed import just means no context.
+    let bridged = false;
     if (webRef) {
       try {
-        await importWebHistory(session.id, webRef);
+        bridged = await importWebHistory(session.id, webRef);
       } catch (error) {
         console.error("web->whatsapp history import failed", error);
       }
@@ -325,12 +327,19 @@ export async function POST(request: Request) {
         content: m.content,
       }));
 
+    // On a fresh handoff, nudge the agent to recap the website conversation:
+    // WhatsApp can't show those earlier messages as bubbles, so an explicit
+    // recap is what makes the continuity visible to the customer.
+    const agentMessage = bridged
+      ? `${message}\n\n[The customer is continuing a conversation from our website; their earlier messages are in the history above. Open by briefly recapping what you were discussing and the key details they shared, then continue helping.]`
+      : message;
+
     let agentFailure = "";
     const agent =
       process.env.AI_AGENT_ENABLED !== "false"
         ? await runSalesAgent({
             history,
-            message,
+            message: agentMessage,
             channel: "whatsapp",
             sessionId: session.id,
             phone,
