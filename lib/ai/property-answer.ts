@@ -78,8 +78,15 @@ export function answerPropertyQuestion(
       )
     ) {
       const isRent = has("rent", "rental", "lease");
-      const series = isRent ? trend.rent.primary : trend.sale.primary;
-      if (series.length >= 2) {
+      // `trend` is null when the comparables span too few months to state a
+      // direction. The agent then says nothing about trends rather than
+      // reading one off a fortnight of sales.
+      const series = trend
+        ? isRent
+          ? trend.rent.primary
+          : trend.sale.primary
+        : [];
+      if (trend && series.length >= 2) {
         // Window from the query: "2 years" / "18 months" / default 1 year,
         // capped to the data we actually have.
         const ym = t.match(/(\d+)\s*(?:year|yr|y)s?\b/);

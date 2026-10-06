@@ -145,28 +145,31 @@ export async function MarketInsightsSection({
             subtitle={`${property.bedrooms ?? "—"} Bed ${titleCase(property.type)}s in ${communityName}`}
           />
 
-          {/* Prices & trends */}
-          <section>
-            <h2 className="font-serif text-2xl text-primary">
-              Prices &amp; trends
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              {insights.trend.primaryLabel} vs {insights.trend.secondaryLabel}
-            </p>
-            <div className="mt-5 rounded-sm border border-border bg-card p-5">
-              <PriceTrendChart
-                months={insights.trend.months}
-                sale={insights.trend.sale}
-                rent={insights.trend.rent}
-                primaryLabel={insights.trend.primaryLabel}
-                secondaryLabel={insights.trend.secondaryLabel}
-              />
-            </div>
-            <p className="mt-3 text-[11px] text-muted">
-              Based on recorded Dubai Land Department transactions for
-              comparable units in {communityName}.
-            </p>
-          </section>
+          {/* Prices & trends — only once the comparables span enough months
+              to show a direction; the table above stands on its own. */}
+          {insights.trend ? (
+            <section>
+              <h2 className="font-serif text-2xl text-primary">
+                Prices &amp; trends
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                {insights.trend.primaryLabel} vs {insights.trend.secondaryLabel}
+              </p>
+              <div className="mt-5 rounded-sm border border-border bg-card p-5">
+                <PriceTrendChart
+                  months={insights.trend.months}
+                  sale={insights.trend.sale}
+                  rent={insights.trend.rent}
+                  primaryLabel={insights.trend.primaryLabel}
+                  secondaryLabel={insights.trend.secondaryLabel}
+                />
+              </div>
+              <p className="mt-3 text-[11px] text-muted">
+                Based on recorded Dubai Land Department transactions for
+                comparable units in {communityName}.
+              </p>
+            </section>
+          ) : null}
         </>
       ) : null}
     </div>

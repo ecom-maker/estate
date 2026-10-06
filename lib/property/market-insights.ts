@@ -13,11 +13,16 @@ export type Txn = { date: string; aed: number; area: number };
 export type MarketInsights = {
   sold: Txn[];
   rented: Txn[];
+  /**
+   * null when the comparables exist but span too few months to call a trend.
+   * The transactions table is still shown in that case — it is a list of real
+   * sales and stands on its own — while the chart is omitted.
+   */
   trend: {
     months: string[]; // oldest → newest
     sale: { primary: number[]; secondary: number[] }; // AED / sqft
     rent: { primary: number[]; secondary: number[] }; // AED / sqft / year
     primaryLabel: string;
     secondaryLabel: string;
-  };
+  } | null;
 };

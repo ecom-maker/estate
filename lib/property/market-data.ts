@@ -171,10 +171,6 @@ export async function getMarketInsights(property: {
   const saleTrend = series(monthlyPerSqft(salesScope), monthlyPerSqft(sales));
   const rentTrend = series(monthlyPerSqft(rentalScope), monthlyPerSqft(rentals));
 
-  // The chart needs a sale series; rent is optional and reuses the sale months
-  // only when it genuinely covers them.
-  if (!saleTrend) return null;
-
   const bedLabel =
     beds === null || salesScope !== compSales
       ? "Similar properties"
@@ -182,18 +178,24 @@ export async function getMarketInsights(property: {
         ? "Studios"
         : `${beds} bedroom`;
 
+  // The table and the chart have different evidence bars. A list of recorded
+  // sales is honest with six rows, so it shows as soon as there are comparables.
+  // A trend line claims a direction over time, so it waits for several months —
+  // otherwise a fortnight of sales would be drawn as a market movement.
   return {
     sold,
     rented,
-    trend: {
-      months: saleTrend.months,
-      sale: { primary: saleTrend.primary, secondary: saleTrend.secondary },
-      rent:
-        rentTrend && rentTrend.months.length === saleTrend.months.length
-          ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
-          : { primary: [], secondary: [] },
-      primaryLabel: `${bedLabel} in ${community}`,
-      secondaryLabel: `All ${community}`,
-    },
+    trend: saleTrend
+      ? {
+          months: saleTrend.months,
+          sale: { primary: saleTrend.primary, secondary: saleTrend.secondary },
+          rent:
+            rentTrend && rentTrend.months.length === saleTrend.months.length
+              ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
+              : { primary: [], secondary: [] },
+          primaryLabel: `${bedLabel} in ${community}`,
+          secondaryLabel: `All ${community}`,
+        }
+      : null,
   };
 }
