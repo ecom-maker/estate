@@ -5,7 +5,6 @@ import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
 
 const baseNav = [
-  { href: "/search", label: "Search" },
   { href: "/properties", label: "Properties" },
   { href: "/projects", label: "Projects" },
   { href: "/agent", label: "Agent" },
