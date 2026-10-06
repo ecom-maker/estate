@@ -140,10 +140,33 @@ export async function runSalesAgent(opts: {
   }
 
   if (!result.reply) return fail(`Empty reply from ${result.model}`);
-  result.propertyIds = ctx.shownPropertyIds ?? null;
+  // Grid should mirror what the reply actually recommends (the projects it
+  // links to), in that order; fall back to the last search's matches.
+  const inv = ctx.inventory ? await ctx.inventory : [];
+  const linked = linkedPropertyIds(result.reply, inv);
+  result.propertyIds = linked.length ? linked : (ctx.shownPropertyIds ?? null);
   result.lastSearch = ctx.lastSearch ?? null;
   result.leadIds = ctx.leadIds ?? [];
   return result;
+}
+
+/** Property ids the reply links to (/projects/<slug> or /properties/<slug>),
+ *  in order of appearance, deduped — so the results grid matches the prose. */
+function linkedPropertyIds(
+  reply: string,
+  inventory: { id: string; slug: string }[],
+): string[] {
+  const bySlug = new Map(inventory.map((p) => [p.slug, p.id]));
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const m of reply.matchAll(/\/(?:projects|properties)\/([a-z0-9-]+)/gi)) {
+    const id = bySlug.get(m[1]);
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return ids;
 }
 
 /** The (admin-editable) prompt, cached a minute per instance to save a DB round trip. */
