@@ -5,14 +5,15 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin" };
 
 export default async function AdminPage() {
-  let cards = [
-    { label: "Properties", value: "—" },
-    { label: "Projects (off-plan)", value: "—" },
-    { label: "Active listings", value: "—" },
-    { label: "AI conversations", value: "—" },
-    { label: "API sync status", value: "Healthy" },
-    { label: "Knowledge documents", value: "—" },
-    { label: "AI usage (all)", value: "—" },
+  // Each card links to the view that explains its number.
+  let cards: { label: string; value: string; href: string }[] = [
+    { label: "Properties", value: "—", href: "/admin/properties?filter=ready" },
+    { label: "Projects (off-plan)", value: "—", href: "/admin/properties?filter=offplan" },
+    { label: "Active listings", value: "—", href: "/admin/properties?filter=active" },
+    { label: "AI conversations", value: "—", href: "/admin/ai" },
+    { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
+    { label: "Knowledge documents", value: "—", href: "/admin/knowledge-base" },
+    { label: "AI usage (all)", value: "—", href: "/admin/ai" },
   ];
 
   try {
@@ -26,13 +27,13 @@ export default async function AdminPage() {
         prisma.aiLog.count(),
       ]);
     cards = [
-      { label: "Properties", value: String(properties) },
-      { label: "Projects (off-plan)", value: String(projects) },
-      { label: "Active listings", value: String(active) },
-      { label: "AI conversations", value: String(conversations) },
-      { label: "API sync status", value: "Healthy" },
-      { label: "Knowledge documents", value: String(docs) },
-      { label: "AI usage (all)", value: String(aiLogs) },
+      { label: "Properties", value: String(properties), href: "/admin/properties?filter=ready" },
+      { label: "Projects (off-plan)", value: String(projects), href: "/admin/properties?filter=offplan" },
+      { label: "Active listings", value: String(active), href: "/admin/properties?filter=active" },
+      { label: "AI conversations", value: String(conversations), href: "/admin/ai" },
+      { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
+      { label: "Knowledge documents", value: String(docs), href: "/admin/knowledge-base" },
+      { label: "AI usage (all)", value: String(aiLogs), href: "/admin/ai" },
     ];
   } catch {
     // keep placeholders
@@ -60,15 +61,22 @@ export default async function AdminPage() {
 
       <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => (
-          <div
+          <Link
             key={card.label}
-            className="rounded-sm border border-border bg-card p-5"
+            href={card.href}
+            className="group rounded-sm border border-border bg-card p-5 transition hover:border-accent hover:shadow-sm"
           >
-            <p className="text-xs uppercase tracking-wider text-muted">
+            <p className="flex items-center justify-between text-xs uppercase tracking-wider text-muted">
               {card.label}
+              <span
+                aria-hidden
+                className="text-accent opacity-0 transition group-hover:opacity-100"
+              >
+                →
+              </span>
             </p>
             <p className="mt-3 font-serif text-3xl text-primary">{card.value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 

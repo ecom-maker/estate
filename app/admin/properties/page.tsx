@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 import { formatAED } from "@/lib/utils";
@@ -8,12 +9,38 @@ import { BackfillCommunitiesButton } from "@/components/admin/backfill-communiti
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Properties" };
 
-export default async function AdminPropertiesPage() {
+type Filter = "all" | "ready" | "offplan" | "active";
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "ready", label: "Properties" },
+  { key: "offplan", label: "Projects (off-plan)" },
+  { key: "active", label: "Active" },
+];
+
+function whereForFilter(filter: Filter): Prisma.PropertyWhereInput {
+  const base: Prisma.PropertyWhereInput = { deletedAt: null };
+  if (filter === "ready") return { ...base, offPlan: false };
+  if (filter === "offplan") return { ...base, offPlan: true };
+  if (filter === "active") return { ...base, status: "ACTIVE" };
+  return base;
+}
+
+export default async function AdminPropertiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
   try {
     await assertPermission("properties.update");
   } catch {
     redirect("/login?next=/admin/properties");
   }
+
+  const { filter: filterParam } = await searchParams;
+  const filter: Filter = FILTERS.some((f) => f.key === filterParam)
+    ? (filterParam as Filter)
+    : "all";
 
   let properties: Array<{
     id: string;
@@ -28,7 +55,7 @@ export default async function AdminPropertiesPage() {
 
   try {
     properties = await prisma.property.findMany({
-      where: { deletedAt: null },
+      where: whereForFilter(filter),
       include: { community: true },
       orderBy: { updatedAt: "desc" },
       take: 100,
@@ -61,7 +88,23 @@ export default async function AdminPropertiesPage() {
         </div>
       </div>
 
-      <div className="mt-8 overflow-x-auto rounded-sm border border-border bg-card">
+      <div className="mt-6 flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <Link
+            key={f.key}
+            href={f.key === "all" ? "/admin/properties" : `/admin/properties?filter=${f.key}`}
+            className={`rounded-full border px-4 py-1.5 text-xs font-medium transition ${
+              filter === f.key
+                ? "border-accent bg-accent/10 text-accent"
+                : "border-border text-muted hover:border-accent hover:text-primary"
+            }`}
+          >
+            {f.label}
+          </Link>
+        ))}
+      </div>
+
+      <div className="mt-6 overflow-x-auto rounded-sm border border-border bg-card">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="text-xs uppercase tracking-wider text-muted">
             <tr>
