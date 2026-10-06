@@ -153,6 +153,7 @@ export function AIChat({
   > | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [handoffNotice, setHandoffNotice] = useState(false);
   const autoSent = useRef(false);
 
   // Record / update a session, merging with what's already in localStorage so
@@ -409,6 +410,12 @@ export function AIChat({
       "_blank",
       "noopener,noreferrer",
     );
+    // Confirm the handoff in the web chat so it's clear the thread continues
+    // on WhatsApp (only when there was a conversation to carry over).
+    if (hasConversation) {
+      setHandoffNotice(true);
+      window.setTimeout(() => setHandoffNotice(false), 6000);
+    }
   }
 
   return (
@@ -488,6 +495,18 @@ export function AIChat({
           </div>
         ) : null}
       </div>
+
+      {handoffNotice ? (
+        <div
+          role="status"
+          className="mt-2 flex items-center gap-2 rounded-md border border-[#25D366]/30 bg-[#25D366]/10 px-3 py-2 text-xs text-primary"
+        >
+          <WhatsAppIcon className="h-3.5 w-3.5 shrink-0 text-[#25D366]" />
+          Continuing this chat on WhatsApp — your conversation has been handed
+          off, so just send the pre-filled message to pick up where you left
+          off.
+        </div>
+      ) : null}
 
       {/* Messages */}
       <div
