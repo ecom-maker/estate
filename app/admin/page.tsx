@@ -6,7 +6,8 @@ export const metadata = { title: "Admin" };
 
 export default async function AdminPage() {
   let cards = [
-    { label: "Total properties", value: "—" },
+    { label: "Properties", value: "—" },
+    { label: "Projects (off-plan)", value: "—" },
     { label: "Active listings", value: "—" },
     { label: "AI conversations", value: "—" },
     { label: "API sync status", value: "Healthy" },
@@ -15,15 +16,18 @@ export default async function AdminPage() {
   ];
 
   try {
-    const [total, active, conversations, docs, aiLogs] = await Promise.all([
-      prisma.property.count({ where: { deletedAt: null } }),
-      prisma.property.count({ where: { deletedAt: null, status: "ACTIVE" } }),
-      prisma.chatSession.count(),
-      prisma.knowledgeDocument.count({ where: { deletedAt: null } }),
-      prisma.aiLog.count(),
-    ]);
+    const [properties, projects, active, conversations, docs, aiLogs] =
+      await Promise.all([
+        prisma.property.count({ where: { deletedAt: null, offPlan: false } }),
+        prisma.property.count({ where: { deletedAt: null, offPlan: true } }),
+        prisma.property.count({ where: { deletedAt: null, status: "ACTIVE" } }),
+        prisma.chatSession.count(),
+        prisma.knowledgeDocument.count({ where: { deletedAt: null } }),
+        prisma.aiLog.count(),
+      ]);
     cards = [
-      { label: "Total properties", value: String(total) },
+      { label: "Properties", value: String(properties) },
+      { label: "Projects (off-plan)", value: String(projects) },
       { label: "Active listings", value: String(active) },
       { label: "AI conversations", value: String(conversations) },
       { label: "API sync status", value: "Healthy" },
