@@ -76,6 +76,88 @@ function normalisePhone(raw: string): string {
   return raw.replace(/\D/g, "");
 }
 
+/**
+ * Website → WhatsApp handoff. The web chat's "Chat on WhatsApp" button embeds
+ * "(ref: web-<sessionId>)" in the first message so we can continue that exact
+ * conversation here instead of starting over.
+ */
+const WEB_REF = /\(?\s*ref:\s*web-([a-z0-9]+)\s*\)?/i;
+
+function parseWebRef(text: string): string | null {
+  return text.match(WEB_REF)?.[1] ?? null;
+}
+
+/** The message with the handoff marker removed, so it reads naturally. */
+function stripWebRef(text: string): string {
+  return text.replace(WEB_REF, "").replace(/\s{2,}/g, " ").trim();
+}
+
+/**
+ * First time a sender arrives with a website handoff ref, copy that web
+ * conversation's turns into this WhatsApp session so the agent continues with
+ * full context. A SYSTEM sentinel makes it idempotent (retries or a repeated
+ * ref never double-import); the agent's history filter ignores SYSTEM rows.
+ */
+async function importWebHistory(
+  waSessionId: string,
+  webSessionId: string,
+): Promise<boolean> {
+  const marker = `[bridged-from:${webSessionId}]`;
+  const already = await prisma.message.findFirst({
+    where: { sessionId: waSessionId, role: "SYSTEM", content: marker },
+    select: { id: true },
+  });
+  if (already) return false;
+
+  const web = await prisma.chatSession.findFirst({
+    where: { id: webSessionId, channel: "web" },
+    include: {
+      messages: {
+        where: { role: { in: ["USER", "ASSISTANT"] } },
+        orderBy: { createdAt: "asc" },
+        take: 40,
+      },
+    },
+  });
+  if (!web || web.messages.length === 0) return false;
+
+  // Backdate the imported turns so they sort before the handoff message that
+  // triggered this (which is written at `started`), preserving order.
+  const base = Date.now() - web.messages.length - 1;
+  await prisma.$transaction([
+    prisma.message.create({
+      data: {
+        sessionId: waSessionId,
+        role: "SYSTEM",
+        content: marker,
+        createdAt: new Date(base),
+      },
+    }),
+    ...web.messages.map((m, i) =>
+      prisma.message.create({
+        data: {
+          sessionId: waSessionId,
+          role: m.role,
+          content: m.content,
+          createdAt: new Date(base + i + 1),
+          propertyReferences: (m.propertyReferences ?? undefined) as never,
+          searchIntent: (m.searchIntent ?? undefined) as never,
+        },
+      }),
+    ),
+    // Carry the web search intent over so WhatsApp refinements keep working.
+    ...(web.intent
+      ? [
+          prisma.chatSession.update({
+            where: { id: waSessionId },
+            data: { intent: web.intent as never },
+          }),
+        ]
+      : []),
+  ]);
+  return true;
+}
+
 /** Constant-time compare so the shared secret cannot be guessed byte by byte. */
 function secretMatches(provided: string | null, expected: string): boolean {
   if (!provided) return false;
@@ -126,6 +208,14 @@ export async function POST(request: Request) {
   const executionId = body.execution_id ?? null;
   const waMessageId = body.wa_message_id ?? null;
 
+  // A website handoff carries "(ref: web-<id>)". Strip it so the agent and the
+  // stored transcript see a clean message; `webRef` drives the history import.
+  const webRef = parseWebRef(body.message);
+  const message = webRef
+    ? stripWebRef(body.message) ||
+      "Let's continue where we left off on the website."
+    : body.message;
+
   // Per-sender cap: one person flooding us cannot exhaust the AI budget.
   if (!rateLimit(`wa:${phone}`, 20, 60_000).ok) {
     return failure("RATE_LIMITED", "Too many messages from this number", 429);
@@ -166,7 +256,7 @@ export async function POST(request: Request) {
           waMessageId,
           phone,
           sessionId: fields.sessionId ?? null,
-          message: body.message,
+          message,
           reply: fields.reply ?? null,
           status: fields.status,
           error: fields.error ?? null,
@@ -194,9 +284,19 @@ export async function POST(request: Request) {
         data: {
           channel: "whatsapp",
           phone,
-          title: body.message.slice(0, 80),
+          title: message.slice(0, 80),
         },
       });
+    }
+
+    // Website handoff: import that web conversation once so this thread
+    // continues from it. Non-fatal — a failed import just means no context.
+    if (webRef) {
+      try {
+        await importWebHistory(session.id, webRef);
+      } catch (error) {
+        console.error("web->whatsapp history import failed", error);
+      }
     }
 
     // n8n sends no history: the app owns it and reads it here.
@@ -230,7 +330,7 @@ export async function POST(request: Request) {
       process.env.AI_AGENT_ENABLED !== "false"
         ? await runSalesAgent({
             history,
-            message: body.message,
+            message,
             channel: "whatsapp",
             sessionId: session.id,
             phone,
@@ -262,11 +362,12 @@ export async function POST(request: Request) {
       // one. The topic check must judge THIS message alone: the merged intent
       // always has fields set after any search, which made every later
       // message look like a property query ("what is the weather today").
-      intent = await extractSearchIntent(body.message, previousIntent);
-      const freshIntent = await extractSearchIntent(body.message);
+      intent = await extractSearchIntent(message, previousIntent);
+      const freshIntent = await extractSearchIntent(message);
       const onTopic =
-        isRealEstateQuery(body.message, freshIntent) ||
-        (Boolean(previousIntent) && CONTINUATION.test(body.message.trim()));
+        isRealEstateQuery(message, freshIntent) ||
+        Boolean(webRef) ||
+        (Boolean(previousIntent) && CONTINUATION.test(message.trim()));
 
       if (!onTopic) {
         reply = OFF_TOPIC;
@@ -298,7 +399,7 @@ export async function POST(request: Request) {
     // n8n waits for this response, so independent writes run in parallel.
     const [, , , logId] = await Promise.all([
       prisma.message.create({
-        data: { sessionId: session.id, role: "USER", content: body.message, createdAt: new Date(started) },
+        data: { sessionId: session.id, role: "USER", content: message, createdAt: new Date(started) },
       }),
       prisma.message.create({
         data: {

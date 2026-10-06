@@ -390,13 +390,19 @@ export function AIChat({
 
   function shareOnWhatsApp() {
     if (typeof window === "undefined" || !whatsappNumber) return;
-    // A short greeting the person can send as-is (no website link): the
-    // project name on project pages, a general enquiry everywhere else.
-    const message = propertyTitle
-      ? `Hi, I'm interested in ${propertyTitle}. Could you share more details?`
-      : propertyId
-        ? "Hi, I'm interested in a project I saw on DM Global. Could you share more details?"
-        : "Hi, I'm looking for a project. Can you help me?";
+    // Mid-conversation: hand the thread off to WhatsApp. The "(ref: web-<id>)"
+    // lets the WhatsApp assistant import this web chat's history on the first
+    // message, so the conversation continues instead of starting over.
+    const hasConversation = Boolean(sessionId) && messages.length > 0;
+    // Otherwise a short greeting the person can send as-is (no website link):
+    // the project name on project pages, a general enquiry everywhere else.
+    const message = hasConversation
+      ? `Hi! I'd like to continue my DM Global chat from the website.\n(ref: web-${sessionId})`
+      : propertyTitle
+        ? `Hi, I'm interested in ${propertyTitle}. Could you share more details?`
+        : propertyId
+          ? "Hi, I'm interested in a project I saw on DM Global. Could you share more details?"
+          : "Hi, I'm looking for a project. Can you help me?";
     const number = whatsappNumber.replace(/[^\d]/g, "");
     window.open(
       `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
