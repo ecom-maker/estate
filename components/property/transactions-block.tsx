@@ -108,7 +108,6 @@ export function TransactionsBlock({
         >
           See all transactions in this location
         </button>
-        <p className="mt-3 text-[11px] text-muted">Powered by DataGuru</p>
       </div>
 
       {open ? (
@@ -154,9 +153,6 @@ export function TransactionsBlock({
                 rows={rented}
               />
             </div>
-            <p className="border-t border-border py-3 text-center text-[11px] text-muted">
-              Powered by DataGuru
-            </p>
           </div>
         </div>
       ) : null}

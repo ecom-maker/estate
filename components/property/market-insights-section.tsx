@@ -153,9 +153,6 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
             secondaryLabel={insights.trend.secondaryLabel}
           />
         </div>
-        <p className="mt-3 text-center text-[11px] text-muted">
-          Powered by DataGuru
-        </p>
       </section>
     </div>
   );
