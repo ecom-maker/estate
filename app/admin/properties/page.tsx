@@ -53,15 +53,22 @@ export default async function AdminPropertiesPage({
     community: { name: string } | null;
   }> = [];
 
+  // The list is capped at 100 rows, so the heading uses a real count rather
+  // than the array length — otherwise it would read "100 listings" forever.
+  let total = 0;
   try {
-    properties = await prisma.property.findMany({
-      where: whereForFilter(filter),
-      include: { community: true },
-      orderBy: { updatedAt: "desc" },
-      take: 100,
-    });
+    [properties, total] = await Promise.all([
+      prisma.property.findMany({
+        where: whereForFilter(filter),
+        include: { community: true },
+        orderBy: { updatedAt: "desc" },
+        take: 100,
+      }),
+      prisma.property.count({ where: whereForFilter(filter) }),
+    ]);
   } catch {
     properties = [];
+    total = 0;
   }
 
   return (
@@ -73,8 +80,10 @@ export default async function AdminPropertiesPage({
           </p>
           <h1 className="mt-3 font-serif text-4xl text-primary">Properties</h1>
           <p className="mt-2 text-sm text-muted">
-            {properties.length} listings · create and edit manually, or sync via
-            connectors.
+            {total} listings{total > properties.length
+              ? ` · showing the ${properties.length} most recently updated`
+              : ""}{" "}
+            · create and edit manually, or sync via connectors.
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
