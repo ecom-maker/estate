@@ -1,7 +1,7 @@
 import { descriptionSections, highlightList } from "@/lib/property/description";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { getAppUrl } from "@/lib/app-url";
+import { SITE_URL } from "@/lib/data-layer/canonical";
 
 /**
  * Inventory reads for the AI sales agent. Every fact the agent may state comes
@@ -111,7 +111,10 @@ export function fuzzyPhrase(text: string, term: string): boolean {
 
 export function projectUrl(p: { slug: string; source: string | null; offPlan: boolean; units?: unknown[] }) {
   const isProject = p.source === "reelly" || p.offPlan || (p.units?.length ?? 0) > 0;
-  return `${getAppUrl()}/${isProject ? "projects" : "properties"}/${p.slug}`;
+  // Customer-facing share links must use the canonical public domain (same as
+  // sitemap/metadata), not getAppUrl() — which tracks the auth/app URL and can
+  // point at a stale preview deployment.
+  return `${SITE_URL}/${isProject ? "projects" : "properties"}/${p.slug}`;
 }
 
 /** Location matching uses the community, its emirate and the project district —
