@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
-import { LogOut, User as UserIcon, Sparkles, ShieldCheck } from "lucide-react";
+import {
+  LogOut,
+  User as UserIcon,
+  Sparkles,
+  ShieldCheck,
+  MessageSquare,
+} from "lucide-react";
 import { isAdmin } from "@/lib/rbac/check";
 
 type HeaderAuthProps = {
@@ -131,6 +137,10 @@ export function HeaderAuth({ variant }: HeaderAuthProps) {
               <MenuLink href="/account/llm" onClick={() => setOpen(false)}>
                 <Sparkles className="h-4 w-4" aria-hidden />
                 My LLM
+              </MenuLink>
+              <MenuLink href="/account/chats" onClick={() => setOpen(false)}>
+                <MessageSquare className="h-4 w-4" aria-hidden />
+                My chats
               </MenuLink>
               {admin ? (
                 <MenuLink href="/admin" onClick={() => setOpen(false)}>

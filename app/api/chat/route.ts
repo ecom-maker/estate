@@ -104,7 +104,9 @@ export async function POST(request: Request) {
     const writeInbound = async () => {
       if (isNewSession) {
         await prisma.chatSession.create({
-          data: { id: chatSessionId, title: lastUser.content.slice(0, 80) },
+          // Link to the signed-in user (when any) so they can revisit it under
+          // "My Chats"; anonymous visitors store userId null as before.
+          data: { id: chatSessionId, title: lastUser.content.slice(0, 80), userId },
         });
       }
       await prisma.message.create({
