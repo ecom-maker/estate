@@ -593,7 +593,13 @@ function RichText({ text }: { text: string }) {
   for (const m of text.matchAll(pattern)) {
     if (m.index > last) parts.push(text.slice(last, m.index));
     if (m[4] != null) {
-      parts.push(<strong key={key++}>{m[4]}</strong>);
+      // Bold may wrap a link ("**[Name](url)**") — render its contents, don't
+      // print the raw markdown.
+      parts.push(
+        <strong key={key++}>
+          <RichText text={m[4]} />
+        </strong>,
+      );
     } else {
       const href = m[2] ?? m[3];
       const label = m[1] ?? m[3];
@@ -607,7 +613,8 @@ function RichText({ text }: { text: string }) {
           {...(internal ? {} : { target: "_blank", rel: "noopener noreferrer" })}
           className="font-medium text-accent underline underline-offset-2 hover:opacity-80"
         >
-          {label}
+          {/* The link text itself may contain bold markers. */}
+          {m[1] ? <RichText text={label} /> : label}
         </a>,
       );
     }
