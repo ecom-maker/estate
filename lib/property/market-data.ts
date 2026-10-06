@@ -49,15 +49,31 @@ function toTxn(r: Row, annualRent = false): Txn | null {
   return { date: fmtDate(r.transactedOn), aed: Math.round(aed), area };
 }
 
+/**
+ * AED per sqft of built-up area.
+ *
+ * Deliberately derived rather than read from the feed's own
+ * `transaction_per_sqm_amount`: for villas that figure is computed on PLOT
+ * area while `builtup_area_sqm` is the built-up area, so the two disagree
+ * (36 of 52 villa rows checked). Averaging the feed's value would mix plot
+ * and built-up rates in one line. Dividing by the same area the transactions
+ * table displays keeps the chart and the table consistent.
+ */
+function perSqft(r: Row): number | null {
+  if (!r.amountAed || !r.areaSqm || r.areaSqm <= 0) return null;
+  return r.amountAed / (r.areaSqm * SQFT_PER_SQM);
+}
+
 /** Monthly mean AED/sqft, keyed "YYYY-MM". Months with no sales are absent. */
 function monthlyPerSqft(rows: Row[]): Map<string, number> {
   const buckets = new Map<string, { sum: number; n: number }>();
   for (const r of rows) {
-    if (!r.amountPerSqm) continue;
+    const v = perSqft(r);
+    if (v === null) continue;
     const d = r.transactedOn;
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
     const b = buckets.get(key) ?? { sum: 0, n: 0 };
-    b.sum += r.amountPerSqm / SQFT_PER_SQM;
+    b.sum += v;
     b.n += 1;
     buckets.set(key, b);
   }
