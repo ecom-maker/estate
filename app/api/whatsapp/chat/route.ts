@@ -93,22 +93,41 @@ function stripWebRef(text: string): string {
   return text.replace(WEB_REF, "").replace(/\s{2,}/g, " ").trim();
 }
 
+type WaSession = Awaited<ReturnType<typeof prisma.chatSession.create>>;
+
 /**
- * First time a sender arrives with a website handoff ref, copy that web
- * conversation's turns into this WhatsApp session so the agent continues with
- * full context. A SYSTEM sentinel makes it idempotent (retries or a repeated
- * ref never double-import); the agent's history filter ignores SYSTEM rows.
+ * Resolve the WhatsApp session for a website handoff.
+ *
+ * A handoff continues one specific web conversation, so it gets its OWN clean
+ * WhatsApp thread seeded only with that web history — never merged into an
+ * existing WhatsApp session, whose older context would otherwise bleed into
+ * (and dominate) the recap. A SYSTEM sentinel records which web conversation
+ * seeded the thread, so re-sending the same ref resumes it instead of
+ * duplicating. Returns `bridged: true` only when a fresh thread was seeded.
  */
-async function importWebHistory(
-  waSessionId: string,
+async function startOrResumeHandoff(
+  phone: string,
   webSessionId: string,
-): Promise<boolean> {
+  fallbackTitle: string,
+): Promise<{ session: WaSession | null; bridged: boolean }> {
   const marker = `[bridged-from:${webSessionId}]`;
-  const already = await prisma.message.findFirst({
-    where: { sessionId: waSessionId, role: "SYSTEM", content: marker },
-    select: { id: true },
+
+  // Already handed this web conversation off before — resume that thread.
+  const prior = await prisma.message.findFirst({
+    where: {
+      role: "SYSTEM",
+      content: marker,
+      session: { channel: "whatsapp", phone },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { sessionId: true },
   });
-  if (already) return false;
+  if (prior) {
+    const existing = await prisma.chatSession.findUnique({
+      where: { id: prior.sessionId },
+    });
+    if (existing) return { session: existing, bridged: false };
+  }
 
   const web = await prisma.chatSession.findFirst({
     where: { id: webSessionId, channel: "web" },
@@ -120,15 +139,26 @@ async function importWebHistory(
       },
     },
   });
-  if (!web || web.messages.length === 0) return false;
+  // Nothing to continue — let the caller fall back to a normal session.
+  if (!web || web.messages.length === 0) return { session: null, bridged: false };
+
+  const session = await prisma.chatSession.create({
+    data: {
+      channel: "whatsapp",
+      phone,
+      title: (web.title ?? fallbackTitle).slice(0, 80),
+      // Carry the web search intent so WhatsApp refinements keep working.
+      intent: (web.intent ?? undefined) as never,
+    },
+  });
 
   // Backdate the imported turns so they sort before the handoff message that
-  // triggered this (which is written at `started`), preserving order.
+  // triggered this (written at `started`), preserving order.
   const base = Date.now() - web.messages.length - 1;
   await prisma.$transaction([
     prisma.message.create({
       data: {
-        sessionId: waSessionId,
+        sessionId: session.id,
         role: "SYSTEM",
         content: marker,
         createdAt: new Date(base),
@@ -137,7 +167,7 @@ async function importWebHistory(
     ...web.messages.map((m, i) =>
       prisma.message.create({
         data: {
-          sessionId: waSessionId,
+          sessionId: session.id,
           role: m.role,
           content: m.content,
           createdAt: new Date(base + i + 1),
@@ -146,17 +176,8 @@ async function importWebHistory(
         },
       }),
     ),
-    // Carry the web search intent over so WhatsApp refinements keep working.
-    ...(web.intent
-      ? [
-          prisma.chatSession.update({
-            where: { id: waSessionId },
-            data: { intent: web.intent as never },
-          }),
-        ]
-      : []),
   ]);
-  return true;
+  return { session, bridged: true };
 }
 
 /** Constant-time compare so the shared secret cannot be guessed byte by byte. */
@@ -274,12 +295,28 @@ export async function POST(request: Request) {
 
   try {
     // --- 3. This sender's WhatsApp conversation --------------------------
-    // Scoped to channel "whatsapp": a person who also uses the website has two
-    // separate histories on purpose, and one is never read into the other.
-    let session = await prisma.chatSession.findFirst({
-      where: { channel: "whatsapp", phone },
-      orderBy: { updatedAt: "desc" },
-    });
+    // A website handoff gets its own clean thread seeded with that web
+    // conversation (so its recap/continuation reflects exactly what was handed
+    // off). Otherwise, scoped to channel "whatsapp": a person who also uses the
+    // website has separate histories on purpose. Non-fatal — a failed handoff
+    // falls back to the normal session.
+    let bridged = false;
+    let session: WaSession | null = null;
+    if (webRef) {
+      try {
+        const handoff = await startOrResumeHandoff(phone, webRef, message);
+        session = handoff.session;
+        bridged = handoff.bridged;
+      } catch (error) {
+        console.error("web->whatsapp handoff failed", error);
+      }
+    }
+    if (!session) {
+      session = await prisma.chatSession.findFirst({
+        where: { channel: "whatsapp", phone },
+        orderBy: { updatedAt: "desc" },
+      });
+    }
     if (!session) {
       session = await prisma.chatSession.create({
         data: {
@@ -288,17 +325,6 @@ export async function POST(request: Request) {
           title: message.slice(0, 80),
         },
       });
-    }
-
-    // Website handoff: import that web conversation once so this thread
-    // continues from it. Non-fatal — a failed import just means no context.
-    let bridged = false;
-    if (webRef) {
-      try {
-        bridged = await importWebHistory(session.id, webRef);
-      } catch (error) {
-        console.error("web->whatsapp history import failed", error);
-      }
     }
 
     // n8n sends no history: the app owns it and reads it here.
