@@ -71,7 +71,24 @@ export default async function PropertyDetailPage({ params }: Props) {
         })
       : null;
 
-  const unitGroups = buildUnitGroups(property);
+  // Units: a listing is one bedroom type, so show only the floor plan(s) for
+  // this property's bedroom count (projects still show every config).
+  const allUnitGroups = buildUnitGroups(property);
+  const matchingGroups =
+    property.bedrooms != null
+      ? allUnitGroups.filter((g) => g.key === String(property.bedrooms))
+      : allUnitGroups;
+  const unitGroups = matchingGroups.length ? matchingGroups : allUnitGroups;
+
+  // Gross yield from the most recent actual rental deal: annual rent / price.
+  const lastRent = property.rentalHistory[0]?.annualRentAed ?? null;
+  const yieldPct =
+    lastRent != null && property.priceAed
+      ? (lastRent / property.priceAed) * 100
+      : null;
+
+  // RERA is hidden entirely when there's nothing on file.
+  const reraLabel = property.reraStatus?.trim() || null;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-10 px-6 pb-28 pt-14 lg:grid-cols-[1.4fr_0.8fr] md:px-10">
@@ -153,21 +170,24 @@ export default async function PropertyDetailPage({ params }: Props) {
         />
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            ["Bedrooms", property.bedrooms ?? "—"],
-            ["Bathrooms", property.bathrooms ?? "—"],
+          {(
             [
-              "Area",
-              property.areaSqft
-                ? `${Math.round(property.areaSqft).toLocaleString()} sqft`
-                : "—",
-            ],
-            ["Type", property.type],
-            ["Waterfront", property.waterfront ? "Yes" : "No"],
-            ["Off-plan", property.offPlan ? "Yes" : "No"],
-            ["Yield", property.rentalYield != null ? `${property.rentalYield}%` : "N/A"],
-            ["RERA", property.reraStatus ?? "Not available"],
-          ].map(([label, value]) => (
+              ["Bedrooms", property.bedrooms ?? "—"],
+              ["Bathrooms", property.bathrooms ?? "—"],
+              [
+                "Area",
+                property.areaSqft
+                  ? `${Math.round(property.areaSqft).toLocaleString()} sqft`
+                  : "—",
+              ],
+              ["Type", property.type],
+              ["Waterfront", property.waterfront ? "Yes" : "No"],
+              ["Off-plan", property.offPlan ? "Yes" : "No"],
+              ["Yield", yieldPct != null ? `${yieldPct.toFixed(1)}%` : "N/A"],
+              // Only show RERA when there's a status on file.
+              ...(reraLabel ? [["RERA", reraLabel]] : []),
+            ] as [string, string | number][]
+          ).map(([label, value]) => (
             <div
               key={String(label)}
               className="rounded-sm border border-border bg-card p-4"
