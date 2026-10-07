@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { formatAED } from "@/lib/utils";
+import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { getAppUrl } from "@/lib/app-url";
 import {
   parseListingSlug,
@@ -22,7 +23,11 @@ type Props = { params: Promise<{ listing: string }> };
 const BASE = getAppUrl();
 
 type ListingProperty = Prisma.PropertyGetPayload<{
-  include: { images: true; community: true };
+  include: {
+    images: true;
+    community: true;
+    units: { select: { bedrooms: true } };
+  };
 }>;
 
 interface ResolvedListing {
@@ -72,6 +77,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
         include: {
           images: { orderBy: { sortOrder: "asc" }, take: 1 },
           community: true,
+          units: { select: { bedrooms: true } },
         },
         orderBy: { createdAt: "desc" },
         take: 24,
@@ -253,10 +259,13 @@ export default async function ListingLandingPage({ params }: Props) {
                     {property.community?.name ?? localityName}
                   </p>
                   <h2 className="mt-2 font-serif text-lg text-primary">{property.title}</h2>
-                  <p className="mt-1 text-sm text-muted">{formatAED(property.priceAed)}</p>
+                  <p className="mt-1 text-sm text-muted">
+                    {isStartingFigure(property) ? "from " : ""}
+                    {formatAED(property.priceAed)}
+                  </p>
                   <p className="mt-2 text-xs text-muted">
                     {[
-                      property.bedrooms != null ? `${property.bedrooms} bed` : null,
+                      bedroomsText(property),
                       property.bathrooms != null ? `${property.bathrooms} bath` : null,
                       property.areaSqft != null
                         ? `${property.areaSqft.toLocaleString()} sqft`

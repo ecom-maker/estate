@@ -1,5 +1,10 @@
 import { formatAED } from "@/lib/utils";
 import type { MarketInsights } from "@/lib/property/market-insights";
+import {
+  bedroomSpan,
+  bedroomsText,
+  isStartingFigure,
+} from "@/lib/property/bedrooms";
 
 type PropertyForAnswer = {
   title: string;
@@ -18,6 +23,7 @@ type PropertyForAnswer = {
   description?: string | null;
   paymentPlan?: unknown;
   metadata?: unknown;
+  units?: { bedrooms: number | null }[] | null;
 };
 
 function fmtDate(v?: string | null): string | null {
@@ -78,8 +84,15 @@ export function answerPropertyQuestion(
       )
     ) {
       const isRent = has("rent", "rental", "lease");
-      const series = isRent ? trend.rent.primary : trend.sale.primary;
-      if (series.length >= 2) {
+      // `trend` is null when the comparables span too few months to state a
+      // direction. The agent then says nothing about trends rather than
+      // reading one off a fortnight of sales.
+      const series = trend
+        ? isRent
+          ? trend.rent.primary
+          : trend.sale.primary
+        : [];
+      if (trend && series.length >= 2) {
         // Window from the query: "2 years" / "18 months" / default 1 year,
         // capped to the data we actually have.
         const ym = t.match(/(\d+)\s*(?:year|yr|y)s?\b/);
@@ -220,10 +233,16 @@ export function answerPropertyQuestion(
       : `A gym isn't listed among the amenities for ${title}.`;
   }
 
-  if (has("bedroom", "how many bed", " beds", "bed room"))
-    return p.bedrooms != null
-      ? `${title} has ${p.bedrooms} bedroom${p.bedrooms === 1 ? "" : "s"}.`
-      : `The number of bedrooms isn't listed for ${title}.`;
+  if (has("bedroom", "how many bed", " beds", "bed room")) {
+    // Multi-type projects store their LARGEST type in `bedrooms`; say the span.
+    const span = bedroomSpan(p);
+    if (!span) return `The number of bedrooms isn't listed for ${title}.`;
+    if (span.min !== span.max)
+      return `${title} offers ${bedroomsText(p)} units.`;
+    return span.min === 0
+      ? `${title} offers studio units.`
+      : `${title} has ${span.min} bedroom${span.min === 1 ? "" : "s"}.`;
+  }
 
   if (has("bathroom", "how many bath", " baths", "bath room", "toilet", "washroom"))
     return p.bathrooms != null
@@ -264,12 +283,16 @@ export function answerPropertyQuestion(
 
   if (has("how big", "how large", "area", "size", "sqft", "sq ft", "square f", "built up", "built-up"))
     return p.areaSqft != null
-      ? `${title} has a built-up area of ${p.areaSqft.toLocaleString()} sqft.`
+      ? isStartingFigure(p)
+        ? `Units in ${title} start from ${Math.round(p.areaSqft).toLocaleString()} sqft built-up.`
+        : `${title} has a built-up area of ${p.areaSqft.toLocaleString()} sqft.`
       : `The area isn't listed for ${title}.`;
 
   if (has("price", "how much", "cost", "asking", "budget"))
     return p.priceAed != null
-      ? `${title} is priced at ${formatAED(p.priceAed)}.`
+      ? isStartingFigure(p)
+        ? `Prices in ${title} start from ${formatAED(p.priceAed)}.`
+        : `${title} is priced at ${formatAED(p.priceAed)}.`
       : `The price isn't listed for ${title}.`;
 
   if (has("community", "which area", "where is", "neighbou", "located", "location"))

@@ -7,7 +7,8 @@ type CompareItem = {
   id: string;
   title: string;
   priceAed: number | null;
-  bedrooms: number | null;
+  bedrooms: string | null; // "1 – 3" for multi-type projects
+  priceIsFrom?: boolean;
   bathrooms: number | null;
   areaSqft: number | null;
   community?: string | null;
@@ -26,10 +27,16 @@ export function CompareTable({ items }: { items: CompareItem[] }) {
   );
 
   const rows: Array<[string, (item: CompareItem) => string]> = [
-    ["Price", (i) => formatAED(i.priceAed)],
+    ["Price", (i) => `${i.priceIsFrom ? "from " : ""}${formatAED(i.priceAed)}`],
     ["Bedrooms", (i) => String(i.bedrooms ?? "—")],
     ["Bathrooms", (i) => String(i.bathrooms ?? "—")],
-    ["Area", (i) => (i.areaSqft ? `${Math.round(i.areaSqft).toLocaleString()} sqft` : "—")],
+    [
+      "Area",
+      (i) =>
+        i.areaSqft
+          ? `${i.priceIsFrom ? "from " : ""}${Math.round(i.areaSqft).toLocaleString()} sqft`
+          : "—",
+    ],
     ["Community", (i) => i.community ?? "—"],
     ["Developer", (i) => i.developer ?? "—"],
     [
