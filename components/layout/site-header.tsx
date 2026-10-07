@@ -8,16 +8,17 @@ const baseNav = [
   { href: "/", label: "Home" },
   { href: "/properties", label: "Properties" },
   { href: "/projects", label: "Projects" },
-  { href: "/agent", label: "Agent" },
 ];
 
 export async function SiteHeader() {
   const session = await auth();
   const roles = (session?.user as { roles?: string[] } | undefined)?.roles;
-  // Admin link is only shown to staff admins — customers/agents never see it.
-  const nav = isAdmin(roles)
-    ? [...baseNav, { href: "/admin", label: "Admin" }]
-    : baseNav;
+  // Agent workspace is only for signed-in users; Admin only for staff admins.
+  const nav = [
+    ...baseNav,
+    ...(session?.user ? [{ href: "/agent", label: "Agent" }] : []),
+    ...(isAdmin(roles) ? [{ href: "/admin", label: "Admin" }] : []),
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur">
