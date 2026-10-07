@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { phoneError } from "@/lib/validation/phone";
 import { prisma } from "@/lib/db/prisma";
 import { sendEmail, escapeHtml } from "@/lib/email/send";
 import { success, failure } from "@/lib/api/response";
@@ -7,7 +8,14 @@ import type { Prisma } from "@prisma/client";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
-  contact: z.string().trim().min(5).max(60),
+  contact: z
+    .string()
+    .trim()
+    .max(60)
+    .superRefine((v, ctx) => {
+      const message = phoneError(v);
+      if (message) ctx.addIssue({ code: "custom", message });
+    }),
   comment: z.string().trim().min(2).max(4000),
 });
 
@@ -67,7 +75,12 @@ export async function POST(request: Request) {
   } catch (error) {
     return failure(
       "ENQUIRY_ERROR",
-      error instanceof Error ? error.message : "Submission failed",
+      // Zod's own message is a JSON dump; show the first readable issue.
+      error instanceof z.ZodError
+        ? (error.issues[0]?.message ?? "Please check the form")
+        : error instanceof Error
+          ? error.message
+          : "Submission failed",
       400,
     );
   }
