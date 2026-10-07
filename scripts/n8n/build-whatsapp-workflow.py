@@ -27,18 +27,26 @@ GRAPH_URL = "https://graph.facebook.com/v22.0"
 # The emoji reaction is decided here in n8n with one small Gemini call, not by
 # the app's sales agent: it needs no database and no history, and the agent
 # takes 10-30 s. Keep the list short; anything else the model returns is dropped.
-REACTION_MODEL = "gemini-3.5-flash"
-REACTION_EMOJIS = ["👍", "❤️", "😂", "🙏", "🎉", "👋", "😊"]
-REACTION_PROMPT = (
-    "You work for a Dubai real-estate agency and read each WhatsApp message a customer "
-    "sends. Decide whether a friendly human agent would react to it with an emoji before "
-    "replying. React only when it feels natural: a greeting (👋), thanks or appreciation "
-    "(🙏 or ❤️), agreement, confirmation or good news such as booking a viewing (👍), "
-    "excitement or a celebration (🎉), a joke (😂), a warm personal message (😊). "
-    "Do NOT react to plain questions, property searches, prices, complaints, problems or "
-    "anything sensitive - most messages need no reaction, so answer \"none\" for those. "
-    "Return JSON only."
-)
+# "lite" is Gemini's fastest tier; this is a one-word decision, not a search.
+REACTION_MODEL = "gemini-3.5-flash-lite"
+# A friendly agent reacting the way a person would - any emoji that fits, but
+# only when a reaction feels natural, not on every message.
+REACTION_PROMPT = """\
+You are the reaction step of a friendly real-estate assistant on WhatsApp (DM Properties, Dubai). \
+Before the assistant replies, decide whether a warm, attentive human agent would react to the customer's \
+latest message with an emoji - and if so, which one fits best. Any emoji is allowed; pick the one a \
+friendly person would naturally use.
+
+Good moments to react: the customer shares what they are looking for, gives a decision or a requirement \
+(budget, buy or rent, area, picks a listing), says yes to something the assistant offered, thanks the \
+assistant, shares good news or excitement, or makes a joke. For example: a new property search 🏠, \
+a choice or answer 👍, a go-ahead ✅, thanks 🙏, good news 🎉, a joke 😄 - these are only examples.
+
+Do not react to every message. Answer "none" when a reaction would feel forced or out of place, such as \
+plain questions, "ok" or "??", complaints, frustration, problems, and anything sensitive (money trouble, \
+legal, health, personal loss). When unsure, answer "none".
+
+Return JSON only: {"emoji": "<one emoji or none>"}."""
 
 BUILD_REQUEST_JS = """\
 // n8n is only the messenger. It sends the app four things and keeps no state of
@@ -105,19 +113,21 @@ return [{
 
 READ_REACTION_JS = """\
 // "Pick Reaction" never stops the run: on a timeout or an API error its output
-// is an error object and we simply do not react. Only emojis from the allowed
-// list get through, whatever the model wrote.
-const ALLOWED = %s;
+// is an error object and we simply do not react. Any emoji is allowed, but it
+// must be exactly ONE emoji - "none", words or several emojis are dropped, so
+// WhatsApp is never sent something it would reject.
 let emoji = "";
 try {
   const text = ($json.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
-  const picked = JSON.parse(text).emoji;
-  if (ALLOWED.includes(picked)) emoji = picked;
+  const picked = String(JSON.parse(text).emoji || "").trim();
+  const one = /^\\p{Extended_Pictographic}(\\uFE0F|\\u20E3|\\p{Emoji_Modifier}|\\u200D\\p{Extended_Pictographic}\\uFE0F?)*$/u;
+  const flag = /^\\p{Regional_Indicator}{2}$/u;
+  if (one.test(picked) || flag.test(picked)) emoji = picked;
 } catch (e) {
   emoji = "";
 }
 return [{ json: { emoji } }];
-""" % json.dumps(REACTION_EMOJIS, ensure_ascii=False)
+"""
 
 
 READ_RESPONSE_JS = """// Turns whatever came back from the app into one shape the rest of the flow can
@@ -347,7 +357,7 @@ nodes = [
         4.2,
         [440, 80],
         {
-            # One short Gemini call, no thinking, JSON constrained to the list.
+            # One short Gemini call on the fast "lite" model, no thinking, JSON only.
             # Runs on the transcript too, so voice notes get reactions as well.
             "method": "POST",
             "url": (
@@ -364,9 +374,8 @@ nodes = [
             " generationConfig: { temperature: 0, maxOutputTokens: 30,"
             " thinkingConfig: { thinkingBudget: 0 },"
             " responseMimeType: 'application/json',"
-            " responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING', enum:"
             # closes: emoji, properties, responseSchema, generationConfig
-            f" {json.dumps(['none'] + REACTION_EMOJIS, ensure_ascii=False)} }} }} }} }}"
+            " responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } }"
             " }) }}",
             "options": {"timeout": 6000},
         },
