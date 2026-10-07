@@ -26,6 +26,7 @@ export default async function PropertiesPage() {
         include: {
           images: { orderBy: { sortOrder: "asc" }, take: 1 },
           community: true,
+          units: { select: { bedrooms: true } },
         },
         orderBy: { createdAt: "desc" },
       }),

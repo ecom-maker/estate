@@ -1,5 +1,6 @@
 import { CompareTable } from "@/components/property/compare-table";
 import { prisma } from "@/lib/db/prisma";
+import { bedroomsValue, isStartingFigure } from "@/lib/property/bedrooms";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Compare" };
@@ -9,7 +10,8 @@ export default async function ComparePage() {
     id: string;
     title: string;
     priceAed: number | null;
-    bedrooms: number | null;
+    bedrooms: string | null;
+    priceIsFrom: boolean;
     bathrooms: number | null;
     areaSqft: number | null;
     rentalYield: number | null;
@@ -20,7 +22,11 @@ export default async function ComparePage() {
   try {
     const properties = await prisma.property.findMany({
       where: { deletedAt: null, status: "ACTIVE" },
-      include: { community: true, developer: true },
+      include: {
+        community: true,
+        developer: true,
+        units: { select: { bedrooms: true } },
+      },
       take: 8,
       orderBy: { priceAed: "desc" },
     });
@@ -28,7 +34,8 @@ export default async function ComparePage() {
       id: p.id,
       title: p.title,
       priceAed: p.priceAed,
-      bedrooms: p.bedrooms,
+      bedrooms: bedroomsValue(p),
+      priceIsFrom: isStartingFigure(p),
       bathrooms: p.bathrooms,
       areaSqft: p.areaSqft,
       rentalYield: p.rentalYield,

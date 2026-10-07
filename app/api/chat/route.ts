@@ -16,6 +16,7 @@ import {
 import { agentChatResponse } from "@/lib/ai/agent/chat-stream";
 import { searchProperties } from "@/lib/search/search-service";
 import { formatAED } from "@/lib/utils";
+import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { failure } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
 import { rateLimit } from "@/lib/security/rate-limit";
@@ -169,6 +170,7 @@ export async function POST(request: Request) {
             community: true,
             developer: true,
             amenities: { include: { amenity: true } },
+            units: { select: { bedrooms: true } },
             salesHistory: { orderBy: { soldAt: "desc" }, take: 5 },
             rentalHistory: { orderBy: { rentedAt: "desc" }, take: 5 },
           },
@@ -191,8 +193,10 @@ export async function POST(request: Request) {
 
         const factLines = [
           `Property: ${property.title}`,
-          `Price: ${formatAED(property.priceAed)}`,
-          `Specs: ${property.bedrooms ?? "—"} bed · ${property.bathrooms ?? "—"} bath · ${property.areaSqft ?? "—"} sqft`,
+          // Multi-type projects: price/area are starting figures and
+          // `bedrooms` holds only the largest type — state the span.
+          `Price: ${isStartingFigure(property) ? "from " : ""}${formatAED(property.priceAed)}`,
+          `Specs: ${bedroomsText(property) ?? "—"} · ${property.bathrooms ?? "—"} bath · ${isStartingFigure(property) ? "from " : ""}${property.areaSqft ?? "—"} sqft`,
           property.community ? `Community: ${property.community.name}` : null,
           property.developer ? `Developer: ${property.developer.name}` : null,
           property.offPlan ? "Status: off-plan" : "Status: ready / completed",
@@ -375,7 +379,7 @@ export async function POST(request: Request) {
         ...(top.length ? ["Top results:"] : []),
         ...top.map(
           (p, i) =>
-            `${i + 1}. ${p.title} — ${formatAED(p.priceAed)} · ${p.bedrooms ?? "—"} bed`,
+            `${i + 1}. ${p.title} — ${isStartingFigure(p) ? "from " : ""}${formatAED(p.priceAed)} · ${bedroomsText(p) ?? "—"}`,
         ),
         "",
         "You can refine with follow-ups like “only waterfront” or “under AED 25M”.",

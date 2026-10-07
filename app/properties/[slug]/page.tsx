@@ -8,6 +8,7 @@ import { UnitsSection } from "@/components/property/units-section";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
 import { getMarketInsights } from "@/lib/property/market-data";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
+import { bedroomsValue, isStartingFigure } from "@/lib/property/bedrooms";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
@@ -73,14 +74,15 @@ export default async function PropertyDetailPage({ params }: Props) {
         })
       : null;
 
-  // Units: a listing is one bedroom type, so show only the floor plan(s) for
-  // this property's bedroom count (projects still show every config).
+  // Units: show every bedroom type on offer. Filtering to `property.bedrooms`
+  // only showed the largest type for multi-type projects (it stores the max),
+  // next to a header price that belongs to the smallest one.
   const allUnitGroups = buildUnitGroups(property);
-  const matchingGroups =
-    property.bedrooms != null
-      ? allUnitGroups.filter((g) => g.key === String(property.bedrooms))
-      : allUnitGroups;
-  const unitGroups = matchingGroups.length ? matchingGroups : allUnitGroups;
+  const unitGroups = allUnitGroups;
+
+  // Price and area are the project's starting figures when it has several
+  // unit types — say "from" so they aren't read as one unit's spec.
+  const from = isStartingFigure(property) ? "from " : "";
 
   // Project-wide bedroom range for the Project Information card (e.g.
   // "1 Bed – 2 Bed"), so it matches the project page rather than only showing
@@ -160,7 +162,10 @@ export default async function PropertyDetailPage({ params }: Props) {
           {property.title}
         </h1>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <p className="text-lg text-muted">{formatAED(property.priceAed)}</p>
+          <p className="text-lg text-muted">
+            {from}
+            {formatAED(property.priceAed)}
+          </p>
           <span
             className={cn(
               "rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
@@ -198,12 +203,12 @@ export default async function PropertyDetailPage({ params }: Props) {
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {(
             [
-              ["Bedrooms", property.bedrooms ?? "—"],
+              ["Bedrooms", bedroomsValue(property) ?? "—"],
               ["Bathrooms", property.bathrooms ?? "—"],
               [
                 "Area",
                 property.areaSqft
-                  ? `${Math.round(property.areaSqft).toLocaleString()} sqft`
+                  ? `${from}${Math.round(property.areaSqft).toLocaleString()} sqft`
                   : "—",
               ],
               ["Type", property.type],

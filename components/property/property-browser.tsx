@@ -7,6 +7,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { cn, formatAED } from "@/lib/utils";
+import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 export type BrowserCard = {
@@ -22,6 +23,9 @@ export type BrowserCard = {
   images?: { url: string; alt: string | null }[] | null;
   community?: { name: string } | null;
   developer?: { name: string } | null;
+  // For the bedroom span and "from" price on multi-type projects.
+  units?: { bedrooms: number | null }[] | null;
+  metadata?: unknown;
 };
 
 export function PropertyBrowser({
@@ -189,9 +193,7 @@ export function PropertyBrowser({
                     </h2>
                     <p className="mt-2 text-sm text-muted">
                       {[
-                        property.bedrooms != null
-                          ? `${property.bedrooms} bed`
-                          : null,
+                        bedroomsText(property),
                         property.bathrooms != null
                           ? `${property.bathrooms} bath`
                           : null,
@@ -203,7 +205,9 @@ export function PropertyBrowser({
                         .join(" · ")}
                     </p>
                     <p className="mt-3 text-sm font-medium text-primary">
-                      {showFromPrice ? "from " : ""}
+                      {showFromPrice || isStartingFigure(property)
+                        ? "from "
+                        : ""}
                       {formatAED(property.priceAed)}
                     </p>
                   </div>
