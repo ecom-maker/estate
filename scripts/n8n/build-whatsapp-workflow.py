@@ -17,7 +17,7 @@ import os
 # The deployed app n8n calls (not a browser URL). Defaults to the live site;
 # set APP_URL to build a copy for a test deployment, e.g.
 #   APP_URL=https://<branch>--<site>.netlify.app python scripts/n8n/build-whatsapp-workflow.py
-APP_URL = os.environ.get("APP_URL", "https://estate-sugg.vercel.app").rstrip("/")
+APP_URL = os.environ.get("APP_URL", "https://dmglobal.me").rstrip("/")
 
 CRED_PLACEHOLDER = "REPLACE_WITH_YOUR_CREDENTIAL_ID"
 SECRET_PLACEHOLDER = "REPLACE_WITH_WHATSAPP_WEBHOOK_SECRET"

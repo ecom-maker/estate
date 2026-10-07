@@ -264,7 +264,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://estate-sugg.vercel.app/api/whatsapp/chat",
+        "url": "https://dmglobal.me/api/whatsapp/chat",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
