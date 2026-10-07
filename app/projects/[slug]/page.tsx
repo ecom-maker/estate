@@ -117,12 +117,18 @@ export default async function ProjectDetailPage({ params }: Props) {
           day: "numeric",
         });
   };
+  const isCompleted = !project.offPlan;
   const constructionRaw = tl.constructionStart ?? "2026-02-01";
-  const completionRaw = tl.completion ?? projectMeta.handoverDate ?? "2029-09-01";
+  // For completed projects the final milestone is the handover date.
+  const completionRaw = isCompleted
+    ? projectMeta.handoverDate ?? tl.completion ?? "2029-09-01"
+    : tl.completion ?? projectMeta.handoverDate ?? "2029-09-01";
   const milestones = [
     { title: "Project announcement", date: fmtLong(tl.announced), done: true },
     { title: "Construction Started", date: fmtLong(constructionRaw), done: true },
-    { title: "Expected Completion", date: fmtLong(completionRaw), done: false },
+    isCompleted
+      ? { title: "Completed", date: fmtLong(completionRaw), done: true }
+      : { title: "Expected Completion", date: fmtLong(completionRaw), done: false },
   ];
 
   const nearbyAttractions = [
@@ -276,33 +282,35 @@ export default async function ProjectDetailPage({ params }: Props) {
             </ul>
           </section>
 
-          {/* Payment plan */}
-          <section className="mt-10">
-            <h2 className="font-serif text-2xl text-primary">Payment plan</h2>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              {paymentSteps.map((s, i) => (
-                <Fragment key={s.label}>
-                  <div className="flex-1 rounded-sm border border-border bg-card p-5 text-center">
-                    <p className="font-serif text-2xl text-primary">{s.pct}%</p>
-                    <p className="mt-1 text-sm font-medium text-primary">
-                      {s.label}
-                    </p>
-                    {s.sub ? (
-                      <p className="mt-0.5 text-xs text-muted">{s.sub}</p>
+          {/* Payment plan — only relevant for off-plan projects. */}
+          {isCompleted ? null : (
+            <section className="mt-10">
+              <h2 className="font-serif text-2xl text-primary">Payment plan</h2>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {paymentSteps.map((s, i) => (
+                  <Fragment key={s.label}>
+                    <div className="flex-1 rounded-sm border border-border bg-card p-5 text-center">
+                      <p className="font-serif text-2xl text-primary">{s.pct}%</p>
+                      <p className="mt-1 text-sm font-medium text-primary">
+                        {s.label}
+                      </p>
+                      {s.sub ? (
+                        <p className="mt-0.5 text-xs text-muted">{s.sub}</p>
+                      ) : null}
+                    </div>
+                    {i < paymentSteps.length - 1 ? (
+                      <span
+                        className="hidden text-lg text-muted sm:block"
+                        aria-hidden
+                      >
+                        ›
+                      </span>
                     ) : null}
-                  </div>
-                  {i < paymentSteps.length - 1 ? (
-                    <span
-                      className="hidden text-lg text-muted sm:block"
-                      aria-hidden
-                    >
-                      ›
-                    </span>
-                  ) : null}
-                </Fragment>
-              ))}
-            </div>
-          </section>
+                  </Fragment>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Project timeline */}
           <section className="mt-10">
