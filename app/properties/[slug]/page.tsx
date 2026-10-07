@@ -134,7 +134,9 @@ export default async function PropertyDetailPage({ params }: Props) {
           amenities: property.amenities.map((a) => a.amenity.name),
         })}
       />
-      <div>
+      {/* min-w-0: let wide children (units table) scroll instead of
+          stretching the grid track past a phone viewport. */}
+      <div className="min-w-0">
         <Breadcrumbs
           items={[
             { label: "Home", href: "/" },
@@ -283,13 +285,13 @@ export default async function PropertyDetailPage({ params }: Props) {
         />
       </div>
 
-      <aside className="h-fit rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
+      <aside className="h-fit min-w-0 rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
         <div className="flex h-[70vh] min-h-0 flex-col">
           <AIChat
             propertyId={property.id}
             placeholder="Ask about this property..."
             propertyTitle={property.title}
-              whatsappNumber={WHATSAPP_NUMBER}
+            whatsappNumber={WHATSAPP_NUMBER}
           />
         </div>
         {property.videos[0] ? (
@@ -305,11 +307,7 @@ export default async function PropertyDetailPage({ params }: Props) {
               />
             </div>
           </div>
-        ) : (
-          <p className="mt-6 text-xs text-muted">
-            9:16 video tour placeholder — upload via media service.
-          </p>
-        )}
+        ) : null}
       </aside>
     </div>
   );
