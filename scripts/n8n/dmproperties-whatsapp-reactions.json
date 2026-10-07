@@ -78,7 +78,10 @@
           "name": "WhatsApp account"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
     },
     {
       "parameters": {
@@ -144,7 +147,10 @@
         200
       ],
       "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
     },
     {
       "parameters": {
@@ -166,6 +172,38 @@
       "position": [
         1100,
         200
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [{ text: \"You are the reaction step of a friendly real-estate assistant on WhatsApp (DM Properties, Dubai). Before the assistant replies, decide whether a warm, attentive human agent would react to the customer's latest message with an emoji - and if so, which one fits best. Any emoji is allowed; pick the one a friendly person would naturally use.\\n\\nGood moments to react: the customer greets the assistant, shares what they are looking for, gives a decision or a requirement (budget, buy or rent, area, picks a listing), says yes to something the assistant offered, thanks the assistant, shares good news or excitement, or makes a joke. For example: a greeting 👋, a new property search 🏠, a choice or answer 👍, a go-ahead ✅, thanks 🙏, good news 🎉, a joke 😄 - these are only examples.\\n\\nYou may also be shown the assistant's previous message. Use it only to understand short replies: \\\"yes\\\" to an offer (\\\"Want me to book a viewing?\\\") is a go-ahead, \\\"yes\\\" to a question about their needs is an answer, and \\\"ok\\\" after bad news needs no reaction. React to the customer's message, never to the assistant's.\\n\\nDo not react to every message. Answer \\\"none\\\" when a reaction would feel forced or out of place, such as plain questions, \\\"ok\\\" or \\\"??\\\", complaints, frustration, problems, and anything sensitive (money trouble, legal, health, personal loss). When unsure, answer \\\"none\\\".\\n\\nReturn JSON only: {\\\"emoji\\\": \\\"<one emoji or none>\\\"}.\" }] }, contents: [{ role: 'user', parts: [{ text: ($('Get Last Reply').first().json.last_reply ? \"The assistant's previous message:\\n\" + $('Get Last Reply').first().json.last_reply + \"\\n\\n\" : '') + \"The customer's new message:\\n\" + $('Webhook').first().json.body.messages[0].text.body }] }], generationConfig: { temperature: 0, maxOutputTokens: 50, thinkingConfig: { thinkingLevel: 'minimal' }, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } } }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "id": "pick-reaction-(backup-model)",
+      "name": "Pick Reaction (Backup Model)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        400
       ],
       "credentials": {
         "googlePalmApi": {
@@ -248,7 +286,10 @@
           "name": "WhatsApp account"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
     }
   ],
   "connections": {
@@ -308,6 +349,24 @@
       ]
     },
     "Pick Reaction": {
+      "main": [
+        [
+          {
+            "node": "Read Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pick Reaction (Backup Model)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Reaction (Backup Model)": {
       "main": [
         [
           {

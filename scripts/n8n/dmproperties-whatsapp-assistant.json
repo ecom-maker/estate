@@ -185,7 +185,10 @@
           "name": "WhatsApp account"
         }
       },
-      "onError": "continueErrorOutput"
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
     },
     {
       "parameters": {
@@ -206,6 +209,50 @@
       "position": [
         620,
         400
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {}, binary: $('Download Voice Note').first().binary }];"
+      },
+      "id": "reload-audio",
+      "name": "Reload Audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        620,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.7-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.7-flash"
+        },
+        "inputType": "binary",
+        "options": {}
+      },
+      "id": "transcribe-(backup-model)",
+      "name": "Transcribe (Backup Model)",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        840,
+        560
       ],
       "credentials": {
         "googlePalmApi": {
@@ -250,7 +297,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// n8n is only the messenger. It sends the app four things and keeps no state of\n// its own: no chat history, no sessions, no database credentials. The app looks\n// up this sender's history by phone number and saves both sides of the\n// conversation itself.\n//\n// Typed messages and voice notes both arrive here. For a voice note the text is\n// the transcript from \"Transcribe Voice Note\", so the app answers it exactly as\n// if the customer had typed it. Always read the original WhatsApp payload from\n// the trigger, because on the voice path $json is the transcription output.\nconst wa = $('WhatsApp Trigger').first().json;\nconst msg = wa.messages[0];\n\nconst message =\n  msg.type === \"audio\"\n    ? ($json.content?.parts || []).map((p) => p.text || \"\").join(\" \").trim()\n    : msg.text.body;\n\nreturn [{\n  json: {\n    // The app normalises this to digits, so \"+971 50...\" and \"97150...\" match.\n    phone: msg.from,\n    message,\n\n    // WhatsApp's own id for this message. The app stores it and refuses to\n    // answer the same id twice, so a webhook WhatsApp retries does not produce\n    // a second reply to the customer.\n    wa_message_id: msg.id,\n\n    // This n8n run. It is written into the whatsapp_logs row, so a failure in\n    // the table can be traced back to the exact execution that caused it.\n    execution_id: $execution.id,\n\n    // Needed to send the reply back; the app never sees it.\n    phone_number_id: wa.metadata.phone_number_id,\n  },\n}];\n"
+        "jsCode": "// n8n is only the messenger. It sends the app four things and keeps no state of\n// its own: no chat history, no sessions, no database credentials. The app looks\n// up this sender's history by phone number and saves both sides of the\n// conversation itself.\n//\n// Typed messages and voice notes both arrive here. For a voice note the text is\n// the transcript from \"Transcribe Voice Note\", so the app answers it exactly as\n// if the customer had typed it. Always read the original WhatsApp payload from\n// the trigger, because on the voice path $json is the transcription output.\nconst wa = $('WhatsApp Trigger').first().json;\nconst msg = wa.messages[0];\n\n// The app rejects messages over 2000 characters, which a long voice note can\n// exceed; cut it rather than lose the whole question to a validation error.\nconst message = String(\n  msg.type === \"audio\"\n    ? ($json.content?.parts || []).map((p) => p.text || \"\").join(\" \").trim()\n    : msg.text.body\n).slice(0, 2000);\n\nreturn [{\n  json: {\n    // The app normalises this to digits, so \"+971 50...\" and \"97150...\" match.\n    phone: msg.from,\n    message,\n\n    // When we asked. \"Read App Response\" only retries a failure that came back\n    // quickly, so a slow timeout never makes the customer wait twice. The app\n    // ignores fields it does not know.\n    sent_at: Date.now(),\n\n    // WhatsApp's own id for this message. The app stores it and refuses to\n    // answer the same id twice, so a webhook WhatsApp retries does not produce\n    // a second reply to the customer.\n    wa_message_id: msg.id,\n\n    // This n8n run. It is written into the whatsapp_logs row, so a failure in\n    // the table can be traced back to the exact execution that caused it.\n    execution_id: $execution.id,\n\n    // Needed to send the reply back; the app never sees it.\n    phone_number_id: wa.metadata.phone_number_id,\n  },\n}];\n"
       },
       "id": "build-request",
       "name": "Build Request",
@@ -300,7 +347,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Turns whatever came back from the app into one shape the rest of the flow can\n// trust. \"Ask the App\" reads the body as TEXT and never stops the run, so a\n// timeout, an HTML error page or a network failure all arrive here instead of\n// crashing the workflow and leaving the customer in silence.\nconst res = items[0].json;\nconst SORRY =\n  \"Sorry, I had trouble looking that up just now. Please send your message again in a moment.\";\n\n// With \"Response Format: Text\" + full response, n8n puts the body in \"data\"\n// (not \"body\"). Accept either, so a node-version change cannot break this.\nconst raw = res.data ?? res.body;\nlet body = null;\ntry {\n  body = typeof raw === \"string\" ? JSON.parse(raw) : raw;\n} catch (e) {\n  body = null;\n}\n\nconst ok = Boolean(body && body.success === true && body.reply);\nlet error = null;\nif (!ok) {\n  if (body && body.error) error = typeof body.error === \"string\" ? body.error : (body.error.message || JSON.stringify(body.error));\n  else if (res.error) error = res.error.message || String(res.error);\n  else error = \"HTTP \" + (res.statusCode ?? \"?\") + \": \" + String(raw ?? \"\").slice(0, 200);\n}\n\nreturn [{\n  json: {\n    ok,\n    // The app always sends a sentence, even on failure; fall back to our own.\n    reply: (body && body.reply) || SORRY,\n    error,\n    log_id: (body && body.log_id) || null,\n  },\n}];\n"
+        "jsCode": "// Turns whatever came back from the app into one shape the rest of the flow can\n// trust. \"Ask the App\" reads the body as TEXT and never stops the run, so a\n// timeout, an HTML error page or a network failure all arrive here instead of\n// crashing the workflow and leaving the customer in silence.\nconst res = items[0].json;\nconst SORRY =\n  \"Sorry, I had trouble looking that up just now. Please send your message again in a moment.\";\n\n// With \"Response Format: Text\" + full response, n8n puts the body in \"data\"\n// (not \"body\"). Accept either, so a node-version change cannot break this.\nconst raw = res.data ?? res.body;\nlet body = null;\ntry {\n  body = typeof raw === \"string\" ? JSON.parse(raw) : raw;\n} catch (e) {\n  body = null;\n}\n\nconst ok = Boolean(body && body.success === true && body.reply);\nlet error = null;\nif (!ok) {\n  if (body && body.error) error = typeof body.error === \"string\" ? body.error : (body.error.message || JSON.stringify(body.error));\n  else if (res.error) error = res.error.message || String(res.error);\n  else error = \"HTTP \" + (res.statusCode ?? \"?\") + \": \" + String(raw ?? \"\").slice(0, 200);\n}\n\n// Worth one more try only when the app never really answered (network error,\n// or a hosting-level 5xx page instead of the app's own JSON) AND it failed\n// fast. An answer from the app itself - even a failure - is final: the app has\n// logged this message id and would just replay the same answer.\nconst elapsed = Date.now() - Number($('Build Request').first().json.sent_at || 0);\nconst retryable = !ok && !body && (Boolean(res.error) || Number(res.statusCode) >= 500) && elapsed < 20000;\n\nreturn [{\n  json: {\n    ok,\n    retryable,\n    // The app always sends a sentence, even on failure; fall back to our own.\n    reply: (body && body.reply) || SORRY,\n    error,\n    log_id: (body && body.log_id) || null,\n  },\n}];\n"
       },
       "id": "read-app-response",
       "name": "Read App Response",
@@ -365,7 +412,126 @@
           "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
           "name": "WhatsApp account"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-retry",
+              "leftValue": "={{ $json.retryable }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "try-again?",
+      "name": "Try Again?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dmglobal.me/api/whatsapp/chat",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "REPLACE_WITH_WHATSAPP_WEBHOOK_SECRET"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Build Request').first().json) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text",
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "ask-the-app-again",
+      "name": "Ask the App Again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns whatever came back from the app into one shape the rest of the flow can\n// trust. \"Ask the App\" reads the body as TEXT and never stops the run, so a\n// timeout, an HTML error page or a network failure all arrive here instead of\n// crashing the workflow and leaving the customer in silence.\nconst res = items[0].json;\nconst SORRY =\n  \"Sorry, I had trouble looking that up just now. Please send your message again in a moment.\";\n\n// With \"Response Format: Text\" + full response, n8n puts the body in \"data\"\n// (not \"body\"). Accept either, so a node-version change cannot break this.\nconst raw = res.data ?? res.body;\nlet body = null;\ntry {\n  body = typeof raw === \"string\" ? JSON.parse(raw) : raw;\n} catch (e) {\n  body = null;\n}\n\nconst ok = Boolean(body && body.success === true && body.reply);\nlet error = null;\nif (!ok) {\n  if (body && body.error) error = typeof body.error === \"string\" ? body.error : (body.error.message || JSON.stringify(body.error));\n  else if (res.error) error = res.error.message || String(res.error);\n  else error = \"HTTP \" + (res.statusCode ?? \"?\") + \": \" + String(raw ?? \"\").slice(0, 200);\n}\n\n// Worth one more try only when the app never really answered (network error,\n// or a hosting-level 5xx page instead of the app's own JSON) AND it failed\n// fast. An answer from the app itself - even a failure - is final: the app has\n// logged this message id and would just replay the same answer.\nconst elapsed = Date.now() - Number($('Build Request').first().json.sent_at || 0);\nconst retryable = !ok && !body && (Boolean(res.error) || Number(res.statusCode) >= 500) && elapsed < 20000;\n\nreturn [{\n  json: {\n    ok,\n    retryable,\n    // The app always sends a sentence, even on failure; fall back to our own.\n    reply: (body && body.reply) || SORRY,\n    error,\n    log_id: (body && body.log_id) || null,\n  },\n}];\n"
+      },
+      "id": "read-retry-response",
+      "name": "Read Retry Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-retry-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "did-retry-work?",
+      "name": "Did Retry Work?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ]
     },
     {
       "parameters": {
@@ -390,7 +556,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "phone": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
-            "last_reply": "={{ String($('Read App Response').first().json.reply || '').slice(0, 600) }}"
+            "last_reply": "={{ String(($('Read Retry Response').isExecuted ? $('Read Retry Response') : $('Read App Response')).first().json.reply || '').slice(0, 600) }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -424,7 +590,10 @@
         1120,
         100
       ],
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
     },
     {
       "parameters": {
@@ -447,19 +616,22 @@
           "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
           "name": "WhatsApp account"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     },
     {
       "parameters": {
-        "errorMessage": "={{ 'App error: ' + $('Read App Response').first().json.error + ' | log_id: ' + ($('Read App Response').first().json.log_id || 'none') }}"
+        "errorMessage": "={{ 'App error: ' + ($('Read Retry Response').isExecuted ? $('Read Retry Response') : $('Read App Response')).first().json.error + ' | log_id: ' + (($('Read Retry Response').isExecuted ? $('Read Retry Response') : $('Read App Response')).first().json.log_id || 'none') }}"
       },
       "id": "mark-execution-failed",
       "name": "Mark Execution Failed",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        1140,
-        300
+        1340,
+        500
       ]
     },
     {
@@ -496,7 +668,10 @@
           "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
           "name": "WhatsApp account"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
     }
   ],
   "connections": {
@@ -587,6 +762,35 @@
         ],
         [
           {
+            "node": "Reload Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reload Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe (Backup Model)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe (Backup Model)": {
+      "main": [
+        [
+          {
+            "node": "Heard Anything?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Explain What We Can Read",
             "type": "main",
             "index": 0
@@ -656,7 +860,7 @@
         ],
         [
           {
-            "node": "Send Sorry Message",
+            "node": "Try Again?",
             "type": "main",
             "index": 0
           }
@@ -668,6 +872,64 @@
         [
           {
             "node": "Remember Last Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Try Again?": {
+      "main": [
+        [
+          {
+            "node": "Ask the App Again",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Sorry Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the App Again": {
+      "main": [
+        [
+          {
+            "node": "Read Retry Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Retry Response": {
+      "main": [
+        [
+          {
+            "node": "Did Retry Work?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Retry Work?": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Sorry Message",
             "type": "main",
             "index": 0
           }

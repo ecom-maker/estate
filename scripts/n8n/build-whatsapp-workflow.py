@@ -48,6 +48,11 @@ def data_table(table_id):
 # "lite" is Gemini's fastest tier. It rejects thinkingBudget 0 ("invalid
 # argument"); thinkingLevel "minimal" is the fastest setting it accepts.
 REACTION_MODEL = "gemini-3.5-flash-lite"
+# Used when the primary model errors (overloaded, retired, rejects a setting).
+# Both checked against the live API on 2026-10-07: the reaction backup accepts the
+# same request shape, the transcription backup accepts audio.
+REACTION_BACKUP_MODEL = "gemini-3.1-flash-lite"
+TRANSCRIBE_BACKUP_MODEL = "gemini-3.7-flash"
 # A friendly agent reacting the way a person would - any emoji that fits, but
 # only when a reaction feels natural, not on every message.
 REACTION_PROMPT = """\
@@ -86,16 +91,24 @@ BUILD_REQUEST_JS = """\
 const wa = $('WhatsApp Trigger').first().json;
 const msg = wa.messages[0];
 
-const message =
+// The app rejects messages over 2000 characters, which a long voice note can
+// exceed; cut it rather than lose the whole question to a validation error.
+const message = String(
   msg.type === "audio"
     ? ($json.content?.parts || []).map((p) => p.text || "").join(" ").trim()
-    : msg.text.body;
+    : msg.text.body
+).slice(0, 2000);
 
 return [{
   json: {
     // The app normalises this to digits, so "+971 50..." and "97150..." match.
     phone: msg.from,
     message,
+
+    // When we asked. "Read App Response" only retries a failure that came back
+    // quickly, so a slow timeout never makes the customer wait twice. The app
+    // ignores fields it does not know.
+    sent_at: Date.now(),
 
     // WhatsApp's own id for this message. The app stores it and refuses to
     // answer the same id twice, so a webhook WhatsApp retries does not produce
@@ -181,9 +194,17 @@ if (!ok) {
   else error = "HTTP " + (res.statusCode ?? "?") + ": " + String(raw ?? "").slice(0, 200);
 }
 
+// Worth one more try only when the app never really answered (network error,
+// or a hosting-level 5xx page instead of the app's own JSON) AND it failed
+// fast. An answer from the app itself - even a failure - is final: the app has
+// logged this message id and would just replay the same answer.
+const elapsed = Date.now() - Number($('Build Request').first().json.sent_at || 0);
+const retryable = !ok && !body && (Boolean(res.error) || Number(res.statusCode) >= 500) && elapsed < 20000;
+
 return [{
   json: {
     ok,
+    retryable,
     // The app always sends a sentence, even on failure; fall back to our own.
     reply: (body && body.reply) || SORRY,
     error,
@@ -191,6 +212,16 @@ return [{
   },
 }];
 """
+
+# The latest answer from the app: from the retry if one ran, else the first try.
+LATEST_ANSWER = (
+    "($('Read Retry Response').isExecuted ? $('Read Retry Response') : $('Read App Response'))"
+    ".first().json"
+)
+
+# Retries for steps that hit brief network / provider hiccups.
+RETRY_FAST = {"retryOnFail": True, "maxTries": 2, "waitBetweenTries": 500}
+RETRY_SEND = {"retryOnFail": True, "maxTries": 3, "waitBetweenTries": 2000}
 
 
 def node(name, type_, type_version, position, parameters, **extra):
@@ -330,6 +361,9 @@ nodes = [
         },
         # An expired URL or a WhatsApp outage must still get the customer a reply.
         onError="continueErrorOutput",
+        retryOnFail=True,
+        maxTries=3,
+        waitBetweenTries=1000,
     ),
     node(
         "Transcribe Voice Note",
@@ -343,6 +377,40 @@ nodes = [
                 "value": "models/gemini-3.5-flash",
                 "mode": "list",
                 "cachedResultName": "models/gemini-3.5-flash",
+            },
+            "inputType": "binary",
+            "options": {},
+        },
+        credentials={
+            "googlePalmApi": {"id": CRED_PLACEHOLDER, "name": "Google Gemini account"}
+        },
+        # A busy model often answers on the second try; after that, the backup.
+        onError="continueErrorOutput",
+        retryOnFail=True,
+        maxTries=2,
+        waitBetweenTries=1000,
+    ),
+    node(
+        "Reload Audio",
+        "n8n-nodes-base.code",
+        2,
+        [620, 560],
+        # The failed item may not carry the audio any more; hand the backup model
+        # the file exactly as "Download Voice Note" fetched it.
+        {"jsCode": "return [{ json: {}, binary: $('Download Voice Note').first().binary }];"},
+    ),
+    node(
+        "Transcribe (Backup Model)",
+        "@n8n/n8n-nodes-langchain.googleGemini",
+        1.2,
+        [840, 560],
+        {
+            "resource": "audio",
+            "modelId": {
+                "__rl": True,
+                "value": f"models/{TRANSCRIBE_BACKUP_MODEL}",
+                "mode": "list",
+                "cachedResultName": f"models/{TRANSCRIBE_BACKUP_MODEL}",
             },
             "inputType": "binary",
             "options": {},
@@ -446,6 +514,59 @@ nodes = [
         credentials={
             "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
         },
+        # WhatsApp rate limits and brief 5xx are retried; if it still fails the
+        # run goes red, which is right - the customer did not get the answer.
+        **RETRY_SEND,
+    ),
+    node(
+        "Try Again?",
+        "n8n-nodes-base.if",
+        2,
+        [900, 300],
+        condition("cond-retry", "={{ $json.retryable }}", "={{ true }}", operation="true", type_="boolean"),
+    ),
+    node(
+        "Ask the App Again",
+        "n8n-nodes-base.httpRequest",
+        4.2,
+        [1120, 300],
+        {
+            # Same request as "Ask the App". Same wa_message_id, so if the first
+            # call did reach the app, it replays that answer instead of asking
+            # the agent twice.
+            "method": "POST",
+            "url": f"{APP_URL}/api/whatsapp/chat",
+            "sendHeaders": True,
+            "headerParameters": {
+                "parameters": [
+                    {"name": "x-webhook-secret", "value": SECRET_PLACEHOLDER}
+                ]
+            },
+            "sendBody": True,
+            "specifyBody": "json",
+            "jsonBody": "={{ JSON.stringify($('Build Request').first().json) }}",
+            "options": {
+                "timeout": 60000,
+                "response": {
+                    "response": {"fullResponse": True, "responseFormat": "text", "neverError": True}
+                },
+            },
+        },
+        onError="continueRegularOutput",
+    ),
+    node(
+        "Read Retry Response",
+        "n8n-nodes-base.code",
+        2,
+        [1340, 300],
+        {"jsCode": READ_RESPONSE_JS},
+    ),
+    node(
+        "Did Retry Work?",
+        "n8n-nodes-base.if",
+        2,
+        [1560, 300],
+        condition("cond-retry-ok", "={{ $json.ok }}", "={{ true }}", operation="true", type_="boolean"),
     ),
     node(
         "Remember Last Reply",
@@ -474,7 +595,7 @@ nodes = [
                 "value": {
                     "phone": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
                     "last_reply": (
-                        "={{ String($('Read App Response').first().json.reply || '')"
+                        f"={{{{ String({LATEST_ANSWER}.reply || '')"
                         f".slice(0, {LAST_REPLY_MAX_CHARS}) }}}}"
                     ),
                 },
@@ -488,6 +609,7 @@ nodes = [
             "options": {},
         },
         onError="continueRegularOutput",
+        **RETRY_FAST,
     ),
     node(
         "Send Sorry Message",
@@ -505,15 +627,16 @@ nodes = [
         credentials={
             "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
         },
+        **RETRY_SEND,
     ),
     node(
         "Mark Execution Failed",
         "n8n-nodes-base.stopAndError",
         1,
-        [1140, 300],
+        [1340, 500],
         {
-            "errorMessage": "={{ 'App error: ' + $('Read App Response').first().json.error "
-            "+ ' | log_id: ' + ($('Read App Response').first().json.log_id || 'none') }}"
+            "errorMessage": f"={{{{ 'App error: ' + {LATEST_ANSWER}.error "
+            f"+ ' | log_id: ' + ({LATEST_ANSWER}.log_id || 'none') }}}}"
         },
     ),
     node(
@@ -538,6 +661,7 @@ nodes = [
         credentials={
             "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
         },
+        **RETRY_SEND,
     ),
 ]
 
@@ -557,7 +681,10 @@ for src, dest, output in [
     link("Download Voice Note", "Transcribe Voice Note", 0),
     link("Download Voice Note", "Explain What We Can Read", 1),    # download failed
     link("Transcribe Voice Note", "Heard Anything?", 0),
-    link("Transcribe Voice Note", "Explain What We Can Read", 1),  # Gemini failed
+    link("Transcribe Voice Note", "Reload Audio", 1),              # Gemini failed twice
+    link("Reload Audio", "Transcribe (Backup Model)"),
+    link("Transcribe (Backup Model)", "Heard Anything?", 0),
+    link("Transcribe (Backup Model)", "Explain What We Can Read", 1),  # backup failed too
     link("Heard Anything?", "Build Request", 0),                   # same path as text
     link("Heard Anything?", "Explain What We Can Read", 1),        # empty transcript
     link("Build Request", "Ask the App"),
@@ -565,7 +692,13 @@ for src, dest, output in [
     link("Read App Response", "Did It Work?"),
     link("Did It Work?", "Send Reply", 0),         # true  -> normal answer
     link("Send Reply", "Remember Last Reply"),
-    link("Did It Work?", "Send Sorry Message", 1), # false -> apology, then red
+    link("Did It Work?", "Try Again?", 1),         # false -> one quick retry?
+    link("Try Again?", "Ask the App Again", 0),
+    link("Try Again?", "Send Sorry Message", 1),   # not worth retrying -> apology, then red
+    link("Ask the App Again", "Read Retry Response"),
+    link("Read Retry Response", "Did Retry Work?"),
+    link("Did Retry Work?", "Send Reply", 0),
+    link("Did Retry Work?", "Send Sorry Message", 1),
     link("Send Sorry Message", "Mark Execution Failed"),
     link("Explain What We Can Read", "Send Notice"),
 ]:
@@ -622,6 +755,40 @@ REACTION_USER_TURN = (
     f" + \"The customer's new message:\\n\" + {WA}.messages[0].text.body"
 )
 
+def pick_reaction(name, model, position, **extra):
+    """One short Gemini call, minimal thinking, JSON only. The request is built
+    entirely from the Webhook and Get Last Reply, so primary and backup send
+    exactly the same thing."""
+    return node(
+        name,
+        "n8n-nodes-base.httpRequest",
+        4.2,
+        position,
+        {
+            "method": "POST",
+            "url": f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            "authentication": "predefinedCredentialType",
+            "nodeCredentialType": "googlePalmApi",
+            "sendBody": True,
+            "specifyBody": "json",
+            "jsonBody": "={{ JSON.stringify({"
+            f" systemInstruction: {{ parts: [{{ text: {json.dumps(REACTION_PROMPT, ensure_ascii=False)} }}] }},"
+            f" contents: [{{ role: 'user', parts: [{{ text: {REACTION_USER_TURN} }}] }}],"
+            " generationConfig: { temperature: 0, maxOutputTokens: 50,"
+            " thinkingConfig: { thinkingLevel: 'minimal' },"
+            " responseMimeType: 'application/json',"
+            # closes: emoji, properties, responseSchema, generationConfig
+            " responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } }"
+            " }) }}",
+            "options": {"timeout": 8000},
+        },
+        credentials={
+            "googlePalmApi": {"id": CRED_PLACEHOLDER, "name": "Google Gemini account"}
+        },
+        **extra,
+    )
+
+
 reaction_nodes = [
     node(
         "Webhook",
@@ -673,6 +840,7 @@ reaction_nodes = [
             "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
         },
         onError="continueRegularOutput",
+        **RETRY_FAST,
     ),
     node(
         "Is It Text?",
@@ -706,37 +874,17 @@ reaction_nodes = [
         },
         alwaysOutputData=True,
         onError="continueRegularOutput",
+        **RETRY_FAST,
     ),
-    node(
-        "Pick Reaction",
-        "n8n-nodes-base.httpRequest",
-        4.2,
-        [1100, 200],
-        {
-            # One short Gemini call on the fast "lite" model, minimal thinking, JSON only.
-            "method": "POST",
-            "url": (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{REACTION_MODEL}:generateContent"
-            ),
-            "authentication": "predefinedCredentialType",
-            "nodeCredentialType": "googlePalmApi",
-            "sendBody": True,
-            "specifyBody": "json",
-            "jsonBody": "={{ JSON.stringify({"
-            f" systemInstruction: {{ parts: [{{ text: {json.dumps(REACTION_PROMPT, ensure_ascii=False)} }}] }},"
-            f" contents: [{{ role: 'user', parts: [{{ text: {REACTION_USER_TURN} }}] }}],"
-            " generationConfig: { temperature: 0, maxOutputTokens: 50,"
-            " thinkingConfig: { thinkingLevel: 'minimal' },"
-            " responseMimeType: 'application/json',"
-            # closes: emoji, properties, responseSchema, generationConfig
-            " responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } }"
-            " }) }}",
-            "options": {"timeout": 8000},
-        },
-        credentials={
-            "googlePalmApi": {"id": CRED_PLACEHOLDER, "name": "Google Gemini account"}
-        },
+    pick_reaction(
+        "Pick Reaction", REACTION_MODEL, [1100, 200],
+        # A busy model often answers on the second try; after that, the backup.
+        onError="continueErrorOutput", **RETRY_FAST,
+    ),
+    pick_reaction(
+        "Pick Reaction (Backup Model)", REACTION_BACKUP_MODEL, [1100, 400],
+        # Last resort: if this fails too, Read Reaction gets an error object and
+        # we simply do not react. The reply is never affected.
         onError="continueRegularOutput",
     ),
     node(
@@ -776,6 +924,7 @@ reaction_nodes = [
             "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
         },
         onError="continueRegularOutput",
+        **RETRY_FAST,
     ),
 ]
 
@@ -786,7 +935,9 @@ for src, dest, output in [
     link("Show Typing", "Is It Text?"),
     link("Is It Text?", "Get Last Reply", 0),   # false -> voice etc., typing only
     link("Get Last Reply", "Pick Reaction"),
-    link("Pick Reaction", "Read Reaction"),
+    link("Pick Reaction", "Read Reaction", 0),
+    link("Pick Reaction", "Pick Reaction (Backup Model)", 1),  # primary failed twice
+    link("Pick Reaction (Backup Model)", "Read Reaction"),
     link("Read Reaction", "Should React?"),
     link("Should React?", "Send Reaction", 0),  # false -> no reaction needed
 ]:
