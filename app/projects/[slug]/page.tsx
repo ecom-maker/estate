@@ -13,6 +13,7 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
+import { computeNearby, formatKm, storedNearby } from "@/lib/property/nearby";
 
 export const dynamic = "force-dynamic";
 
@@ -141,6 +142,12 @@ export default async function ProjectDetailPage({ params }: Props) {
         },
   ].filter((m) => m.date);
 
+  // Straight-line distances from the project's coordinates (stored by
+  // scripts/compute-nearby.ts; computed here if a re-import dropped them).
+  const nearby =
+    storedNearby(project.metadata) ??
+    computeNearby(project.latitude, project.longitude);
+
   return (
     <div className="mx-auto max-w-7xl px-6 pb-28 pt-14 md:px-10">
       <JsonLd
@@ -263,6 +270,28 @@ export default async function ProjectDetailPage({ params }: Props) {
             </section>
           ) : null}
 
+          {/* Nearby landmarks */}
+          {nearby.length ? (
+            <section className="mt-10">
+              <h2 className="font-serif text-2xl text-primary">Nearby</h2>
+              <p className="mt-1 text-sm text-muted">
+                Straight-line distance from the project
+              </p>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {nearby.map((n) => (
+                  <li
+                    key={n.name}
+                    className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                  >
+                    <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                      {formatKm(n.km)}
+                    </span>
+                    <span className="min-w-0 text-sm text-primary">{n.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {/* Payment plan — only relevant for off-plan projects. */}
           {isCompleted || !paymentSteps.length ? null : (
