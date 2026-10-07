@@ -58,6 +58,135 @@
     },
     {
       "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "type-text",
+                    "leftValue": "={{ $json.messages[0].type }}",
+                    "rightValue": "text",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "options": {},
+              "renameOutput": true,
+              "outputKey": "Text"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "type-audio",
+                    "leftValue": "={{ $json.messages[0].type }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "options": {},
+              "renameOutput": true,
+              "outputKey": "Voice Note"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Other"
+        }
+      },
+      "id": "what-kind-of-message?",
+      "name": "What Kind of Message?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        180,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.messages[0].audio.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "download-voice-note",
+      "name": "Download Voice Note",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        400
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "WhatsApp account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash"
+        },
+        "inputType": "binary",
+        "options": {}
+      },
+      "id": "transcribe-voice-note",
+      "name": "Transcribe Voice Note",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        620,
+        400
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
@@ -67,12 +196,12 @@
           },
           "conditions": [
             {
-              "id": "cond-text-only",
-              "leftValue": "={{ $json.messages[0].type }}",
-              "rightValue": "text",
+              "id": "has-transcript",
+              "leftValue": "={{ ($json.content?.parts || []).map(p => p.text || '').join(' ').trim() }}",
+              "rightValue": "",
               "operator": {
                 "type": "string",
-                "operation": "equals"
+                "operation": "notEmpty"
               }
             }
           ],
@@ -80,18 +209,18 @@
         },
         "options": {}
       },
-      "id": "is-it-text?",
-      "name": "Is It Text?",
+      "id": "heard-anything?",
+      "name": "Heard Anything?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        180,
-        300
+        840,
+        400
       ]
     },
     {
       "parameters": {
-        "jsCode": "// n8n is only the messenger. It sends the app four things and keeps no state of\n// its own: no chat history, no sessions, no database credentials. The app looks\n// up this sender's history by phone number and saves both sides of the\n// conversation itself.\nconst wa = items[0].json;\nconst msg = wa.messages[0];\n\nreturn [{\n  json: {\n    // The app normalises this to digits, so \"+971 50...\" and \"97150...\" match.\n    phone: msg.from,\n    message: msg.text.body,\n\n    // WhatsApp's own id for this message. The app stores it and refuses to\n    // answer the same id twice, so a webhook WhatsApp retries does not produce\n    // a second reply to the customer.\n    wa_message_id: msg.id,\n\n    // This n8n run. It is written into the whatsapp_logs row, so a failure in\n    // the table can be traced back to the exact execution that caused it.\n    execution_id: $execution.id,\n\n    // Needed to send the reply back; the app never sees it.\n    phone_number_id: wa.metadata.phone_number_id,\n  },\n}];\n"
+        "jsCode": "// n8n is only the messenger. It sends the app four things and keeps no state of\n// its own: no chat history, no sessions, no database credentials. The app looks\n// up this sender's history by phone number and saves both sides of the\n// conversation itself.\n//\n// Typed messages and voice notes both arrive here. For a voice note the text is\n// the transcript from \"Transcribe Voice Note\", so the app answers it exactly as\n// if the customer had typed it. Always read the original WhatsApp payload from\n// the trigger, because on the voice path $json is the transcription output.\nconst wa = $('WhatsApp Trigger').first().json;\nconst msg = wa.messages[0];\n\nconst message =\n  msg.type === \"audio\"\n    ? ($json.content?.parts || []).map((p) => p.text || \"\").join(\" \").trim()\n    : msg.text.body;\n\nreturn [{\n  json: {\n    // The app normalises this to digits, so \"+971 50...\" and \"97150...\" match.\n    phone: msg.from,\n    message,\n\n    // WhatsApp's own id for this message. The app stores it and refuses to\n    // answer the same id twice, so a webhook WhatsApp retries does not produce\n    // a second reply to the customer.\n    wa_message_id: msg.id,\n\n    // This n8n run. It is written into the whatsapp_logs row, so a failure in\n    // the table can be traced back to the exact execution that caused it.\n    execution_id: $execution.id,\n\n    // Needed to send the reply back; the app never sees it.\n    phone_number_id: wa.metadata.phone_number_id,\n  },\n}];\n"
       },
       "id": "build-request",
       "name": "Build Request",
@@ -246,15 +375,15 @@
     },
     {
       "parameters": {
-        "jsCode": "// Voice notes, images, documents and locations reach here. Previously they were\n// dropped and the customer got silence, which reads as the service being broken.\nconst wa = items[0].json;\nconst msg = wa.messages[0];\n\nreturn [{\n  json: {\n    phone: msg.from,\n    phone_number_id: wa.metadata.phone_number_id,\n    reply:\n      \"I can only read text messages at the moment. Please type what you are \" +\n      \"looking for - for example \\\"2 bed in Dubai Marina under 3M\\\".\",\n  },\n}];\n"
+        "jsCode": "// Reached by images, documents, locations and stickers, and by voice notes that\n// could not be downloaded or understood. Previously these were dropped and the\n// customer got silence, which reads as the service being broken.\nconst wa = $('WhatsApp Trigger').first().json;\nconst msg = wa.messages[0];\n\nconst reply =\n  msg.type === \"audio\"\n    ? \"Sorry, I couldn't make out that voice note. Could you send it again, \" +\n      \"or type what you are looking for - for example \\\"2 bed in Dubai Marina under 3M\\\"?\"\n    : \"I can read text messages and voice notes. Please type or say what you \" +\n      \"are looking for - for example \\\"2 bed in Dubai Marina under 3M\\\".\";\n\nreturn [{\n  json: {\n    phone: msg.from,\n    phone_number_id: wa.metadata.phone_number_id,\n    reply,\n  },\n}];\n"
       },
-      "id": "explain-text-only",
-      "name": "Explain Text Only",
+      "id": "explain-what-we-can-read",
+      "name": "Explain What We Can Read",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
-        440
+        1060,
+        560
       ]
     },
     {
@@ -265,13 +394,13 @@
         "messageType": "text",
         "textBody": "={{ $json.reply }}"
       },
-      "id": "send-text-only-notice",
-      "name": "Send Text-Only Notice",
+      "id": "send-notice",
+      "name": "Send Notice",
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
       "position": [
-        440,
-        440
+        1280,
+        560
       ],
       "credentials": {
         "whatsAppApi": {
@@ -297,14 +426,14 @@
       "main": [
         [
           {
-            "node": "Is It Text?",
+            "node": "What Kind of Message?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Is It Text?": {
+    "What Kind of Message?": {
       "main": [
         [
           {
@@ -315,7 +444,68 @@
         ],
         [
           {
-            "node": "Explain Text Only",
+            "node": "Download Voice Note",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain What We Can Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Voice Note": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Voice Note",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain What We Can Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Voice Note": {
+      "main": [
+        [
+          {
+            "node": "Heard Anything?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain What We Can Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Heard Anything?": {
+      "main": [
+        [
+          {
+            "node": "Build Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Explain What We Can Read",
             "type": "main",
             "index": 0
           }
@@ -384,11 +574,11 @@
         ]
       ]
     },
-    "Explain Text Only": {
+    "Explain What We Can Read": {
       "main": [
         [
           {
-            "node": "Send Text-Only Notice",
+            "node": "Send Notice",
             "type": "main",
             "index": 0
           }

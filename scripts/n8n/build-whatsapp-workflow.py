@@ -27,14 +27,24 @@ BUILD_REQUEST_JS = """\
 // its own: no chat history, no sessions, no database credentials. The app looks
 // up this sender's history by phone number and saves both sides of the
 // conversation itself.
-const wa = items[0].json;
+//
+// Typed messages and voice notes both arrive here. For a voice note the text is
+// the transcript from "Transcribe Voice Note", so the app answers it exactly as
+// if the customer had typed it. Always read the original WhatsApp payload from
+// the trigger, because on the voice path $json is the transcription output.
+const wa = $('WhatsApp Trigger').first().json;
 const msg = wa.messages[0];
+
+const message =
+  msg.type === "audio"
+    ? ($json.content?.parts || []).map((p) => p.text || "").join(" ").trim()
+    : msg.text.body;
 
 return [{
   json: {
     // The app normalises this to digits, so "+971 50..." and "97150..." match.
     phone: msg.from,
-    message: msg.text.body,
+    message,
 
     // WhatsApp's own id for this message. The app stores it and refuses to
     // answer the same id twice, so a webhook WhatsApp retries does not produce
@@ -52,18 +62,24 @@ return [{
 """
 
 UNSUPPORTED_JS = """\
-// Voice notes, images, documents and locations reach here. Previously they were
-// dropped and the customer got silence, which reads as the service being broken.
-const wa = items[0].json;
+// Reached by images, documents, locations and stickers, and by voice notes that
+// could not be downloaded or understood. Previously these were dropped and the
+// customer got silence, which reads as the service being broken.
+const wa = $('WhatsApp Trigger').first().json;
 const msg = wa.messages[0];
+
+const reply =
+  msg.type === "audio"
+    ? "Sorry, I couldn't make out that voice note. Could you send it again, " +
+      "or type what you are looking for - for example \\"2 bed in Dubai Marina under 3M\\"?"
+    : "I can read text messages and voice notes. Please type or say what you " +
+      "are looking for - for example \\"2 bed in Dubai Marina under 3M\\".";
 
 return [{
   json: {
     phone: msg.from,
     phone_number_id: wa.metadata.phone_number_id,
-    reply:
-      "I can only read text messages at the moment. Please type what you are " +
-      "looking for - for example \\"2 bed in Dubai Marina under 3M\\".",
+    reply,
   },
 }];
 """
@@ -174,14 +190,86 @@ nodes = [
         ),
     ),
     node(
-        "Is It Text?",
+        "What Kind of Message?",
+        "n8n-nodes-base.switch",
+        3.2,
+        [180, 300],
+        {
+            "rules": {
+                "values": [
+                    {
+                        **condition("type-text", "={{ $json.messages[0].type }}", "text"),
+                        "renameOutput": True,
+                        "outputKey": "Text",
+                    },
+                    {
+                        **condition("type-audio", "={{ $json.messages[0].type }}", "audio"),
+                        "renameOutput": True,
+                        "outputKey": "Voice Note",
+                    },
+                ]
+            },
+            # Images, documents, locations, stickers: explain what we can read.
+            "options": {"fallbackOutput": "extra", "renameFallbackOutput": "Other"},
+        },
+    ),
+    node(
+        "Download Voice Note",
+        "n8n-nodes-base.httpRequest",
+        4.2,
+        [400, 400],
+        {
+            # WhatsApp's webhook carries a short-lived media URL. It needs the
+            # WhatsApp access token, which the predefined credential supplies.
+            "url": "={{ $json.messages[0].audio.url }}",
+            "authentication": "predefinedCredentialType",
+            "nodeCredentialType": "whatsAppApi",
+            "options": {
+                "timeout": 30000,
+                "response": {
+                    "response": {"responseFormat": "file", "outputPropertyName": "data"}
+                },
+            },
+        },
+        credentials={
+            "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
+        },
+        # An expired URL or a WhatsApp outage must still get the customer a reply.
+        onError="continueErrorOutput",
+    ),
+    node(
+        "Transcribe Voice Note",
+        "@n8n/n8n-nodes-langchain.googleGemini",
+        1.2,
+        [620, 400],
+        {
+            "resource": "audio",
+            "modelId": {
+                "__rl": True,
+                "value": "models/gemini-3.5-flash",
+                "mode": "list",
+                "cachedResultName": "models/gemini-3.5-flash",
+            },
+            "inputType": "binary",
+            "options": {},
+        },
+        credentials={
+            "googlePalmApi": {"id": CRED_PLACEHOLDER, "name": "Google Gemini account"}
+        },
+        onError="continueErrorOutput",
+    ),
+    node(
+        "Heard Anything?",
         "n8n-nodes-base.if",
         2,
-        [180, 300],
+        [840, 400],
+        # Silence or noise transcribes to nothing; asking the app about an empty
+        # message would get a confusing answer, so explain instead.
         condition(
-            "cond-text-only",
-            "={{ $json.messages[0].type }}",
-            "text",
+            "has-transcript",
+            "={{ ($json.content?.parts || []).map(p => p.text || '').join(' ').trim() }}",
+            "",
+            operation="notEmpty",
         ),
     ),
     node(
@@ -293,17 +381,17 @@ nodes = [
         },
     ),
     node(
-        "Explain Text Only",
+        "Explain What We Can Read",
         "n8n-nodes-base.code",
         2,
-        [220, 440],
+        [1060, 560],
         {"jsCode": UNSUPPORTED_JS},
     ),
     node(
-        "Send Text-Only Notice",
+        "Send Notice",
         "n8n-nodes-base.whatsApp",
         1,
-        [440, 440],
+        [1280, 560],
         {
             "operation": "send",
             "phoneNumberId": "={{ $json.phone_number_id }}",
@@ -325,16 +413,23 @@ def link(src, dest, output=0):
 connections = {}
 for src, dest, output in [
     link("WhatsApp Trigger", "Is It a Message?"),
-    link("Is It a Message?", "Is It Text?", 0),    # false -> receipt, ends here
-    link("Is It Text?", "Build Request", 0),       # true  -> text
-    link("Is It Text?", "Explain Text Only", 1),   # false -> everything else
+    link("Is It a Message?", "What Kind of Message?", 0),  # false -> receipt, ends here
+    link("What Kind of Message?", "Build Request", 0),             # text
+    link("What Kind of Message?", "Download Voice Note", 1),       # voice note
+    link("What Kind of Message?", "Explain What We Can Read", 2),  # anything else
+    link("Download Voice Note", "Transcribe Voice Note", 0),
+    link("Download Voice Note", "Explain What We Can Read", 1),    # download failed
+    link("Transcribe Voice Note", "Heard Anything?", 0),
+    link("Transcribe Voice Note", "Explain What We Can Read", 1),  # Gemini failed
+    link("Heard Anything?", "Build Request", 0),                   # same path as text
+    link("Heard Anything?", "Explain What We Can Read", 1),        # empty transcript
     link("Build Request", "Ask the App"),
     link("Ask the App", "Read App Response"),
     link("Read App Response", "Did It Work?"),
     link("Did It Work?", "Send Reply", 0),         # true  -> normal answer
     link("Did It Work?", "Send Sorry Message", 1), # false -> apology, then red
     link("Send Sorry Message", "Mark Execution Failed"),
-    link("Explain Text Only", "Send Text-Only Notice"),
+    link("Explain What We Can Read", "Send Notice"),
 ]:
     main = connections.setdefault(src, {"main": []})["main"]
     while len(main) <= output:
