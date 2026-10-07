@@ -1,10 +1,12 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
+import { HelpCircle } from "lucide-react";
+import { ProjectGallery } from "@/components/property/project-gallery";
 import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
 import { UnitsSection } from "@/components/property/units-section";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
+import { getMarketInsights } from "@/lib/property/market-data";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
@@ -60,7 +62,6 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   if (!property) notFound();
 
-  const primary = property.images[0];
   const meta = (property.metadata ?? {}) as { handoverDate?: string };
   const handoverDate = meta.handoverDate ? new Date(meta.handoverDate) : null;
   const handoverLabel =
@@ -72,7 +73,46 @@ export default async function PropertyDetailPage({ params }: Props) {
         })
       : null;
 
-  const unitGroups = buildUnitGroups(property);
+  // Units: a listing is one bedroom type, so show only the floor plan(s) for
+  // this property's bedroom count (projects still show every config).
+  const allUnitGroups = buildUnitGroups(property);
+  const matchingGroups =
+    property.bedrooms != null
+      ? allUnitGroups.filter((g) => g.key === String(property.bedrooms))
+      : allUnitGroups;
+  const unitGroups = matchingGroups.length ? matchingGroups : allUnitGroups;
+
+  // Project-wide bedroom range for the Project Information card (e.g.
+  // "1 Bed – 2 Bed"), so it matches the project page rather than only showing
+  // this listing's own bedroom count.
+  const bedSummary = allUnitGroups.length
+    ? allUnitGroups.length === 1
+      ? allUnitGroups[0].label
+      : `${allUnitGroups[0].label} – ${allUnitGroups[allUnitGroups.length - 1].label}`
+    : `${property.bedrooms ?? "—"} Bed`;
+
+  // Gross yield: take the latest rental deal's annual rent PER SQFT, scale it
+  // to this listing's area to get its implied annual rent, then divide by the
+  // listing price. A recorded deal for this property is preferred; otherwise
+  // the most recent comparable rental shown in Recent rentals (which carries
+  // its own area, so per-sqft is exact). N/A when neither is available —
+  // comparables are recorded DLD rentals only, never an estimate.
+  const marketInsights = await getMarketInsights(property);
+  const latestRented = marketInsights?.rented[0] ?? null;
+  const recordedRent = property.rentalHistory[0]?.annualRentAed ?? null;
+  const rentPerSqft =
+    recordedRent != null && property.areaSqft
+      ? recordedRent / property.areaSqft
+      : latestRented && latestRented.area
+        ? latestRented.aed / latestRented.area
+        : null;
+  const yieldPct =
+    rentPerSqft != null && property.areaSqft && property.priceAed
+      ? ((rentPerSqft * property.areaSqft) / property.priceAed) * 100
+      : null;
+
+  // RERA is hidden entirely when there's nothing on file.
+  const reraLabel = property.reraStatus?.trim() || null;
 
   return (
     <div className="mx-auto grid max-w-7xl gap-10 px-6 pb-28 pt-14 lg:grid-cols-[1.4fr_0.8fr] md:px-10">
@@ -95,7 +135,9 @@ export default async function PropertyDetailPage({ params }: Props) {
           amenities: property.amenities.map((a) => a.amenity.name),
         })}
       />
-      <div>
+      {/* min-w-0: let wide children (units table) scroll instead of
+          stretching the grid track past a phone viewport. */}
+      <div className="min-w-0">
         <Breadcrumbs
           items={[
             { label: "Home", href: "/" },
@@ -136,41 +178,64 @@ export default async function PropertyDetailPage({ params }: Props) {
           ) : null}
         </div>
 
-        <div className="relative mt-8 aspect-[16/10] overflow-hidden rounded-sm bg-primary/10">
-          {primary ? (
-            <Image
-              src={primary.url}
-              alt={primary.alt ?? property.title}
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width:1024px) 100vw, 60vw"
-            />
-          ) : null}
-        </div>
+        <ProjectGallery
+          images={property.images}
+          title={property.title}
+          mapQuery={
+            property.latitude != null && property.longitude != null
+              ? `${property.latitude},${property.longitude}`
+              : property.community
+                ? `${property.community.name}, Dubai`
+                : `${property.title}, Dubai`
+          }
+          coords={
+            property.latitude != null && property.longitude != null
+              ? { lat: property.latitude, lng: property.longitude }
+              : null
+          }
+        />
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            ["Bedrooms", property.bedrooms ?? "—"],
-            ["Bathrooms", property.bathrooms ?? "—"],
+          {(
             [
-              "Area",
-              property.areaSqft
-                ? `${Math.round(property.areaSqft).toLocaleString()} sqft`
-                : "—",
-            ],
-            ["Type", property.type],
-            ["Waterfront", property.waterfront ? "Yes" : "No"],
-            ["Off-plan", property.offPlan ? "Yes" : "No"],
-            ["Yield", property.rentalYield != null ? `${property.rentalYield}%` : "N/A"],
-            ["RERA", property.reraStatus ?? "Not available"],
-          ].map(([label, value]) => (
+              ["Bedrooms", property.bedrooms ?? "—"],
+              ["Bathrooms", property.bathrooms ?? "—"],
+              [
+                "Area",
+                property.areaSqft
+                  ? `${Math.round(property.areaSqft).toLocaleString()} sqft`
+                  : "—",
+              ],
+              ["Type", property.type],
+              ["Waterfront", property.waterfront ? "Yes" : "No"],
+              ["Off-plan", property.offPlan ? "Yes" : "No"],
+              ["Yield", yieldPct != null ? `${yieldPct.toFixed(1)}%` : "N/A"],
+              // Only show RERA when there's a status on file.
+              ...(reraLabel ? [["RERA", reraLabel]] : []),
+            ] as [string, string | number][]
+          ).map(([label, value]) => (
             <div
               key={String(label)}
               className="rounded-sm border border-border bg-card p-4"
             >
-              <p className="text-[11px] uppercase tracking-wider text-muted">
+              <p className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-muted">
                 {label}
+                {label === "Yield" ? (
+                  <span className="group relative inline-flex">
+                    <HelpCircle
+                      className="h-3.5 w-3.5 cursor-help text-muted/70"
+                      tabIndex={0}
+                      aria-label="How yield is calculated"
+                    />
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-48 -translate-x-1/2 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-primary-foreground opacity-0 shadow-lg transition duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+                    >
+                      Based on the last available transaction in this building.
+                      This is indicative only.
+                    </span>
+                  </span>
+                ) : null}
               </p>
               <p className="mt-2 text-sm font-medium text-primary">{value}</p>
             </div>
@@ -195,11 +260,17 @@ export default async function PropertyDetailPage({ params }: Props) {
           </ul>
         </section>
 
-        <UnitsSection category={property.type} groups={unitGroups} />
+        <UnitsSection
+          category={property.type}
+          groups={unitGroups}
+          fromDeveloper={property.offPlan}
+        />
 
         <MarketInsightsSection
+          bedroomsLabel={bedSummary}
           property={{
             id: property.id,
+            slug: property.slug,
             title: property.title,
             type: property.type,
             bedrooms: property.bedrooms,
@@ -215,13 +286,13 @@ export default async function PropertyDetailPage({ params }: Props) {
         />
       </div>
 
-      <aside className="h-fit rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
+      <aside className="h-fit min-w-0 rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
         <div className="flex h-[70vh] min-h-0 flex-col">
           <AIChat
             propertyId={property.id}
             placeholder="Ask about this property..."
             propertyTitle={property.title}
-              whatsappNumber={WHATSAPP_NUMBER}
+            whatsappNumber={WHATSAPP_NUMBER}
           />
         </div>
         {property.videos[0] ? (
@@ -237,11 +308,7 @@ export default async function PropertyDetailPage({ params }: Props) {
               />
             </div>
           </div>
-        ) : (
-          <p className="mt-6 text-xs text-muted">
-            9:16 video tour placeholder — upload via media service.
-          </p>
-        )}
+        ) : null}
       </aside>
     </div>
   );

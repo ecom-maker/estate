@@ -23,9 +23,12 @@ export type UnitGroup = {
 export function UnitsSection({
   category,
   groups,
+  fromDeveloper = true,
 }: {
   category: string;
   groups: UnitGroup[];
+  /** "from developer" caption — only meaningful for off-plan inventory. */
+  fromDeveloper?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(groups[0]?.key ?? null);
   const [plan, setPlan] = useState<{ url: string; title: string } | null>(null);
@@ -33,7 +36,9 @@ export function UnitsSection({
   return (
     <section id="units" className="mt-10 scroll-mt-24">
       <h2 className="font-serif text-2xl text-primary">Units</h2>
-      <p className="mt-1 text-sm text-muted">from developer</p>
+      {fromDeveloper ? (
+        <p className="mt-1 text-sm text-muted">from developer</p>
+      ) : null}
 
       <p className="mt-6 text-xs font-medium uppercase tracking-[0.2em] text-muted">
         {category}
@@ -76,12 +81,12 @@ export function UnitsSection({
 
               {isOpen ? (
                 <div className="overflow-x-auto border-t border-border bg-card">
-                  <table className="w-full min-w-[560px] text-left text-sm">
+                  <table className="w-full min-w-[320px] text-left text-sm">
                     <thead className="text-xs uppercase tracking-wider text-muted">
                       <tr>
                         <th className="px-4 py-3">Layout type</th>
-                        <th>Size (sqft)</th>
-                        <th>No. of Bathrooms</th>
+                        <th className="pr-3">Size (sqft)</th>
+                        <th className="pr-3">Baths</th>
                         <th className="px-4 text-right">Floor plan</th>
                       </tr>
                     </thead>
@@ -91,12 +96,12 @@ export function UnitsSection({
                           <td className="px-4 py-4 text-primary">
                             {u.layoutType}
                           </td>
-                          <td className="text-muted">
+                          <td className="pr-3 text-muted">
                             {u.areaSqft
                               ? Math.round(u.areaSqft).toLocaleString()
                               : "—"}
                           </td>
-                          <td className="text-muted">{u.bathrooms ?? "—"}</td>
+                          <td className="pr-3 text-muted">{u.bathrooms ?? "—"}</td>
                           <td className="px-4 py-2 text-right">
                             <button
                               type="button"

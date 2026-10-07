@@ -136,6 +136,16 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
 
   const img = p.images[0];
 
+  // "Starting from" must equal the cheapest unit actually shown in the bed
+  // chips — not the separately-stored project price, which the import can set
+  // slightly off (e.g. 704,198 vs a real cheapest unit of 703,239).
+  const unitPrices = units
+    .map((u) => u.priceAed)
+    .filter((n): n is number => n != null && n > 0);
+  const startingPriceAed = unitPrices.length
+    ? Math.min(...unitPrices)
+    : p.priceAed;
+
   return {
     id: p.id,
     slug: p.slug,
@@ -146,7 +156,7 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
     imageAlt: img?.alt ?? p.title,
     offPlan: p.offPlan,
     handover: handoverLabel(p.metadata),
-    startingPriceAed: p.priceAed,
+    startingPriceAed,
     beds,
     bedsHeading,
     bedRange,

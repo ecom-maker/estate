@@ -13,6 +13,7 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
+import { computeNearby, formatKm, storedNearby } from "@/lib/property/nearby";
 
 export const dynamic = "force-dynamic";
 
@@ -84,19 +85,22 @@ export default async function ProjectDetailPage({ params }: Props) {
     ["Status", project.offPlan ? "Off-plan" : "Ready"],
   ];
 
-  // Payment plan (from paymentPlan JSON, with sensible defaults)
+  // Payment plan — only the stages actually on file; never invent a split.
   const pp = (project.paymentPlan ?? {}) as {
     downPaymentPct?: number;
     duringConstructionPct?: number;
     onHandoverPct?: number;
   };
-  const paymentSteps: { pct: number; label: string; sub: string | null }[] = [
-    { pct: pp.downPaymentPct ?? 20, label: "Down payment", sub: "At sales launch" },
-    { pct: pp.duringConstructionPct ?? 40, label: "During construction", sub: null },
-    { pct: pp.onHandoverPct ?? 40, label: "On handover", sub: null },
-  ];
+  const paymentSteps = [
+    { pct: pp.downPaymentPct, label: "Down payment", sub: "At sales launch" },
+    { pct: pp.duringConstructionPct, label: "During construction", sub: null },
+    { pct: pp.onHandoverPct, label: "On handover", sub: null },
+  ].filter(
+    (s): s is { pct: number; label: string; sub: string | null } =>
+      typeof s.pct === "number",
+  );
 
-  // Project timeline (from metadata.timeline, with defaults)
+  // Project timeline — only milestones with a date on file.
   const projectMeta = (project.metadata ?? {}) as {
     handoverDate?: string;
     timeline?: {
@@ -117,21 +121,32 @@ export default async function ProjectDetailPage({ params }: Props) {
           day: "numeric",
         });
   };
-  const constructionRaw = tl.constructionStart ?? "2026-02-01";
-  const completionRaw = tl.completion ?? projectMeta.handoverDate ?? "2029-09-01";
+  const isCompleted = !project.offPlan;
+  // For completed projects the final milestone is the handover date.
+  const completionRaw = isCompleted
+    ? projectMeta.handoverDate ?? tl.completion
+    : tl.completion ?? projectMeta.handoverDate;
   const milestones = [
     { title: "Project announcement", date: fmtLong(tl.announced), done: true },
-    { title: "Construction Started", date: fmtLong(constructionRaw), done: true },
-    { title: "Expected Completion", date: fmtLong(completionRaw), done: false },
-  ];
+    {
+      title: "Construction started",
+      date: fmtLong(tl.constructionStart),
+      done: true,
+    },
+    isCompleted
+      ? { title: "Completed", date: fmtLong(completionRaw), done: true }
+      : {
+          title: "Expected completion",
+          date: fmtLong(completionRaw),
+          done: false,
+        },
+  ].filter((m) => m.date);
 
-  const nearbyAttractions = [
-    "20 minutes to Downtown Dubai & Burj Khalifa",
-    "25 minutes to Dubai Marina",
-    "30 minutes to Palm Jumeirah",
-    "35 minutes to Dubai International Airport",
-    "20 minutes to Al Maktoum International Airport",
-  ];
+  // Straight-line distances from the project's coordinates (stored by
+  // scripts/compute-nearby.ts; computed here if a re-import dropped them).
+  const nearby =
+    storedNearby(project.metadata) ??
+    computeNearby(project.latitude, project.longitude);
 
   return (
     <div className="mx-auto max-w-7xl px-6 pb-28 pt-14 md:px-10">
@@ -210,7 +225,9 @@ export default async function ProjectDetailPage({ params }: Props) {
       />
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1.5fr_0.8fr]">
-        <div>
+        {/* min-w-0: let wide children (units table) scroll instead of
+            stretching the grid track past a phone viewport. */}
+        <div className="min-w-0">
           {/* Overview */}
           <PropertyDescription title="Overview" property={project} />
 
@@ -253,100 +270,108 @@ export default async function ProjectDetailPage({ params }: Props) {
             </section>
           ) : null}
 
-          {/* Nearby attractions */}
-          <section className="mt-10">
-            <h2 className="font-serif text-2xl text-primary">
-              Nearby attractions
-            </h2>
-            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-              {nearbyAttractions.map((a) => {
-                const [time, place] = a.split(/ to (.+)/);
-                return (
+          {/* Nearby landmarks */}
+          {nearby.length ? (
+            <section className="mt-10">
+              <h2 className="font-serif text-2xl text-primary">Nearby</h2>
+              <p className="mt-1 text-sm text-muted">
+                Straight-line distance from the project
+              </p>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {nearby.map((n) => (
                   <li
-                    key={a}
+                    key={n.name}
                     className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
                   >
                     <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
-                      {time}
+                      {formatKm(n.km)}
                     </span>
-                    <span className="text-sm text-primary">{place}</span>
+                    <span className="min-w-0 text-sm text-primary">{n.name}</span>
                   </li>
-                );
-              })}
-            </ul>
-          </section>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-          {/* Payment plan */}
-          <section className="mt-10">
-            <h2 className="font-serif text-2xl text-primary">Payment plan</h2>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-              {paymentSteps.map((s, i) => (
-                <Fragment key={s.label}>
-                  <div className="flex-1 rounded-sm border border-border bg-card p-5 text-center">
-                    <p className="font-serif text-2xl text-primary">{s.pct}%</p>
-                    <p className="mt-1 text-sm font-medium text-primary">
-                      {s.label}
-                    </p>
-                    {s.sub ? (
-                      <p className="mt-0.5 text-xs text-muted">{s.sub}</p>
+          {/* Payment plan — only relevant for off-plan projects. */}
+          {isCompleted || !paymentSteps.length ? null : (
+            <section className="mt-10">
+              <h2 className="font-serif text-2xl text-primary">Payment plan</h2>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {paymentSteps.map((s, i) => (
+                  <Fragment key={s.label}>
+                    <div className="flex-1 rounded-sm border border-border bg-card p-5 text-center">
+                      <p className="font-serif text-2xl text-primary">{s.pct}%</p>
+                      <p className="mt-1 text-sm font-medium text-primary">
+                        {s.label}
+                      </p>
+                      {s.sub ? (
+                        <p className="mt-0.5 text-xs text-muted">{s.sub}</p>
+                      ) : null}
+                    </div>
+                    {i < paymentSteps.length - 1 ? (
+                      <span
+                        className="hidden text-lg text-muted sm:block"
+                        aria-hidden
+                      >
+                        ›
+                      </span>
                     ) : null}
-                  </div>
-                  {i < paymentSteps.length - 1 ? (
-                    <span
-                      className="hidden text-lg text-muted sm:block"
-                      aria-hidden
-                    >
-                      ›
-                    </span>
-                  ) : null}
-                </Fragment>
-              ))}
-            </div>
-          </section>
+                  </Fragment>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Project timeline */}
-          <section className="mt-10">
-            <h2 className="font-serif text-2xl text-primary">Project timeline</h2>
-            <ol className="mt-4 rounded-sm border border-border bg-card p-6">
-              {milestones.map((m, i) => (
-                <li
-                  key={m.title}
-                  className="relative flex gap-4 pb-6 last:pb-0"
-                >
-                  {i < milestones.length - 1 ? (
-                    <span
-                      className="absolute left-[11px] top-6 h-full w-px bg-border"
-                      aria-hidden
-                    />
-                  ) : null}
-                  <span
-                    className={cn(
-                      "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[11px]",
-                      m.done
-                        ? "border-accent bg-accent text-white"
-                        : "border-border bg-card text-transparent",
-                    )}
-                    aria-hidden
+          {milestones.length ? (
+            <section className="mt-10">
+              <h2 className="font-serif text-2xl text-primary">Project timeline</h2>
+              <ol className="mt-4 rounded-sm border border-border bg-card p-6">
+                {milestones.map((m, i) => (
+                  <li
+                    key={m.title}
+                    className="relative flex gap-4 pb-6 last:pb-0"
                   >
-                    ✓
-                  </span>
-                  <div className="pt-0.5">
-                    <p className="text-sm font-medium text-primary">
-                      {m.title}
-                    </p>
-                    <p className="text-sm text-muted">{m.date ?? "-"}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </section>
+                    {i < milestones.length - 1 ? (
+                      <span
+                        className="absolute left-[11px] top-6 h-full w-px bg-border"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <span
+                      className={cn(
+                        "relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[11px]",
+                        m.done
+                          ? "border-accent bg-accent text-white"
+                          : "border-border bg-card text-transparent",
+                      )}
+                      aria-hidden
+                    >
+                      ✓
+                    </span>
+                    <div className="pt-0.5">
+                      <p className="text-sm font-medium text-primary">
+                        {m.title}
+                      </p>
+                      <p className="text-sm text-muted">{m.date}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
 
           {/* Units & floor plans */}
-          <UnitsSection category={project.type} groups={unitGroups} />
+          <UnitsSection
+            category={project.type}
+            groups={unitGroups}
+            fromDeveloper={project.offPlan}
+          />
         </div>
 
         {/* Sticky enquiry aside */}
-        <aside className="h-fit rounded-sm border border-border bg-card p-5 lg:sticky lg:top-24">
+        <aside className="h-fit min-w-0 rounded-sm border border-border bg-card p-5 lg:sticky lg:top-24">
           <h3 className="font-serif text-xl text-primary">
             Register your interest
           </h3>
@@ -375,11 +400,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                 />
               </div>
             </div>
-          ) : (
-            <p className="mt-6 text-xs text-muted">
-              9:16 video tour placeholder — upload via media service.
-            </p>
-          )}
+          ) : null}
         </aside>
       </div>
     </div>

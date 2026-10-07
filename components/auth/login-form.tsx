@@ -13,7 +13,7 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
 
-  const [email, setEmail] = useState("admin@dmproperties.ai");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -121,7 +121,7 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="admin@dmproperties.ai"
+          placeholder="you@example.com"
           className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
           required
           autoComplete="username"
@@ -150,10 +150,6 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
           <Link href="/forgot-password" className="text-accent hover:underline">
             Forgot password?
           </Link>
-        </p>
-        <p className="text-xs text-muted">
-          Seeded admin: <code>admin@dmproperties.ai</code> /{" "}
-          <code>Admin123!</code>
         </p>
       </form>
 

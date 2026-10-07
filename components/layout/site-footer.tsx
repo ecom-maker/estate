@@ -1,6 +1,4 @@
-import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/rbac/check";
+import { EnquiryForm } from "@/components/layout/enquiry-form";
 
 // Brand marks as inline SVG (lucide no longer ships logo icons).
 function LinkedInIcon({ className }: { className?: string }) {
@@ -45,14 +43,22 @@ const SOCIALS = [
   },
 ];
 
-export async function SiteFooter() {
-  const session = await auth();
-  const showAdmin = isAdmin(
-    (session?.user as { roles?: string[] } | undefined)?.roles,
-  );
-
+export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-card">
+      {/* Enquiry */}
+      <div className="mx-auto max-w-7xl border-b border-border px-6 py-10 md:px-10">
+        <div className="grid gap-6 md:grid-cols-[0.9fr_1.1fr] md:gap-12">
+          <div>
+            <h2 className="font-serif text-2xl text-primary">Get in touch</h2>
+            <p className="mt-2 text-sm text-muted">
+              Leave your details and a note — our team will reach out.
+            </p>
+          </div>
+          <EnquiryForm />
+        </div>
+      </div>
+
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10">
         <div>
           <p className="font-serif text-lg text-primary">
@@ -64,20 +70,6 @@ export async function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
-          <div className="flex gap-6 text-sm text-muted">
-            <Link href="/search" className="hover:text-primary">
-              Search
-            </Link>
-            {showAdmin ? (
-              <Link href="/admin" className="hover:text-primary">
-                Admin
-              </Link>
-            ) : null}
-            <Link href="/docs" className="hover:text-primary">
-              Docs
-            </Link>
-          </div>
-
           <div className="flex items-center gap-3">
             {SOCIALS.map(({ label, href, Icon }) => (
               <a

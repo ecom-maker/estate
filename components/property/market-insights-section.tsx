@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 type PropertyInput = {
   id: string;
+  slug: string;
   title: string;
   type: string;
   bedrooms: number | null;
@@ -34,8 +35,12 @@ function deliveryLabel(offPlan: boolean, handoverDate?: string): string {
 
 export async function MarketInsightsSection({
   property,
+  bedroomsLabel,
 }: {
   property: PropertyInput;
+  /** Project-wide bedroom range (e.g. "1 Bed – 2 Bed"); falls back to this
+   *  listing's own bedroom count. */
+  bedroomsLabel?: string;
 }) {
   // Real DLD transactions for comparable units, or null when there are too few
   // to say anything. Nothing here is estimated — if the data is thin, the
@@ -45,9 +50,6 @@ export async function MarketInsightsSection({
   const pp = (property.paymentPlan ?? {}) as { downPaymentPct?: number };
   const meta = (property.metadata ?? {}) as { handoverDate?: string };
   const communityName = property.community?.name ?? "Dubai";
-  const communityHref = property.community
-    ? `/search?q=${encodeURIComponent(property.community.slug)}`
-    : "/properties";
 
   return (
     <div className="mt-16 space-y-14">
@@ -85,7 +87,7 @@ export async function MarketInsightsSection({
                     {property.developer ? ` by ${property.developer.name}` : ""}
                   </h3>
                   <p className="mt-0.5 text-sm text-muted">
-                    {property.bedrooms ?? "—"} bedrooms
+                    {bedroomsLabel ?? `${property.bedrooms ?? "—"} bedrooms`}
                   </p>
                 </div>
                 {property.developer ? (
@@ -125,7 +127,9 @@ export async function MarketInsightsSection({
               </dl>
 
               <Link
-                href={communityHref}
+                href={`/projects/${property.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-5 inline-flex items-center rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary transition hover:border-accent"
               >
                 View all project details

@@ -20,7 +20,7 @@ import { Prisma } from "@prisma/client";
 // the known canonical domain; set CANONICAL_SITE_URL to override (e.g. a real
 // custom domain) without a code change.
 export const SITE_URL = (
-  process.env.CANONICAL_SITE_URL || "https://estate-sugg.vercel.app"
+  process.env.CANONICAL_SITE_URL || "https://dmglobal.me"
 ).replace(/\/$/, "");
 
 // Prisma include that hydrates the whole entity graph for one property.
