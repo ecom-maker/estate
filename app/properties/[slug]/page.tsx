@@ -203,6 +203,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         <MarketInsightsSection
           property={{
             id: property.id,
+            slug: property.slug,
             title: property.title,
             type: property.type,
             bedrooms: property.bedrooms,

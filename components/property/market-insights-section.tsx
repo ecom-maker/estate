@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 type PropertyInput = {
   id: string;
+  slug: string;
   title: string;
   type: string;
   bedrooms: number | null;
@@ -38,9 +39,6 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
   const pp = (property.paymentPlan ?? {}) as { downPaymentPct?: number };
   const meta = (property.metadata ?? {}) as { handoverDate?: string };
   const communityName = property.community?.name ?? "Dubai";
-  const communityHref = property.community
-    ? `/search?q=${encodeURIComponent(property.community.slug)}`
-    : "/properties";
 
   return (
     <div className="mt-16 space-y-14">
@@ -118,7 +116,9 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
               </dl>
 
               <Link
-                href={communityHref}
+                href={`/projects/${property.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-5 inline-flex items-center rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary transition hover:border-accent"
               >
                 View all project details
