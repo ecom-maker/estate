@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import { phoneError } from "@/lib/validation/phone";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -10,10 +11,19 @@ export function EnquiryForm() {
   const [comment, setComment] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  // Phone feedback appears once the field is left (or on submit), not mid-typing.
+  const [contactTouched, setContactTouched] = useState(false);
+  const contactRef = useRef<HTMLInputElement>(null);
+  const contactError = contactTouched ? phoneError(contact) : null;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (status === "sending") return;
+    if (phoneError(contact)) {
+      setContactTouched(true);
+      contactRef.current?.focus();
+      return;
+    }
     setStatus("sending");
     setError(null);
     try {
@@ -30,6 +40,7 @@ export function EnquiryForm() {
       setName("");
       setContact("");
       setComment("");
+      setContactTouched(false);
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -68,17 +79,33 @@ export function EnquiryForm() {
           onChange={(e) => setName(e.target.value)}
           className={inputClass}
         />
-        <input
-          type="tel"
-          required
-          minLength={5}
-          maxLength={60}
-          placeholder="Contact number"
-          aria-label="Contact number"
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          className={inputClass}
-        />
+        <div>
+          <input
+            ref={contactRef}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            required
+            maxLength={60}
+            placeholder="Contact number"
+            aria-label="Contact number"
+            aria-invalid={contactError ? true : undefined}
+            aria-describedby={contactError ? "enquiry-contact-error" : undefined}
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+            onBlur={() => setContactTouched(true)}
+            className={
+              contactError
+                ? inputClass.replace("focus:border-accent", "border-red-600")
+                : inputClass
+            }
+          />
+          {contactError ? (
+            <p id="enquiry-contact-error" className="mt-1 text-xs text-red-600">
+              {contactError}
+            </p>
+          ) : null}
+        </div>
       </div>
       <textarea
         required

@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { phoneError } from "@/lib/validation/phone";
 
 type Status = "idle" | "submitting" | "done" | "error";
 
@@ -17,6 +18,10 @@ export function SellModal({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  // Phone feedback appears once the field is left (or on submit), not mid-typing.
+  const [contactTouched, setContactTouched] = useState(false);
+  const contactRef = useRef<HTMLInputElement>(null);
+  const contactError = contactTouched ? phoneError(contact) : null;
 
   // Close on Escape.
   useEffect(() => {
@@ -32,6 +37,11 @@ export function SellModal({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (phoneError(contact)) {
+      setContactTouched(true);
+      contactRef.current?.focus();
+      return;
+    }
     setStatus("submitting");
     setError("");
     try {
@@ -124,14 +134,30 @@ export function SellModal({
                   Contact number *
                 </label>
                 <input
+                  ref={contactRef}
                   id="sell-contact"
+                  type="tel"
                   required
                   inputMode="tel"
+                  autoComplete="tel"
+                  maxLength={60}
                   value={contact}
                   onChange={(e) => setContact(e.target.value)}
+                  onBlur={() => setContactTouched(true)}
+                  aria-invalid={contactError ? true : undefined}
+                  aria-describedby={contactError ? "sell-contact-error" : undefined}
                   placeholder="+971 5X XXX XXXX"
-                  className={fieldClass}
+                  className={
+                    contactError
+                      ? fieldClass.replace("ring-accent", "border-red-600 ring-red-600")
+                      : fieldClass
+                  }
                 />
+                {contactError ? (
+                  <p id="sell-contact-error" className="mt-1 text-xs text-red-600">
+                    {contactError}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label htmlFor="sell-desc" className={labelClass}>
