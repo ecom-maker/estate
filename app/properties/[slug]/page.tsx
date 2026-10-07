@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
+import { ProjectGallery } from "@/components/property/project-gallery";
 import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
@@ -60,7 +60,6 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   if (!property) notFound();
 
-  const primary = property.images[0];
   const meta = (property.metadata ?? {}) as { handoverDate?: string };
   const handoverDate = meta.handoverDate ? new Date(meta.handoverDate) : null;
   const handoverLabel =
@@ -136,18 +135,22 @@ export default async function PropertyDetailPage({ params }: Props) {
           ) : null}
         </div>
 
-        <div className="relative mt-8 aspect-[16/10] overflow-hidden rounded-sm bg-primary/10">
-          {primary ? (
-            <Image
-              src={primary.url}
-              alt={primary.alt ?? property.title}
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width:1024px) 100vw, 60vw"
-            />
-          ) : null}
-        </div>
+        <ProjectGallery
+          images={property.images}
+          title={property.title}
+          mapQuery={
+            property.latitude != null && property.longitude != null
+              ? `${property.latitude},${property.longitude}`
+              : property.community
+                ? `${property.community.name}, Dubai`
+                : `${property.title}, Dubai`
+          }
+          coords={
+            property.latitude != null && property.longitude != null
+              ? { lat: property.latitude, lng: property.longitude }
+              : null
+          }
+        />
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
