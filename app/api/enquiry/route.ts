@@ -11,7 +11,10 @@ const schema = z.object({
   comment: z.string().trim().min(2).max(4000),
 });
 
-const ENQUIRY_EMAIL = process.env.ENQUIRY_EMAIL || "prabhal2312@gmail.com";
+// Resend's free tier (default test sender) only delivers to the account
+// owner's address. Verify a domain + set EMAIL_FROM to send to any recipient,
+// then point ENQUIRY_EMAIL wherever you like.
+const ENQUIRY_EMAIL = process.env.ENQUIRY_EMAIL || "dmproperties2312@gmail.com";
 
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for") ?? "local";
