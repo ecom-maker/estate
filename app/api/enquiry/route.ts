@@ -60,12 +60,7 @@ export async function POST(request: Request) {
       html,
     });
 
-    // emailError is surfaced temporarily to diagnose delivery; remove later.
-    return success({
-      received: true,
-      emailed: email.sent,
-      emailError: email.error ?? null,
-    });
+    return success({ received: true, emailed: email.sent });
   } catch (error) {
     return failure(
       "ENQUIRY_ERROR",
