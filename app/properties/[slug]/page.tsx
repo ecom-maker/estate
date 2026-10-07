@@ -82,6 +82,15 @@ export default async function PropertyDetailPage({ params }: Props) {
       : allUnitGroups;
   const unitGroups = matchingGroups.length ? matchingGroups : allUnitGroups;
 
+  // Project-wide bedroom range for the Project Information card (e.g.
+  // "1 Bed – 2 Bed"), so it matches the project page rather than only showing
+  // this listing's own bedroom count.
+  const bedSummary = allUnitGroups.length
+    ? allUnitGroups.length === 1
+      ? allUnitGroups[0].label
+      : `${allUnitGroups[0].label} – ${allUnitGroups[allUnitGroups.length - 1].label}`
+    : `${property.bedrooms ?? "—"} Bed`;
+
   // Gross yield: take the latest rental deal's annual rent PER SQFT, scale it
   // to this listing's area to get its implied annual rent, then divide by the
   // listing price. A recorded deal for this property is preferred; otherwise
@@ -255,6 +264,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         />
 
         <MarketInsightsSection
+          bedroomsLabel={bedSummary}
           property={{
             id: property.id,
             slug: property.slug,

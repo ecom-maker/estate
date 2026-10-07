@@ -33,7 +33,15 @@ function deliveryLabel(offPlan: boolean, handoverDate?: string): string {
   return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
 }
 
-export function MarketInsightsSection({ property }: { property: PropertyInput }) {
+export function MarketInsightsSection({
+  property,
+  bedroomsLabel,
+}: {
+  property: PropertyInput;
+  /** Project-wide bedroom range (e.g. "1 Bed – 2 Bed"); falls back to this
+   *  listing's own bedroom count. */
+  bedroomsLabel?: string;
+}) {
   const insights = buildMarketInsights(property);
   const image = property.images?.[0];
   const pp = (property.paymentPlan ?? {}) as { downPaymentPct?: number };
@@ -76,7 +84,7 @@ export function MarketInsightsSection({ property }: { property: PropertyInput })
                     {property.developer ? ` by ${property.developer.name}` : ""}
                   </h3>
                   <p className="mt-0.5 text-sm text-muted">
-                    {property.bedrooms ?? "—"} bedrooms
+                    {bedroomsLabel ?? `${property.bedrooms ?? "—"} bedrooms`}
                   </p>
                 </div>
                 {property.developer ? (
