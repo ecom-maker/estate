@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { HelpCircle } from "lucide-react";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
@@ -205,8 +206,24 @@ export default async function PropertyDetailPage({ params }: Props) {
               key={String(label)}
               className="rounded-sm border border-border bg-card p-4"
             >
-              <p className="text-[11px] uppercase tracking-wider text-muted">
+              <p className="flex items-center gap-1 text-[11px] uppercase tracking-wider text-muted">
                 {label}
+                {label === "Yield" ? (
+                  <span className="group relative inline-flex">
+                    <HelpCircle
+                      className="h-3.5 w-3.5 cursor-help text-muted/70"
+                      tabIndex={0}
+                      aria-label="How yield is calculated"
+                    />
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1.5 w-48 -translate-x-1/2 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-primary-foreground opacity-0 shadow-lg transition duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+                    >
+                      Based on the last available transaction in this building.
+                      This is indicative only.
+                    </span>
+                  </span>
+                ) : null}
               </p>
               <p className="mt-2 text-sm font-medium text-primary">{value}</p>
             </div>
