@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { EnquiryForm } from "@/components/layout/enquiry-form";
 
 // Brand marks as inline SVG (lucide no longer ships logo icons).
@@ -71,12 +70,6 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
-          <div className="flex gap-6 text-sm text-muted">
-            <Link href="/docs" className="hover:text-primary">
-              Docs
-            </Link>
-          </div>
-
           <div className="flex items-center gap-3">
             {SOCIALS.map(({ label, href, Icon }) => (
               <a
