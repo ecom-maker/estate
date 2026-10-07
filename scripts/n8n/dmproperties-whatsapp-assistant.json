@@ -369,6 +369,65 @@
     },
     {
       "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_LAST_REPLY_TABLE_ID",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+            "last_reply": "={{ String($('Read App Response').first().json.reply || '').slice(0, 600) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "last_reply",
+              "displayName": "last_reply",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "remember-last-reply",
+      "name": "Remember Last Reply",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
         "operation": "send",
         "phoneNumberId": "={{ $('Build Request').first().json.phone_number_id }}",
         "recipientPhoneNumber": "={{ $('Build Request').first().json.phone }}",
@@ -598,6 +657,17 @@
         [
           {
             "node": "Send Sorry Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reply": {
+      "main": [
+        [
+          {
+            "node": "Remember Last Reply",
             "type": "main",
             "index": 0
           }

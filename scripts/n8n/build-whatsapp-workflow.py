@@ -31,10 +31,22 @@ N8N_URL = "https://n8n.srv1757918.hstgr.cloud"
 REACTION_PATH = "dmproperties-whatsapp-react"
 REACTION_SECRET_PLACEHOLDER = "REPLACE_WITH_REACTION_SECRET"
 
+# n8n Data Table "whatsapp_last_reply" (columns: phone, last_reply). The main
+# workflow saves the assistant's latest reply per phone after sending it; the
+# reaction workflow reads it, so a bare "yes" or "ok" is judged against what the
+# assistant just asked. One row per customer, overwritten each time.
+LAST_REPLY_TABLE_PLACEHOLDER = "REPLACE_WITH_LAST_REPLY_TABLE_ID"
+LAST_REPLY_MAX_CHARS = 600
+
+
+def data_table(table_id):
+    return {"__rl": True, "value": table_id, "mode": "id"}
+
+
 # The emoji reaction is decided in n8n with one small Gemini call, not by the
-# app's sales agent: it needs no database and no history, and the agent takes
-# 10-30 s.
-# "lite" is Gemini's fastest tier; this is a one-word decision, not a search.
+# app's sales agent: it needs no database search, and the agent takes 10-30 s.
+# "lite" is Gemini's fastest tier. It rejects thinkingBudget 0 ("invalid
+# argument"); thinkingLevel "minimal" is the fastest setting it accepts.
 REACTION_MODEL = "gemini-3.5-flash-lite"
 # A friendly agent reacting the way a person would - any emoji that fits, but
 # only when a reaction feels natural, not on every message.
@@ -44,10 +56,16 @@ Before the assistant replies, decide whether a warm, attentive human agent would
 latest message with an emoji - and if so, which one fits best. Any emoji is allowed; pick the one a \
 friendly person would naturally use.
 
-Good moments to react: the customer shares what they are looking for, gives a decision or a requirement \
-(budget, buy or rent, area, picks a listing), says yes to something the assistant offered, thanks the \
-assistant, shares good news or excitement, or makes a joke. For example: a new property search 🏠, \
-a choice or answer 👍, a go-ahead ✅, thanks 🙏, good news 🎉, a joke 😄 - these are only examples.
+Good moments to react: the customer greets the assistant, shares what they are looking for, gives a \
+decision or a requirement (budget, buy or rent, area, picks a listing), says yes to something the \
+assistant offered, thanks the assistant, shares good news or excitement, or makes a joke. For example: \
+a greeting 👋, a new property search 🏠, a choice or answer 👍, a go-ahead ✅, thanks 🙏, good news 🎉, \
+a joke 😄 - these are only examples.
+
+You may also be shown the assistant's previous message. Use it only to understand short replies: "yes" \
+to an offer ("Want me to book a viewing?") is a go-ahead, "yes" to a question about their needs is an \
+answer, and "ok" after bad news needs no reaction. React to the customer's message, never to the \
+assistant's.
 
 Do not react to every message. Answer "none" when a reaction would feel forced or out of place, such as \
 plain questions, "ok" or "??", complaints, frustration, problems, and anything sensitive (money trouble, \
@@ -430,6 +448,48 @@ nodes = [
         },
     ),
     node(
+        "Remember Last Reply",
+        "n8n-nodes-base.dataTable",
+        1.1,
+        [1120, 100],
+        {
+            # Runs after the customer already has the reply, so it costs them
+            # nothing. The reaction workflow reads this to understand a bare
+            # "yes" / "ok" in the customer's next message.
+            "resource": "row",
+            "operation": "upsert",
+            "dataTableId": data_table(LAST_REPLY_TABLE_PLACEHOLDER),
+            "matchType": "allConditions",
+            "filters": {
+                "conditions": [
+                    {
+                        "keyName": "phone",
+                        "condition": "eq",
+                        "keyValue": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+                    }
+                ]
+            },
+            "columns": {
+                "mappingMode": "defineBelow",
+                "value": {
+                    "phone": "={{ $('WhatsApp Trigger').first().json.messages[0].from }}",
+                    "last_reply": (
+                        "={{ String($('Read App Response').first().json.reply || '')"
+                        f".slice(0, {LAST_REPLY_MAX_CHARS}) }}}}"
+                    ),
+                },
+                "matchingColumns": [],
+                "schema": [
+                    {"id": c, "displayName": c, "required": False, "defaultMatch": False,
+                     "display": True, "type": "string", "canBeUsedToMatch": True}
+                    for c in ("phone", "last_reply")
+                ],
+            },
+            "options": {},
+        },
+        onError="continueRegularOutput",
+    ),
+    node(
         "Send Sorry Message",
         "n8n-nodes-base.whatsApp",
         1,
@@ -504,6 +564,7 @@ for src, dest, output in [
     link("Ask the App", "Read App Response"),
     link("Read App Response", "Did It Work?"),
     link("Did It Work?", "Send Reply", 0),         # true  -> normal answer
+    link("Send Reply", "Remember Last Reply"),
     link("Did It Work?", "Send Sorry Message", 1), # false -> apology, then red
     link("Send Sorry Message", "Mark Execution Failed"),
     link("Explain What We Can Read", "Send Notice"),
@@ -551,6 +612,15 @@ print(f"{len(nodes)} nodes, {sum(len(v['main']) for v in connections.values())} 
 
 # The WhatsApp payload that "Start Reaction" forwarded.
 WA = "$('Webhook').first().json.body"
+
+# What Gemini reads: the assistant's previous message when there is one, then
+# the customer's new message.
+REACTION_USER_TURN = (
+    "($('Get Last Reply').first().json.last_reply"
+    " ? \"The assistant's previous message:\\n\" + $('Get Last Reply').first().json.last_reply + \"\\n\\n\""
+    " : '')"
+    f" + \"The customer's new message:\\n\" + {WA}.messages[0].text.body"
+)
 
 reaction_nodes = [
     node(
@@ -614,12 +684,36 @@ reaction_nodes = [
         condition("is-text", f"={{{{ {WA}.messages[0].type }}}}", "text"),
     ),
     node(
+        "Get Last Reply",
+        "n8n-nodes-base.dataTable",
+        1.1,
+        [880, 200],
+        {
+            # The assistant's previous message to this customer, saved by
+            # "Remember Last Reply" in the main workflow. A first-time customer
+            # has no row; alwaysOutputData lets the flow continue without one.
+            "resource": "row",
+            "operation": "get",
+            "dataTableId": data_table(LAST_REPLY_TABLE_PLACEHOLDER),
+            "matchType": "allConditions",
+            "filters": {
+                "conditions": [
+                    {"keyName": "phone", "condition": "eq", "keyValue": f"={{{{ {WA}.messages[0].from }}}}"}
+                ]
+            },
+            "returnAll": False,
+            "limit": 1,
+        },
+        alwaysOutputData=True,
+        onError="continueRegularOutput",
+    ),
+    node(
         "Pick Reaction",
         "n8n-nodes-base.httpRequest",
         4.2,
-        [880, 200],
+        [1100, 200],
         {
-            # One short Gemini call on the fast "lite" model, no thinking, JSON only.
+            # One short Gemini call on the fast "lite" model, minimal thinking, JSON only.
             "method": "POST",
             "url": (
                 "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -631,9 +725,9 @@ reaction_nodes = [
             "specifyBody": "json",
             "jsonBody": "={{ JSON.stringify({"
             f" systemInstruction: {{ parts: [{{ text: {json.dumps(REACTION_PROMPT, ensure_ascii=False)} }}] }},"
-            f" contents: [{{ role: 'user', parts: [{{ text: {WA}.messages[0].text.body }}] }}],"
-            " generationConfig: { temperature: 0, maxOutputTokens: 30,"
-            " thinkingConfig: { thinkingBudget: 0 },"
+            f" contents: [{{ role: 'user', parts: [{{ text: {REACTION_USER_TURN} }}] }}],"
+            " generationConfig: { temperature: 0, maxOutputTokens: 50,"
+            " thinkingConfig: { thinkingLevel: 'minimal' },"
             " responseMimeType: 'application/json',"
             # closes: emoji, properties, responseSchema, generationConfig
             " responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } }"
@@ -649,21 +743,21 @@ reaction_nodes = [
         "Read Reaction",
         "n8n-nodes-base.code",
         2,
-        [1100, 200],
+        [1320, 200],
         {"jsCode": READ_REACTION_JS},
     ),
     node(
         "Should React?",
         "n8n-nodes-base.if",
         2,
-        [1320, 200],
+        [1540, 200],
         condition("has-emoji", "={{ $json.emoji }}", "", operation="notEmpty"),
     ),
     node(
         "Send Reaction",
         "n8n-nodes-base.httpRequest",
         4.2,
-        [1540, 100],
+        [1760, 100],
         {
             "method": "POST",
             "url": f"={GRAPH_URL}/{{{{ {WA}.metadata.phone_number_id }}}}/messages",
@@ -690,7 +784,8 @@ for src, dest, output in [
     link("Webhook", "Is It From Us?"),
     link("Is It From Us?", "Show Typing", 0),   # false -> not ours, ends here
     link("Show Typing", "Is It Text?"),
-    link("Is It Text?", "Pick Reaction", 0),    # false -> voice etc., typing only
+    link("Is It Text?", "Get Last Reply", 0),   # false -> voice etc., typing only
+    link("Get Last Reply", "Pick Reaction"),
     link("Pick Reaction", "Read Reaction"),
     link("Read Reaction", "Should React?"),
     link("Should React?", "Send Reaction", 0),  # false -> no reaction needed
