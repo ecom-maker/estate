@@ -24,9 +24,16 @@ SECRET_PLACEHOLDER = "REPLACE_WITH_WHATSAPP_WEBHOOK_SECRET"
 
 GRAPH_URL = "https://graph.facebook.com/v22.0"
 
-# The emoji reaction is decided here in n8n with one small Gemini call, not by
-# the app's sales agent: it needs no database and no history, and the agent
-# takes 10-30 s. Keep the list short; anything else the model returns is dropped.
+# Typing indicator + emoji reaction live in a second workflow, reached through
+# its webhook, so they run in parallel with the app's answer (n8n runs the steps
+# of one workflow one after another).
+N8N_URL = "https://n8n.srv1757918.hstgr.cloud"
+REACTION_PATH = "dmproperties-whatsapp-react"
+REACTION_SECRET_PLACEHOLDER = "REPLACE_WITH_REACTION_SECRET"
+
+# The emoji reaction is decided in n8n with one small Gemini call, not by the
+# app's sales agent: it needs no database and no history, and the agent takes
+# 10-30 s.
 # "lite" is Gemini's fastest tier; this is a one-word decision, not a search.
 REACTION_MODEL = "gemini-3.5-flash-lite"
 # A friendly agent reacting the way a person would - any emoji that fits, but
@@ -235,28 +242,25 @@ nodes = [
         ),
     ),
     node(
-        "Show Typing",
+        "Start Reaction",
         "n8n-nodes-base.httpRequest",
         4.2,
         [80, 300],
         {
-            # Marks the message read (blue ticks) and shows "typing..." to the
-            # customer at once. WhatsApp keeps it up for 25 s or until our reply
-            # lands, which covers most of the app's answer time.
+            # Hands the message to the "DMProperties WhatsApp Reactions" workflow,
+            # which shows "typing..." and picks an emoji. That webhook answers at
+            # once and does its work in its own run, so the reaction happens IN
+            # PARALLEL with the app's answer instead of delaying it.
             "method": "POST",
-            "url": f"={GRAPH_URL}/{{{{ $json.metadata.phone_number_id }}}}/messages",
-            "authentication": "predefinedCredentialType",
-            "nodeCredentialType": "whatsAppApi",
+            "url": f"{N8N_URL}/webhook/{REACTION_PATH}",
+            "sendHeaders": True,
+            "headerParameters": {
+                "parameters": [{"name": "x-reaction-secret", "value": REACTION_SECRET_PLACEHOLDER}]
+            },
             "sendBody": True,
             "specifyBody": "json",
-            "jsonBody": (
-                "={{ JSON.stringify({ messaging_product: 'whatsapp', status: 'read', "
-                "message_id: $json.messages[0].id, typing_indicator: { type: 'text' } }) }}"
-            ),
-            "options": {"timeout": 5000},
-        },
-        credentials={
-            "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
+            "jsonBody": "={{ JSON.stringify($json) }}",
+            "options": {"timeout": 3000},
         },
         # Cosmetic: a failure here must never cost the customer their answer.
         onError="continueRegularOutput",
@@ -352,77 +356,6 @@ nodes = [
         {"jsCode": BUILD_REQUEST_JS},
     ),
     node(
-        "Pick Reaction",
-        "n8n-nodes-base.httpRequest",
-        4.2,
-        [440, 80],
-        {
-            # One short Gemini call on the fast "lite" model, no thinking, JSON only.
-            # Runs on the transcript too, so voice notes get reactions as well.
-            "method": "POST",
-            "url": (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{REACTION_MODEL}:generateContent"
-            ),
-            "authentication": "predefinedCredentialType",
-            "nodeCredentialType": "googlePalmApi",
-            "sendBody": True,
-            "specifyBody": "json",
-            "jsonBody": "={{ JSON.stringify({"
-            f" systemInstruction: {{ parts: [{{ text: {json.dumps(REACTION_PROMPT, ensure_ascii=False)} }}] }},"
-            " contents: [{ role: 'user', parts: [{ text: $json.message }] }],"
-            " generationConfig: { temperature: 0, maxOutputTokens: 30,"
-            " thinkingConfig: { thinkingBudget: 0 },"
-            " responseMimeType: 'application/json',"
-            # closes: emoji, properties, responseSchema, generationConfig
-            " responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } }"
-            " }) }}",
-            "options": {"timeout": 6000},
-        },
-        credentials={
-            "googlePalmApi": {"id": CRED_PLACEHOLDER, "name": "Google Gemini account"}
-        },
-        onError="continueRegularOutput",
-    ),
-    node(
-        "Read Reaction",
-        "n8n-nodes-base.code",
-        2,
-        [660, 80],
-        {"jsCode": READ_REACTION_JS},
-    ),
-    node(
-        "Should React?",
-        "n8n-nodes-base.if",
-        2,
-        [880, 80],
-        condition("has-emoji", "={{ $json.emoji }}", "", operation="notEmpty"),
-    ),
-    node(
-        "Send Reaction",
-        "n8n-nodes-base.httpRequest",
-        4.2,
-        [1100, 0],
-        {
-            "method": "POST",
-            "url": f"={GRAPH_URL}/{{{{ $('Build Request').first().json.phone_number_id }}}}/messages",
-            "authentication": "predefinedCredentialType",
-            "nodeCredentialType": "whatsAppApi",
-            "sendBody": True,
-            "specifyBody": "json",
-            "jsonBody": (
-                "={{ JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', "
-                "to: $('Build Request').first().json.phone, type: 'reaction', "
-                "reaction: { message_id: $('Build Request').first().json.wa_message_id, emoji: $json.emoji } }) }}"
-            ),
-            "options": {"timeout": 5000},
-        },
-        credentials={
-            "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
-        },
-        onError="continueRegularOutput",
-    ),
-    node(
         "Ask the App",
         "n8n-nodes-base.httpRequest",
         4.2,
@@ -438,8 +371,7 @@ nodes = [
             },
             "sendBody": True,
             "specifyBody": "json",
-            # Explicit, because the reaction steps sit between Build Request and here.
-            "jsonBody": "={{ JSON.stringify($('Build Request').first().json) }}",
+            "jsonBody": "={{ JSON.stringify($json) }}",
             "options": {
                 "timeout": 60000,
                 "response": {
@@ -557,8 +489,8 @@ def link(src, dest, output=0):
 connections = {}
 for src, dest, output in [
     link("WhatsApp Trigger", "Is It a Message?"),
-    link("Is It a Message?", "Show Typing", 0),    # false -> receipt, ends here
-    link("Show Typing", "What Kind of Message?"),
+    link("Is It a Message?", "Start Reaction", 0),  # false -> receipt, ends here
+    link("Start Reaction", "What Kind of Message?"),
     link("What Kind of Message?", "Build Request", 0),             # text
     link("What Kind of Message?", "Download Voice Note", 1),       # voice note
     link("What Kind of Message?", "Explain What We Can Read", 2),  # anything else
@@ -568,12 +500,7 @@ for src, dest, output in [
     link("Transcribe Voice Note", "Explain What We Can Read", 1),  # Gemini failed
     link("Heard Anything?", "Build Request", 0),                   # same path as text
     link("Heard Anything?", "Explain What We Can Read", 1),        # empty transcript
-    link("Build Request", "Pick Reaction"),
-    link("Pick Reaction", "Read Reaction"),
-    link("Read Reaction", "Should React?"),
-    link("Should React?", "Send Reaction", 0),
-    link("Should React?", "Ask the App", 1),           # no reaction needed
-    link("Send Reaction", "Ask the App"),
+    link("Build Request", "Ask the App"),
     link("Ask the App", "Read App Response"),
     link("Read App Response", "Did It Work?"),
     link("Did It Work?", "Send Reply", 0),         # true  -> normal answer
@@ -616,3 +543,185 @@ with open(out, "w", encoding="utf-8", newline="\n") as fh:
 
 print(f"wrote {out}")
 print(f"{len(nodes)} nodes, {sum(len(v['main']) for v in connections.values())} outputs wired")
+
+
+# --- Second workflow: "typing..." and the emoji reaction ---------------------
+# Called by "Start Reaction" above with the WhatsApp payload as the body. The
+# webhook answers immediately, so the main workflow is held up ~0.2 s at most.
+
+# The WhatsApp payload that "Start Reaction" forwarded.
+WA = "$('Webhook').first().json.body"
+
+reaction_nodes = [
+    node(
+        "Webhook",
+        "n8n-nodes-base.webhook",
+        2,
+        [0, 300],
+        {
+            "httpMethod": "POST",
+            "path": REACTION_PATH,
+            # Answer at once; the rest runs in this workflow's own execution.
+            "responseMode": "onReceived",
+            "options": {},
+        },
+        webhookId=REACTION_PATH,
+    ),
+    node(
+        "Is It From Us?",
+        "n8n-nodes-base.if",
+        2,
+        [220, 300],
+        # The webhook URL is public; only the main workflow knows this secret.
+        condition(
+            "secret-matches",
+            "={{ $json.headers['x-reaction-secret'] }}",
+            REACTION_SECRET_PLACEHOLDER,
+        ),
+    ),
+    node(
+        "Show Typing",
+        "n8n-nodes-base.httpRequest",
+        4.2,
+        [440, 300],
+        {
+            # Marks the message read (blue ticks) and shows "typing..." at once.
+            # WhatsApp keeps it up for 25 s or until our reply lands.
+            "method": "POST",
+            "url": f"={GRAPH_URL}/{{{{ {WA}.metadata.phone_number_id }}}}/messages",
+            "authentication": "predefinedCredentialType",
+            "nodeCredentialType": "whatsAppApi",
+            "sendBody": True,
+            "specifyBody": "json",
+            "jsonBody": (
+                "={{ JSON.stringify({ messaging_product: 'whatsapp', status: 'read', "
+                f"message_id: {WA}.messages[0].id, typing_indicator: {{ type: 'text' }} }}) }}}}"
+            ),
+            "options": {"timeout": 5000},
+        },
+        credentials={
+            "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
+        },
+        onError="continueRegularOutput",
+    ),
+    node(
+        "Is It Text?",
+        "n8n-nodes-base.if",
+        2,
+        [660, 300],
+        # Voice notes are only transcribed later in the main workflow, so there
+        # is no text to react to here; they still get "typing...".
+        condition("is-text", f"={{{{ {WA}.messages[0].type }}}}", "text"),
+    ),
+    node(
+        "Pick Reaction",
+        "n8n-nodes-base.httpRequest",
+        4.2,
+        [880, 200],
+        {
+            # One short Gemini call on the fast "lite" model, no thinking, JSON only.
+            "method": "POST",
+            "url": (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{REACTION_MODEL}:generateContent"
+            ),
+            "authentication": "predefinedCredentialType",
+            "nodeCredentialType": "googlePalmApi",
+            "sendBody": True,
+            "specifyBody": "json",
+            "jsonBody": "={{ JSON.stringify({"
+            f" systemInstruction: {{ parts: [{{ text: {json.dumps(REACTION_PROMPT, ensure_ascii=False)} }}] }},"
+            f" contents: [{{ role: 'user', parts: [{{ text: {WA}.messages[0].text.body }}] }}],"
+            " generationConfig: { temperature: 0, maxOutputTokens: 30,"
+            " thinkingConfig: { thinkingBudget: 0 },"
+            " responseMimeType: 'application/json',"
+            # closes: emoji, properties, responseSchema, generationConfig
+            " responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } }"
+            " }) }}",
+            "options": {"timeout": 8000},
+        },
+        credentials={
+            "googlePalmApi": {"id": CRED_PLACEHOLDER, "name": "Google Gemini account"}
+        },
+        onError="continueRegularOutput",
+    ),
+    node(
+        "Read Reaction",
+        "n8n-nodes-base.code",
+        2,
+        [1100, 200],
+        {"jsCode": READ_REACTION_JS},
+    ),
+    node(
+        "Should React?",
+        "n8n-nodes-base.if",
+        2,
+        [1320, 200],
+        condition("has-emoji", "={{ $json.emoji }}", "", operation="notEmpty"),
+    ),
+    node(
+        "Send Reaction",
+        "n8n-nodes-base.httpRequest",
+        4.2,
+        [1540, 100],
+        {
+            "method": "POST",
+            "url": f"={GRAPH_URL}/{{{{ {WA}.metadata.phone_number_id }}}}/messages",
+            "authentication": "predefinedCredentialType",
+            "nodeCredentialType": "whatsAppApi",
+            "sendBody": True,
+            "specifyBody": "json",
+            "jsonBody": (
+                "={{ JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', "
+                f"to: {WA}.messages[0].from, type: 'reaction', "
+                f"reaction: {{ message_id: {WA}.messages[0].id, emoji: $json.emoji }} }}) }}}}"
+            ),
+            "options": {"timeout": 5000},
+        },
+        credentials={
+            "whatsAppApi": {"id": CRED_PLACEHOLDER, "name": "WhatsApp account"}
+        },
+        onError="continueRegularOutput",
+    ),
+]
+
+reaction_connections = {}
+for src, dest, output in [
+    link("Webhook", "Is It From Us?"),
+    link("Is It From Us?", "Show Typing", 0),   # false -> not ours, ends here
+    link("Show Typing", "Is It Text?"),
+    link("Is It Text?", "Pick Reaction", 0),    # false -> voice etc., typing only
+    link("Pick Reaction", "Read Reaction"),
+    link("Read Reaction", "Should React?"),
+    link("Should React?", "Send Reaction", 0),  # false -> no reaction needed
+]:
+    main = reaction_connections.setdefault(src, {"main": []})["main"]
+    while len(main) <= output:
+        main.append([])
+    main[output].append({"node": dest, "type": "main", "index": 0})
+
+reaction_workflow = {
+    "name": "DMProperties WhatsApp Reactions",
+    "nodes": reaction_nodes,
+    "connections": reaction_connections,
+    "settings": {"executionOrder": "v1"},
+    "active": False,
+    "pinData": {},
+    "meta": {
+        "description": (
+            "Called by 'Start Reaction' in DMProperties WhatsApp Assistant. Shows 'typing...' "
+            "and, for text messages, lets a small Gemini call pick an emoji reaction - in "
+            "parallel with the app's answer, not before it. Before activating: set the "
+            f"WhatsApp and Gemini credentials and replace {REACTION_SECRET_PLACEHOLDER} here "
+            "and in 'Start Reaction' with the same random value."
+        )
+    },
+}
+
+out = os.path.join(os.path.dirname(__file__), "dmproperties-whatsapp-reactions.json")
+with open(out, "w", encoding="utf-8", newline="\n") as fh:
+    json.dump(reaction_workflow, fh, indent=2, ensure_ascii=False)
+    fh.write("\n")
+
+print(f"wrote {out}")
+print(f"{len(reaction_nodes)} nodes, {sum(len(v['main']) for v in reaction_connections.values())} outputs wired")
