@@ -350,7 +350,11 @@ export default async function ProjectDetailPage({ params }: Props) {
           </section>
 
           {/* Units & floor plans */}
-          <UnitsSection category={project.type} groups={unitGroups} />
+          <UnitsSection
+            category={project.type}
+            groups={unitGroups}
+            fromDeveloper={project.offPlan}
+          />
         </div>
 
         {/* Sticky enquiry aside */}

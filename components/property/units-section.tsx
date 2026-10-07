@@ -23,9 +23,12 @@ export type UnitGroup = {
 export function UnitsSection({
   category,
   groups,
+  fromDeveloper = true,
 }: {
   category: string;
   groups: UnitGroup[];
+  /** "from developer" caption — only meaningful for off-plan inventory. */
+  fromDeveloper?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(groups[0]?.key ?? null);
   const [plan, setPlan] = useState<{ url: string; title: string } | null>(null);
@@ -33,7 +36,9 @@ export function UnitsSection({
   return (
     <section id="units" className="mt-10 scroll-mt-24">
       <h2 className="font-serif text-2xl text-primary">Units</h2>
-      <p className="mt-1 text-sm text-muted">from developer</p>
+      {fromDeveloper ? (
+        <p className="mt-1 text-sm text-muted">from developer</p>
+      ) : null}
 
       <p className="mt-6 text-xs font-medium uppercase tracking-[0.2em] text-muted">
         {category}

@@ -248,7 +248,11 @@ export default async function PropertyDetailPage({ params }: Props) {
           </ul>
         </section>
 
-        <UnitsSection category={property.type} groups={unitGroups} />
+        <UnitsSection
+          category={property.type}
+          groups={unitGroups}
+          fromDeveloper={property.offPlan}
+        />
 
         <MarketInsightsSection
           property={{
