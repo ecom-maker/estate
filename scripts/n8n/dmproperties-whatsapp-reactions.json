@@ -1,0 +1,411 @@
+{
+  "name": "DMProperties WhatsApp Reactions",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dmproperties-whatsapp-react",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "dmproperties-whatsapp-react"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "secret-matches",
+              "leftValue": "={{ $json.headers['x-reaction-secret'] }}",
+              "rightValue": "REPLACE_WITH_REACTION_SECRET",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-it-from-us?",
+      "name": "Is It From Us?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v22.0/{{ $('Webhook').first().json.body.metadata.phone_number_id }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: $('Webhook').first().json.body.messages[0].id, typing_indicator: { type: 'text' } }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "show-typing",
+      "name": "Show Typing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "WhatsApp account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "is-text",
+              "leftValue": "={{ $('Webhook').first().json.body.messages[0].type }}",
+              "rightValue": "text",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-it-text?",
+      "name": "Is It Text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_LAST_REPLY_TABLE_ID",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook').first().json.body.messages[0].from }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1
+      },
+      "id": "get-last-reply",
+      "name": "Get Last Reply",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        200
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [{ text: \"You are the reaction step of a friendly real-estate assistant on WhatsApp (DM Properties, Dubai). Before the assistant replies, decide whether a warm, attentive human agent would react to the customer's latest message with an emoji - and if so, which one fits best. Any emoji is allowed; pick the one a friendly person would naturally use.\\n\\nGood moments to react: the customer greets the assistant, shares what they are looking for, gives a decision or a requirement (budget, buy or rent, area, picks a listing), says yes to something the assistant offered, thanks the assistant, shares good news or excitement, or makes a joke. For example: a greeting 👋, a new property search 🏠, a choice or answer 👍, a go-ahead ✅, thanks 🙏, good news 🎉, a joke 😄 - these are only examples.\\n\\nYou may also be shown the assistant's previous message. Use it only to understand short replies: \\\"yes\\\" to an offer (\\\"Want me to book a viewing?\\\") is a go-ahead, \\\"yes\\\" to a question about their needs is an answer, and \\\"ok\\\" after bad news needs no reaction. React to the customer's message, never to the assistant's.\\n\\nDo not react to every message. Answer \\\"none\\\" when a reaction would feel forced or out of place, such as plain questions, \\\"ok\\\" or \\\"??\\\", complaints, frustration, problems, and anything sensitive (money trouble, legal, health, personal loss). When unsure, answer \\\"none\\\".\\n\\nReturn JSON only: {\\\"emoji\\\": \\\"<one emoji or none>\\\"}.\" }] }, contents: [{ role: 'user', parts: [{ text: ($('Get Last Reply').first().json.last_reply ? \"The assistant's previous message:\\n\" + $('Get Last Reply').first().json.last_reply + \"\\n\\n\" : '') + \"The customer's new message:\\n\" + $('Webhook').first().json.body.messages[0].text.body }] }], generationConfig: { temperature: 0, maxOutputTokens: 50, thinkingConfig: { thinkingLevel: 'minimal' }, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } } }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "id": "pick-reaction",
+      "name": "Pick Reaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [{ text: \"You are the reaction step of a friendly real-estate assistant on WhatsApp (DM Properties, Dubai). Before the assistant replies, decide whether a warm, attentive human agent would react to the customer's latest message with an emoji - and if so, which one fits best. Any emoji is allowed; pick the one a friendly person would naturally use.\\n\\nGood moments to react: the customer greets the assistant, shares what they are looking for, gives a decision or a requirement (budget, buy or rent, area, picks a listing), says yes to something the assistant offered, thanks the assistant, shares good news or excitement, or makes a joke. For example: a greeting 👋, a new property search 🏠, a choice or answer 👍, a go-ahead ✅, thanks 🙏, good news 🎉, a joke 😄 - these are only examples.\\n\\nYou may also be shown the assistant's previous message. Use it only to understand short replies: \\\"yes\\\" to an offer (\\\"Want me to book a viewing?\\\") is a go-ahead, \\\"yes\\\" to a question about their needs is an answer, and \\\"ok\\\" after bad news needs no reaction. React to the customer's message, never to the assistant's.\\n\\nDo not react to every message. Answer \\\"none\\\" when a reaction would feel forced or out of place, such as plain questions, \\\"ok\\\" or \\\"??\\\", complaints, frustration, problems, and anything sensitive (money trouble, legal, health, personal loss). When unsure, answer \\\"none\\\".\\n\\nReturn JSON only: {\\\"emoji\\\": \\\"<one emoji or none>\\\"}.\" }] }, contents: [{ role: 'user', parts: [{ text: ($('Get Last Reply').first().json.last_reply ? \"The assistant's previous message:\\n\" + $('Get Last Reply').first().json.last_reply + \"\\n\\n\" : '') + \"The customer's new message:\\n\" + $('Webhook').first().json.body.messages[0].text.body }] }], generationConfig: { temperature: 0, maxOutputTokens: 50, thinkingConfig: { thinkingLevel: 'minimal' }, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING' } } } } }) }}",
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "id": "pick-reaction-(backup-model)",
+      "name": "Pick Reaction (Backup Model)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        400
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// \"Pick Reaction\" never stops the run: on a timeout or an API error its output\n// is an error object and we simply do not react. Any emoji is allowed, but it\n// must be exactly ONE emoji - \"none\", words or several emojis are dropped, so\n// WhatsApp is never sent something it would reject.\nlet emoji = \"\";\ntry {\n  const text = ($json.candidates?.[0]?.content?.parts || []).map((p) => p.text || \"\").join(\"\");\n  const picked = String(JSON.parse(text).emoji || \"\").trim();\n  const one = /^\\p{Extended_Pictographic}(\\uFE0F|\\u20E3|\\p{Emoji_Modifier}|\\u200D\\p{Extended_Pictographic}\\uFE0F?)*$/u;\n  const flag = /^\\p{Regional_Indicator}{2}$/u;\n  if (one.test(picked) || flag.test(picked)) emoji = picked;\n} catch (e) {\n  emoji = \"\";\n}\nreturn [{ json: { emoji } }];\n"
+      },
+      "id": "read-reaction",
+      "name": "Read Reaction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-emoji",
+              "leftValue": "={{ $json.emoji }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "should-react?",
+      "name": "Should React?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v22.0/{{ $('Webhook').first().json.body.metadata.phone_number_id }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: $('Webhook').first().json.body.messages[0].from, type: 'reaction', reaction: { message_id: $('Webhook').first().json.body.messages[0].id, emoji: $json.emoji } }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "send-reaction",
+      "name": "Send Reaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        100
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "WhatsApp account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 500
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is It From Us?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is It From Us?": {
+      "main": [
+        [
+          {
+            "node": "Show Typing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Show Typing": {
+      "main": [
+        [
+          {
+            "node": "Is It Text?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is It Text?": {
+      "main": [
+        [
+          {
+            "node": "Get Last Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Reply": {
+      "main": [
+        [
+          {
+            "node": "Pick Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Reaction": {
+      "main": [
+        [
+          {
+            "node": "Read Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pick Reaction (Backup Model)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Reaction (Backup Model)": {
+      "main": [
+        [
+          {
+            "node": "Read Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Reaction": {
+      "main": [
+        [
+          {
+            "node": "Should React?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should React?": {
+      "main": [
+        [
+          {
+            "node": "Send Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "description": "Called by 'Start Reaction' in DMProperties WhatsApp Assistant. Shows 'typing...' and, for text messages, lets a small Gemini call pick an emoji reaction - in parallel with the app's answer, not before it. Before activating: set the WhatsApp and Gemini credentials and replace REPLACE_WITH_REACTION_SECRET here and in 'Start Reaction' with the same random value."
+  }
+}

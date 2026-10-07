@@ -99,7 +99,9 @@ export async function runSalesAgent(opts: {
         message = out.message;
         result.model = models[active];
       } else if (!out.retryable) {
-        return fail(out.reason);
+        if (!out.modelRejected || active >= models.length - 1) return fail(out.reason);
+        lastReason = out.reason;
+        active++;
       } else if (attempt === 0 && !out.quotaExhausted) {
         lastReason = out.reason;
         await new Promise((r) => setTimeout(r, 800));
@@ -190,10 +192,12 @@ function fallbackModels(baseUrl: string): string[] {
     : [];
 }
 
-/** quotaExhausted: a 429 that will not clear by retrying (daily quota) — move on. */
+/** quotaExhausted: a 429 that will not clear by retrying (daily quota) — move on.
+ *  modelRejected: this model refused the request (retired model, or a parameter it
+ *  does not accept) — retrying it is pointless, but another model may take it. */
 type Completion =
   | { message: ApiMessage }
-  | { retryable: boolean; quotaExhausted?: boolean; reason: string };
+  | { retryable: boolean; quotaExhausted?: boolean; modelRejected?: boolean; reason: string };
 
 async function complete(
   cfg: { baseUrl: string; apiKey: string; model: string },
@@ -226,6 +230,8 @@ async function complete(
       return {
         retryable: res.status === 429 || res.status >= 500,
         quotaExhausted: res.status === 429 && /quota/i.test(detail),
+        // 401/403 are the key itself and would fail on every model; not those.
+        modelRejected: res.status === 400 || res.status === 404,
         reason: `${cfg.model} HTTP ${res.status}: ${detail.replace(/\s+/g, " ").slice(0, 300)}`,
       };
     }
