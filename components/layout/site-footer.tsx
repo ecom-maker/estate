@@ -1,6 +1,3 @@
-import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { isAdmin } from "@/lib/rbac/check";
 import { EnquiryForm } from "@/components/layout/enquiry-form";
 
 // Brand marks as inline SVG (lucide no longer ships logo icons).
@@ -46,12 +43,7 @@ const SOCIALS = [
   },
 ];
 
-export async function SiteFooter() {
-  const session = await auth();
-  const showAdmin = isAdmin(
-    (session?.user as { roles?: string[] } | undefined)?.roles,
-  );
-
+export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-card">
       {/* Enquiry */}
@@ -78,20 +70,6 @@ export async function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
-          <div className="flex gap-6 text-sm text-muted">
-            <Link href="/search" className="hover:text-primary">
-              Search
-            </Link>
-            {showAdmin ? (
-              <Link href="/admin" className="hover:text-primary">
-                Admin
-              </Link>
-            ) : null}
-            <Link href="/docs" className="hover:text-primary">
-              Docs
-            </Link>
-          </div>
-
           <div className="flex items-center gap-3">
             {SOCIALS.map(({ label, href, Icon }) => (
               <a
