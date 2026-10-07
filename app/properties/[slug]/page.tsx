@@ -5,6 +5,7 @@ import { cn, formatAED } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
 import { UnitsSection } from "@/components/property/units-section";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
+import { buildMarketInsights } from "@/lib/property/market-insights";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
@@ -80,11 +81,23 @@ export default async function PropertyDetailPage({ params }: Props) {
       : allUnitGroups;
   const unitGroups = matchingGroups.length ? matchingGroups : allUnitGroups;
 
-  // Gross yield from the most recent actual rental deal: annual rent / price.
-  const lastRent = property.rentalHistory[0]?.annualRentAed ?? null;
+  // Gross yield: take the latest rental deal's annual rent PER SQFT, scale it
+  // to this listing's area to get its implied annual rent, then divide by the
+  // listing price. A recorded deal for this property is preferred; otherwise
+  // the most recent comparable rental shown in Recent rentals (which carries
+  // its own area, so per-sqft is exact). N/A when neither is available.
+  const marketInsights = buildMarketInsights(property);
+  const latestRented = marketInsights.rented[0] ?? null;
+  const recordedRent = property.rentalHistory[0]?.annualRentAed ?? null;
+  const rentPerSqft =
+    recordedRent != null && property.areaSqft
+      ? recordedRent / property.areaSqft
+      : latestRented && latestRented.area
+        ? latestRented.aed / latestRented.area
+        : null;
   const yieldPct =
-    lastRent != null && property.priceAed
-      ? (lastRent / property.priceAed) * 100
+    rentPerSqft != null && property.areaSqft && property.priceAed
+      ? ((rentPerSqft * property.areaSqft) / property.priceAed) * 100
       : null;
 
   // RERA is hidden entirely when there's nothing on file.
