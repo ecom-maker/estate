@@ -58,6 +58,35 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v22.0/{{ $json.metadata.phone_number_id }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: $json.messages[0].id, typing_indicator: { type: 'text' } }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "show-typing",
+      "name": "Show Typing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        80,
+        300
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "WhatsApp account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
         "rules": {
           "values": [
             {
@@ -71,7 +100,7 @@
                 "conditions": [
                   {
                     "id": "type-text",
-                    "leftValue": "={{ $json.messages[0].type }}",
+                    "leftValue": "={{ $('WhatsApp Trigger').first().json.messages[0].type }}",
                     "rightValue": "text",
                     "operator": {
                       "type": "string",
@@ -96,7 +125,7 @@
                 "conditions": [
                   {
                     "id": "type-audio",
-                    "leftValue": "={{ $json.messages[0].type }}",
+                    "leftValue": "={{ $('WhatsApp Trigger').first().json.messages[0].type }}",
                     "rightValue": "audio",
                     "operator": {
                       "type": "string",
@@ -128,7 +157,7 @@
     },
     {
       "parameters": {
-        "url": "={{ $json.messages[0].audio.url }}",
+        "url": "={{ $('WhatsApp Trigger').first().json.messages[0].audio.url }}",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "whatsAppApi",
         "options": {
@@ -234,6 +263,110 @@
     {
       "parameters": {
         "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ systemInstruction: { parts: [{ text: \"You work for a Dubai real-estate agency and read each WhatsApp message a customer sends. Decide whether a friendly human agent would react to it with an emoji before replying. React only when it feels natural: a greeting (👋), thanks or appreciation (🙏 or ❤️), agreement, confirmation or good news such as booking a viewing (👍), excitement or a celebration (🎉), a joke (😂), a warm personal message (😊). Do NOT react to plain questions, property searches, prices, complaints, problems or anything sensitive - most messages need no reaction, so answer \\\"none\\\" for those. Return JSON only.\" }] }, contents: [{ role: 'user', parts: [{ text: $json.message }] }], generationConfig: { temperature: 0, maxOutputTokens: 30, thinkingConfig: { thinkingBudget: 0 }, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', required: ['emoji'], properties: { emoji: { type: 'STRING', enum: [\"none\", \"👍\", \"❤️\", \"😂\", \"🙏\", \"🎉\", \"👋\", \"😊\"] } } } } }) }}",
+        "options": {
+          "timeout": 6000
+        }
+      },
+      "id": "pick-reaction",
+      "name": "Pick Reaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        80
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Gemini account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// \"Pick Reaction\" never stops the run: on a timeout or an API error its output\n// is an error object and we simply do not react. Only emojis from the allowed\n// list get through, whatever the model wrote.\nconst ALLOWED = [\"👍\", \"❤️\", \"😂\", \"🙏\", \"🎉\", \"👋\", \"😊\"];\nlet emoji = \"\";\ntry {\n  const text = ($json.candidates?.[0]?.content?.parts || []).map((p) => p.text || \"\").join(\"\");\n  const picked = JSON.parse(text).emoji;\n  if (ALLOWED.includes(picked)) emoji = picked;\n} catch (e) {\n  emoji = \"\";\n}\nreturn [{ json: { emoji } }];\n"
+      },
+      "id": "read-reaction",
+      "name": "Read Reaction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-emoji",
+              "leftValue": "={{ $json.emoji }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "should-react?",
+      "name": "Should React?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v22.0/{{ $('Build Request').first().json.phone_number_id }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: $('Build Request').first().json.phone, type: 'reaction', reaction: { message_id: $('Build Request').first().json.wa_message_id, emoji: $json.emoji } }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "send-reaction",
+      "name": "Send Reaction",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "WhatsApp account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
         "url": "https://estate-sugg.vercel.app/api/whatsapp/chat",
         "sendHeaders": true,
         "headerParameters": {
@@ -246,7 +379,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "jsonBody": "={{ JSON.stringify($('Build Request').first().json) }}",
         "options": {
           "timeout": 60000,
           "response": {
@@ -426,6 +559,17 @@
       "main": [
         [
           {
+            "node": "Show Typing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Show Typing": {
+      "main": [
+        [
+          {
             "node": "What Kind of Message?",
             "type": "main",
             "index": 0
@@ -513,6 +657,57 @@
       ]
     },
     "Build Request": {
+      "main": [
+        [
+          {
+            "node": "Pick Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Reaction": {
+      "main": [
+        [
+          {
+            "node": "Read Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Reaction": {
+      "main": [
+        [
+          {
+            "node": "Should React?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should React?": {
+      "main": [
+        [
+          {
+            "node": "Send Reaction",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ask the App",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reaction": {
       "main": [
         [
           {
