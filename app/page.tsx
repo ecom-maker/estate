@@ -1,4 +1,5 @@
 import { HeroChatBar } from "@/components/ai/hero-chat-bar";
+import { AskAiOnWhatsApp } from "@/components/home/ask-ai-whatsapp";
 
 export default function HomePage() {
   return (
@@ -32,6 +33,9 @@ export default function HomePage() {
         {/* Search sits directly below the logo. */}
         <div className="mt-8">
           <HeroChatBar />
+          <div className="mt-4">
+            <AskAiOnWhatsApp />
+          </div>
         </div>
 
         <h1 className="mt-10 max-w-3xl font-serif text-4xl leading-tight text-white md:text-5xl md:leading-[1.1]">
