@@ -558,7 +558,7 @@ export function AIChat({
                   )}
                 >
                   {showTyping ? (
-                    <TypingDots />
+                    <ThinkingStatus />
                   ) : isUser ? (
                     message.content
                   ) : (
@@ -661,16 +661,42 @@ function Tooltip({ children }: { children: React.ReactNode }) {
   );
 }
 
-function TypingDots() {
+/**
+ * Progress label shown until the first words of the reply arrive. The API
+ * streams only the answer text, so stages advance on a timer that roughly
+ * follows the agent's search → rank → write flow; the last stage holds until
+ * the reply starts.
+ */
+const THINKING_STAGES: { label: string; after: number }[] = [
+  { label: "Scanning listings…", after: 0 },
+  { label: "Re-ranking results…", after: 2500 },
+  { label: "Synthesizing final response…", after: 5500 },
+];
+
+function ThinkingStatus() {
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const timers = THINKING_STAGES.slice(1).map((s, i) =>
+      setTimeout(() => setStage(i + 1), s.after),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   return (
-    <span className="inline-flex items-center gap-1 py-1" aria-label="Assistant is typing">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
+    <span role="status" aria-live="polite" className="inline-flex py-0.5">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={stage}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.2 }}
+          className="thinking-shimmer text-sm"
+        >
+          {THINKING_STAGES[stage].label}
+        </motion.span>
+      </AnimatePresence>
     </span>
   );
 }
