@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EnquiryForm } from "@/components/layout/enquiry-form";
 
 // Brand marks as inline SVG (lucide no longer ships logo icons).
@@ -67,6 +68,15 @@ export function SiteFooter() {
           <p className="mt-1 text-sm text-muted">
             Quiet luxury. Conversational discovery.
           </p>
+          <nav aria-label="Legal" className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
+            <Link href="/privacy" className="hover:text-primary">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-primary">
+              Terms of Service
+            </Link>
+            <span>© {new Date().getFullYear()} DM Global</span>
+          </nav>
         </div>
 
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-8">
