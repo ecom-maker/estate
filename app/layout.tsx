@@ -20,6 +20,14 @@ export const metadata: Metadata = {
   description:
     "AI-native luxury real estate discovery — conversational search for villas, residences, and investment properties.",
   metadataBase: new URL(getAppUrl()),
+  // Machine-readable entry points for AI agents (A2A Agent Card, API, llms.txt).
+  alternates: {
+    types: {
+      "application/json": "/.well-known/agent-card.json",
+      "application/openapi+json": "/api/v1/openapi.json",
+      "text/plain": "/llms.txt",
+    },
+  },
 };
 
 export default function RootLayout({

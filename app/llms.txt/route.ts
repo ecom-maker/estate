@@ -10,6 +10,12 @@ export function GET() {
 > inventory is exposed as a canonical, queryable API so AI agents can read and
 > reason over it directly — not only through the website.
 
+## For AI agents (agent-to-agent)
+
+- [Agent Card](${SITE_URL}/.well-known/agent-card.json): A2A identity, skills, endpoints and supported locations
+- A2A endpoint: POST ${SITE_URL}/api/a2a (JSON-RPC 2.0, method "message/send"). Send a text part ("2 bed in Dubai Marina under 3M") or a data part {"skill": "<id>", "params": {...}}. Skills: property-search, property-details, project-search, developer-profiles, market-insights, locations, latest-updates, agent-directory.
+- Identify yourself with an X-Agent-Id header (or message.metadata.agentId) so repeat queries are recognised.
+
 ## Data layer (canonical API)
 
 - [API index](${SITE_URL}/api/v1): discovery document and endpoint map
@@ -28,6 +34,8 @@ export function GET() {
 - GET ${SITE_URL}/api/v1/communities — communities with nearby landmarks
 - GET ${SITE_URL}/api/v1/communities/{slug} — one community with its listings
 - GET ${SITE_URL}/api/v1/locations — cities and communities directory
+- GET ${SITE_URL}/api/v1/market?community={name}&bedrooms={n} — recorded sale/rent transactions and price trend for a community
+- GET ${SITE_URL}/api/v1/updates?since={date} — listings added or changed since a date
 
 ## Entity graph
 
