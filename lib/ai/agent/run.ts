@@ -36,9 +36,10 @@ type ApiMessage = {
 };
 
 const MAX_ROUNDS = 6;
-const CALL_TIMEOUT_MS = 25_000;
-/** Netlify streams for up to 60s; leave room for the fallback reply. */
-const TOTAL_BUDGET_MS = 48_000;
+const CALL_TIMEOUT_MS = 40_000;
+/** Time for the whole agent turn, leaving room for the fallback reply inside the
+ *  route's maxDuration (Vercel): web chat allows 120s, WhatsApp keeps 60s. */
+const TOTAL_BUDGET_MS = { web: 100_000, whatsapp: 48_000 } as const;
 
 export async function runSalesAgent(opts: {
   history: AgentTurn[];
@@ -92,7 +93,7 @@ export async function runSalesAgent(opts: {
     let message: ApiMessage | null = null;
     let lastReason = "";
     for (let attempt = 0; !message; attempt++) {
-      const remaining = TOTAL_BUDGET_MS - (Date.now() - started);
+      const remaining = TOTAL_BUDGET_MS[opts.channel] - (Date.now() - started);
       if (remaining < 3_000) return fail(`Out of time after ${round} rounds. ${lastReason}`);
       const out = await complete({ ...cfg, model: models[active] }, messages, finalRound, Math.min(CALL_TIMEOUT_MS, remaining), result);
       if ("message" in out) {
@@ -100,6 +101,11 @@ export async function runSalesAgent(opts: {
         result.model = models[active];
       } else if (!out.retryable) {
         if (!out.modelRejected || active >= models.length - 1) return fail(out.reason);
+        lastReason = out.reason;
+        active++;
+      } else if (out.timedOut && active < models.length - 1) {
+        // A model that just ran out the clock is unlikely to be faster on a
+        // second try: spend the remaining time on the next model instead.
         lastReason = out.reason;
         active++;
       } else if (attempt === 0 && !out.quotaExhausted) {
@@ -192,12 +198,13 @@ function fallbackModels(baseUrl: string): string[] {
     : [];
 }
 
-/** quotaExhausted: a 429 that will not clear by retrying (daily quota) — move on.
+/** timedOut: no answer within the call timeout — try the next model, not the same one.
+ *  quotaExhausted: a 429 that will not clear by retrying (daily quota) — move on.
  *  modelRejected: this model refused the request (retired model, or a parameter it
  *  does not accept) — retrying it is pointless, but another model may take it. */
 type Completion =
   | { message: ApiMessage }
-  | { retryable: boolean; quotaExhausted?: boolean; modelRejected?: boolean; reason: string };
+  | { retryable: boolean; timedOut?: boolean; quotaExhausted?: boolean; modelRejected?: boolean; reason: string };
 
 async function complete(
   cfg: { baseUrl: string; apiKey: string; model: string },
@@ -248,6 +255,7 @@ async function complete(
     console.error("sales agent LLM call failed", cfg.model, error instanceof Error ? error.message : error);
     return {
       retryable: true,
+      timedOut: controller.signal.aborted,
       reason: `${cfg.model}: ${error instanceof Error ? error.message : String(error)}`,
     };
   } finally {

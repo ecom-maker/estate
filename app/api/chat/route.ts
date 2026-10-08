@@ -27,8 +27,9 @@ import {
 import { z } from "zod";
 
 // The sales agent's tool rounds can take several seconds; the reply streams,
-// but the function must stay alive until it finishes.
-export const maxDuration = 60;
+// but the function must stay alive until it finishes. Matches the agent's web
+// budget in lib/ai/agent/run.ts (100s + room for the fallback reply).
+export const maxDuration = 120;
 
 const bodySchema = z.object({
   messages: z.array(
