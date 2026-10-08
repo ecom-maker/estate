@@ -849,3 +849,32 @@ model MarketTransaction {
   @@index([building, transactedOn])
   @@map("market_transactions")
 }
+
+/// Agent CRM: AI agents that query the portal over A2A / the agent API.
+/// One row per agent id; counters and preferences accumulate across calls.
+model AgentContact {
+  id                  String   @id @default(cuid())
+  /// The caller's own id (X-Agent-Id header or A2A message.metadata.agentId),
+  /// or "anon:<user-agent hash>" when it didn't identify itself.
+  agentId             String   @unique @map("agent_id")
+  name                String?
+  /// Person or organisation the agent acts for, as the agent reports it.
+  owner               String?
+  userAgent           String?  @map("user_agent")
+  firstContactAt      DateTime @default(now()) @map("first_contact_at")
+  lastInteractionAt   DateTime @default(now()) @map("last_interaction_at")
+  queries             Int      @default(0)
+  propertiesRequested Int      @default(0) @map("properties_requested")
+  propertiesViewed    Int      @default(0) @map("properties_viewed")
+  /// { "<area>": count } from the communities it asks about.
+  preferredAreas      Json?    @map("preferred_areas")
+  /// { "<skill id>": count }
+  skillsUsed          Json?    @map("skills_used")
+  /// new | established (after repeat queries)
+  trustRelationship   String   @default("new") @map("trust_relationship")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([lastInteractionAt])
+  @@map("agent_contacts")
+}

@@ -71,6 +71,49 @@ export function GET() {
           responses: okList("Developer"),
         },
       },
+      "/search": {
+        get: {
+          operationId: "searchProperties",
+          summary: "Natural-language or structured property search",
+          parameters: [
+            param("q", "Free-text request, e.g. '2 bed in Dubai Marina under 3M'"),
+            param("type", "villa|apartment|penthouse|townhouse|unit|land"),
+            param("community", "Community name"),
+            param("developer", "Developer name"),
+            param("minBedrooms", "Minimum bedrooms", "integer"),
+            param("minPrice", "Minimum price in AED", "number"),
+            param("maxPrice", "Maximum price in AED", "number"),
+            param("offPlan", "true = off-plan, false = ready", "boolean"),
+            param("limit", "Max results (1–100, default 24)", "integer"),
+          ],
+          responses: okList("PropertySummary"),
+        },
+      },
+      "/market": {
+        get: {
+          operationId: "getMarketInsights",
+          summary: "Recorded sale/rent transactions and price trend for a community",
+          parameters: [
+            { ...param("community", "Community name, e.g. Dubai Marina"), required: true },
+            param("bedrooms", "Bedroom count (0 = studio)", "integer"),
+          ],
+          responses: {
+            "200": { description: "OK" },
+            "404": { description: "Too few recorded transactions" },
+          },
+        },
+      },
+      "/updates": {
+        get: {
+          operationId: "listUpdates",
+          summary: "Listings added or changed since a date (default: last 7 days)",
+          parameters: [
+            param("since", "ISO date, e.g. 2026-10-01"),
+            param("limit", "Max results (1–200, default 50)", "integer"),
+          ],
+          responses: okList("PropertySummary"),
+        },
+      },
     },
     components: {
       schemas: {

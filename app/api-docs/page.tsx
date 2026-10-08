@@ -27,6 +27,16 @@ const ENDPOINTS = [
   { method: "GET", path: "/api/v1/developers", desc: "Developers." },
   {
     method: "GET",
+    path: "/api/v1/market?community={name}",
+    desc: "Recorded sale and rent transactions and a price trend for a community (optional bedrooms).",
+  },
+  {
+    method: "GET",
+    path: "/api/v1/updates?since={date}",
+    desc: "Listings added or changed since a date (default: last 7 days).",
+  },
+  {
+    method: "GET",
     path: "/api/v1/openapi.json",
     desc: "OpenAPI 3.1 contract for the whole API.",
   },
@@ -77,6 +87,25 @@ export default function ApiDocsPage() {
         ))}
       </div>
 
+      <h2 className="mt-12 font-serif text-2xl text-primary">For AI agents (A2A)</h2>
+      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted">
+        Personal AI agents can discover this portal from its{" "}
+        <Link href="/.well-known/agent-card.json" className="text-accent hover:underline">
+          Agent Card
+        </Link>{" "}
+        and query it agent-to-agent over JSON-RPC at <code>/api/a2a</code>. Send plain text or
+        name a skill (property-search, project-search, developer-profiles, market-insights,
+        locations, latest-updates, property-details, agent-directory). Add an{" "}
+        <code>X-Agent-Id</code> header so repeat queries are recognised.
+      </p>
+      <pre className="mt-4 overflow-x-auto rounded-sm border border-border bg-primary/5 p-4 text-xs text-primary">
+        {`curl -X POST ${SITE_URL}/api/a2a \\
+  -H 'Content-Type: application/json' -H 'X-Agent-Id: my-agent' \\
+  -d '{"jsonrpc":"2.0","id":1,"method":"message/send","params":{"message":{
+        "role":"user","messageId":"m1",
+        "parts":[{"kind":"text","text":"2 bed in Dubai Marina under 3M"}]}}}'`}
+      </pre>
+
       <h2 className="mt-12 font-serif text-2xl text-primary">Try it</h2>
       <pre className="mt-4 overflow-x-auto rounded-sm border border-border bg-primary/5 p-4 text-xs text-primary">
         {`curl ${SITE_URL}/api/v1/properties?type=villa&offPlan=false
@@ -99,6 +128,12 @@ curl ${SITE_URL}/api/v1/communities`}
         </Link>
         <Link href="/llms.txt" className="font-medium text-accent hover:underline">
           llms.txt →
+        </Link>
+        <Link
+          href="/.well-known/agent-card.json"
+          className="font-medium text-accent hover:underline"
+        >
+          Agent Card →
         </Link>
       </div>
     </div>

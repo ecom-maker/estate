@@ -17,6 +17,8 @@ export function GET() {
       "amenities → location (community) → nearby landmarks (schools, metros).",
     openapi: `${base}/openapi.json`,
     documentation: `${SITE_URL}/api-docs`,
+    agentCard: `${SITE_URL}/.well-known/agent-card.json`,
+    a2a: `${SITE_URL}/api/a2a`,
     endpoints: {
       search: `${base}/search`,
       properties: `${base}/properties`,
@@ -28,6 +30,8 @@ export function GET() {
       communities: `${base}/communities`,
       community: `${base}/communities/{slug}`,
       locations: `${base}/locations`,
+      market: `${base}/market?community={name}&bedrooms={n}`,
+      updates: `${base}/updates?since={date}`,
     },
     entities: [
       "developer",
