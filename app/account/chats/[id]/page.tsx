@@ -48,8 +48,10 @@ export default async function ChatTranscriptPage({
   params: Promise<{ id: string }>;
 }) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
   const { id } = await params;
+  if (!session?.user?.id) {
+    redirect(`/login?next=${encodeURIComponent(`/account/chats/${id}`)}`);
+  }
 
   const chat = await prisma.chatSession.findUnique({
     where: { id },

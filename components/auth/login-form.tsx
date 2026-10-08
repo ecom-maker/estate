@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { authHref, safeReturnTo } from "@/lib/auth/return-to";
 
 type LoginFormProps = {
   googleEnabled?: boolean;
@@ -12,6 +13,10 @@ type LoginFormProps = {
 export function LoginForm({ googleEnabled = false }: LoginFormProps) {
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
+  // Page the visitor came from (set by Sign in links and protected pages).
+  const next = safeReturnTo(
+    searchParams.get("next") ?? searchParams.get("callbackUrl"),
+  );
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,7 +49,7 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
         throw new Error("Invalid email or password.");
       }
       // Hard navigation so the server header re-reads the session cookie.
-      window.location.assign("/admin");
+      window.location.assign(next ?? "/admin");
       return;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Login failed");
@@ -92,7 +97,7 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
         throw new Error("Invalid code or database unavailable.");
       }
       // Hard navigation so SessionProvider + header re-read the session.
-      window.location.assign("/");
+      window.location.assign(next ?? "/");
       return;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Verify failed");
@@ -157,7 +162,7 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
         {googleEnabled ? (
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: "/" })}
+            onClick={() => signIn("google", { callbackUrl: next ?? "/" })}
             className="flex w-full items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary"
           >
             Continue with Google
@@ -216,7 +221,7 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
 
       <p className="text-sm text-muted">
         Don&apos;t have an account?{" "}
-        <Link href="/signup" className="font-medium text-accent hover:underline">
+        <Link href={authHref("/signup", next)} className="font-medium text-accent hover:underline">
           Create one
         </Link>
       </p>

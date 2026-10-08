@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { AuthLink } from "@/components/auth/auth-link";
 
 type NavItem = { href: string; label: string };
 
@@ -70,22 +71,22 @@ export function MobileNav({ nav }: { nav: NavItem[] }) {
               the avatar menu for profile / sign out. */}
           {status !== "loading" && !authed ? (
             <div className="border-t border-border py-1">
-              <Link
-                href="/login"
+              <AuthLink
+                to="/login"
                 role="menuitem"
                 onClick={() => setOpen(false)}
                 className="block px-4 py-2.5 text-sm font-medium text-primary transition hover:bg-accent/10"
               >
                 Sign in
-              </Link>
-              <Link
-                href="/signup"
+              </AuthLink>
+              <AuthLink
+                to="/signup"
                 role="menuitem"
                 onClick={() => setOpen(false)}
                 className="block px-4 py-2.5 text-sm font-medium text-accent transition hover:bg-accent/10"
               >
                 Sign up
-              </Link>
+              </AuthLink>
             </div>
           ) : null}
         </div>

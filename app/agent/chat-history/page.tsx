@@ -18,7 +18,7 @@ function fmtWhen(d: Date) {
 
 export default async function ChatHistoryPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Fagent%2Fchat-history");
 
   const sessions = await prisma.chatSession.findMany({
     where: { userId: session.user.id },

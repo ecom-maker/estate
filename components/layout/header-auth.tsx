@@ -11,6 +11,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { isAdmin } from "@/lib/rbac/check";
+import { AuthLink } from "@/components/auth/auth-link";
 
 type HeaderAuthProps = {
   variant: "desktop" | "mobile";
@@ -173,18 +174,18 @@ export function HeaderAuth({ variant }: HeaderAuthProps) {
   if (variant === "desktop") {
     return (
       <div className="flex items-center gap-3">
-        <Link
-          href="/login"
+        <AuthLink
+          to="/login"
           className="rounded-sm border border-primary/20 px-4 py-2 text-sm font-medium text-primary transition hover:border-accent hover:text-accent"
         >
           Sign in
-        </Link>
-        <Link
-          href="/signup"
+        </AuthLink>
+        <AuthLink
+          to="/signup"
           className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
         >
           Sign up
-        </Link>
+        </AuthLink>
       </div>
     );
   }

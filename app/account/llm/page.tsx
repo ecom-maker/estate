@@ -9,7 +9,7 @@ export const metadata = { title: "My LLM" };
 
 export default async function AccountLlmPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Faccount%2Fllm");
 
   const view = await getUserLLMView(session.user.id);
 

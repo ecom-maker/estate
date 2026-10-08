@@ -36,7 +36,7 @@ function plain(text: string): string {
 
 export default async function MyChatsPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Faccount%2Fchats");
 
   const chats = await prisma.chatSession.findMany({
     where: { userId: session.user.id },
