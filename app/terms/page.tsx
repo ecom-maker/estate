@@ -181,8 +181,8 @@ const sections: LegalSection[] = [
           answers or third parties.
         </p>
         <p>
-          Nothing in these terms limits liability that cannot be limited under UAE law, such as
-          for fraud.
+          Nothing in these terms limits liability that cannot be limited under applicable law,
+          such as for fraud.
         </p>
       </>
     ),
@@ -216,8 +216,8 @@ const sections: LegalSection[] = [
     title: "Governing law",
     body: (
       <p>
-        These terms are governed by the laws of the Emirate of Dubai and the federal laws of the
-        United Arab Emirates. The courts of Dubai have jurisdiction over any dispute.
+        These terms are governed by the laws of India. The courts of India have jurisdiction
+        over any dispute arising from them.
       </p>
     ),
   },
@@ -226,7 +226,7 @@ const sections: LegalSection[] = [
     title: "Contact",
     body: (
       <p>
-        DM Global, Dubai, United Arab Emirates. Email <ContactLink />.
+        DM Global, India. Email <ContactLink />.
       </p>
     ),
   },

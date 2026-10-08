@@ -97,8 +97,8 @@ const sections: LegalSection[] = [
         We process personal data because you asked us to (for example, to answer an enquiry or
         provide your account), because of our legitimate interest in running a safe and useful
         property service, with your consent where it is required, or to meet legal obligations.
-        This follows the UAE Personal Data Protection Law (Federal Decree-Law No. 45 of 2021)
-        and, where it applies to you, the EU/UK GDPR.
+        This follows India&apos;s Digital Personal Data Protection Act, 2023 and, where they apply
+        to you, the UAE Personal Data Protection Law and the EU/UK GDPR.
       </p>
     ),
   },
@@ -154,8 +154,8 @@ const sections: LegalSection[] = [
     title: "International transfers",
     body: (
       <p>
-        Some of our providers store or process data outside the UAE, for example in the European
-        Union or the United States. Where that happens we rely on the safeguards those providers
+        Some of our providers store or process data outside India, for example in the European
+        Union, the United States or the UAE. Where that happens we rely on the safeguards those providers
         offer, such as standard contractual clauses, so your data stays protected.
       </p>
     ),
@@ -188,8 +188,9 @@ const sections: LegalSection[] = [
           <li>withdraw consent you gave earlier.</li>
         </ul>
         <p>
-          Email <ContactLink /> and we will reply within 30 days. You can also complain to the
-          UAE Data Office or to the data protection authority where you live.
+          Email <ContactLink /> and we will reply within 30 days. If you are not satisfied, you
+          can complain to the Data Protection Board of India or to the data protection authority
+          where you live.
         </p>
       </>
     ),
@@ -242,7 +243,7 @@ const sections: LegalSection[] = [
     title: "Contact",
     body: (
       <p>
-        DM Global, Dubai, United Arab Emirates. Email <ContactLink />.
+        DM Global, India. Email <ContactLink />.
       </p>
     ),
   },
