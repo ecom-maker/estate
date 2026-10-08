@@ -33,6 +33,7 @@ const SKILL_IDS = new Set(AGENT_SKILLS.map((s) => s.id));
 
 /** Keyword routes for plain-text requests; first match wins, else search. */
 const TEXT_ROUTES: { skill: string; pattern: RegExp }[] = [
+  { skill: "sourcing-request", pattern: /\b(source|sourcing|off[- ]market)\b/i },
   { skill: "agent-directory", pattern: /\b(skills?|capabilit|agent directory|what can you|specialist agents?)\b/i },
   { skill: "latest-updates", pattern: /\b(updates?|what'?s new|new listings|recently (added|listed)|latest listings)\b/i },
   { skill: "market-insights", pattern: /\b(market|price trends?|per sq ?ft|psf|transactions?|sold prices?|rental yield|rents?)\b/i },
