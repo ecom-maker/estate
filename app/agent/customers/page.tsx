@@ -19,7 +19,7 @@ function fmtDate(d: Date) {
 
 export default async function CustomersPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Fagent%2Fcustomers");
   const roles = (session.user as { roles?: string[] }).roles ?? [];
   if (!roles.some((r) => ALLOWED.includes(r))) redirect("/agent");
 

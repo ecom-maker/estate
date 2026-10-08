@@ -11,7 +11,7 @@ export const metadata = { title: "Favorites" };
 
 export default async function FavoritesPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Fagent%2Ffavorites");
 
   const favorites = await prisma.favorite.findMany({
     where: { userId: session.user.id },

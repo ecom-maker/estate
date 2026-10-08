@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { AuthLink } from "@/components/auth/auth-link";
 import { formatAED } from "@/lib/utils";
 
 type FavoriteRow = {
@@ -36,9 +37,9 @@ export function FavoritesList() {
     return (
       <p className="text-sm text-muted">
         {error}.{" "}
-        <Link href="/login" className="text-accent hover:underline">
+        <AuthLink to="/login" className="text-accent hover:underline">
           Sign in
-        </Link>
+        </AuthLink>
       </p>
     );
   }

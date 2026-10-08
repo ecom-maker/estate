@@ -9,7 +9,7 @@ export const metadata = { title: "My profile" };
 
 export default async function AccountPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Faccount");
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },

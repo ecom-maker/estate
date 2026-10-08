@@ -55,7 +55,7 @@ function toQuery(name: string, intent: Intent): string {
 
 export default async function SavedSearchesPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Fagent%2Fsaved-searches");
 
   const searches = await prisma.savedSearch.findMany({
     where: { userId: session.user.id },

@@ -12,7 +12,9 @@ type Props = { params: Promise<{ id: string }> };
 export default async function ChatHistoryDetailPage({ params }: Props) {
   const { id } = await params;
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) {
+    redirect(`/login?next=${encodeURIComponent(`/agent/chat-history/${id}`)}`);
+  }
 
   const chat = await prisma.chatSession.findUnique({
     where: { id },

@@ -3,12 +3,16 @@
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { authHref, safeReturnTo } from "@/lib/auth/return-to";
 
 type SignupFormProps = {
   googleEnabled?: boolean;
 };
 
 export function SignupForm({ googleEnabled = false }: SignupFormProps) {
+  // Page the visitor came from (set by Sign up links).
+  const next = safeReturnTo(useSearchParams().get("next"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,11 +53,11 @@ export function SignupForm({ googleEnabled = false }: SignupFormProps) {
       });
       if (result?.error) {
         // Account exists but auto sign-in failed — send them to login.
-        window.location.assign("/login");
+        window.location.assign(authHref("/login", next));
         return;
       }
       // Hard navigation so the server header re-reads the session cookie.
-      window.location.assign("/");
+      window.location.assign(next ?? "/");
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not create account",
@@ -75,7 +79,7 @@ export function SignupForm({ googleEnabled = false }: SignupFormProps) {
         <>
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl: "/" })}
+            onClick={() => signIn("google", { callbackUrl: next ?? "/" })}
             className="flex w-full items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary"
           >
             Sign up with Google
@@ -155,7 +159,7 @@ export function SignupForm({ googleEnabled = false }: SignupFormProps) {
 
       <p className="text-xs text-muted">
         Already have an account?{" "}
-        <Link href="/login" className="text-accent hover:underline">
+        <Link href={authHref("/login", next)} className="text-accent hover:underline">
           Sign in
         </Link>
       </p>

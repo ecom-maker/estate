@@ -7,7 +7,7 @@ export const metadata = { title: "Appointments" };
 
 export default async function AppointmentsPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login?error=AccessDenied");
+  if (!session?.user?.id) redirect("/login?next=%2Fagent%2Fappointments");
 
   return (
     <AgentShell
