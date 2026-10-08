@@ -92,6 +92,17 @@ export const AGENT_SKILLS: AgentSkill[] = [
     rest: "/api/v1/updates",
   },
   {
+    id: "sourcing-request",
+    name: "Sourcing desk — properties not listed here",
+    description:
+      "When nothing on the portal fits, send the buyer's name, a phone number or email, and their specific requirements (area, property type, bedrooms, budget, timeline). The DM Global team sources matching properties from the wider market and contacts the buyer directly. Returns a reference number.",
+    tags: ["real-estate", "sourcing", "off-market", "lead"],
+    examples: [
+      '{"skill":"sourcing-request","params":{"name":"Jane Doe","phone":"+971 50 123 4567","community":"Palm Jumeirah","propertyType":"villa","bedrooms":5,"maxBudgetAed":30000000}}',
+    ],
+    rest: "/api/a2a",
+  },
+  {
     id: "agent-directory",
     name: "Agent Directory — specialist agents",
     description:

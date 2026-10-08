@@ -95,7 +95,9 @@ export default function ApiDocsPage() {
         </Link>{" "}
         and query it agent-to-agent over JSON-RPC at <code>/api/a2a</code>. Send plain text or
         name a skill (property-search, project-search, developer-profiles, market-insights,
-        locations, latest-updates, property-details, agent-directory). Add an{" "}
+        locations, latest-updates, property-details, agent-directory). If nothing on the
+        portal fits, send the buyer&apos;s contact details and requirements with{" "}
+        <code>sourcing-request</code> and the team sources it from the market. Add an{" "}
         <code>X-Agent-Id</code> header so repeat queries are recognised.
       </p>
       <pre className="mt-4 overflow-x-auto rounded-sm border border-border bg-primary/5 p-4 text-xs text-primary">

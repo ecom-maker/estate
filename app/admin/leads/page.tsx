@@ -14,6 +14,7 @@ const KIND_LABEL: Record<string, string> = {
   brochure: "Brochure",
   human_handoff: "Asked for a human",
   enquiry: "Enquiry",
+  sourcing_request: "Sourcing request (AI agent)",
 };
 
 /** Requirements the agent saved in discovery, as short "label: value" pairs. */

@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { agentCard, AGENT_ID, AGENT_SKILLS } from "@/lib/agents/card";
 import { RPC_ERRORS, resolveSkillCall, type A2AMessage, type SkillCall } from "@/lib/agents/a2a";
-import { identifyAgent, recordAgentInteraction } from "@/lib/agents/crm";
+import { identifyAgent, recordAgentInteraction, type AgentIdentity } from "@/lib/agents/crm";
+import { createSourcingRequest, SOURCING_FIELDS, sourcingSchema } from "@/lib/agents/sourcing";
 import { extractSearchIntent } from "@/lib/ai/intent";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { SITE_URL } from "@/lib/data-layer/canonical";
@@ -75,7 +76,23 @@ type SkillOutcome = {
 const listLength = (body: Record<string, unknown>) =>
   Array.isArray(body.data) ? body.data.length : 0;
 
-async function runSkill(call: SkillCall): Promise<SkillOutcome> {
+// Offered whenever the portal has nothing that fits: we source from the market.
+const SOURCING_OFFER =
+  "DM Global can source it from the market: ask your user for their name, a phone number or email, " +
+  "and their specific requirements (area, property type, bedrooms, budget, timeline), then send them " +
+  'with the "sourcing-request" skill. Our team will contact them directly.';
+
+const sourcingNextStep = {
+  skill: "sourcing-request",
+  required: SOURCING_FIELDS.required,
+  params: SOURCING_FIELDS.params,
+  example: {
+    skill: "sourcing-request",
+    params: { name: "Jane Doe", phone: "+971 50 123 4567", community: "Palm Jumeirah", propertyType: "villa", bedrooms: 5, maxBudgetAed: 30000000 },
+  },
+};
+
+async function runSkill(call: SkillCall, who: AgentIdentity, ip: string): Promise<SkillOutcome> {
   const p = call.params;
   const none = { areas: [], requested: 0, viewed: 0 };
 
@@ -86,10 +103,12 @@ async function runSkill(call: SkillCall): Promise<SkillOutcome> {
       const intent = (r.body.intent ?? {}) as { community?: string };
       const n = listLength(r.body);
       return {
-        summary: r.ok
-          ? `${r.body.total ?? n} matching properties; returning ${n}, best match first.`
-          : `Search failed: ${errorText(r.body)}`,
-        data: r.body,
+        summary: !r.ok
+          ? `Search failed: ${errorText(r.body)}`
+          : n
+            ? `${r.body.total ?? n} matching properties; returning ${n}, best match first. If none of these fit, ${SOURCING_OFFER}`
+            : `No property on DM Global matches this right now. ${SOURCING_OFFER}`,
+        data: r.ok ? { ...r.body, nextStep: n ? undefined : sourcingNextStep } : r.body,
         areas: [p.community, intent.community].filter((a): a is string => !!a),
         requested: n,
         viewed: 0,
@@ -100,11 +119,36 @@ async function runSkill(call: SkillCall): Promise<SkillOutcome> {
       const r = await callRest(propertyGET, `/api/v1/properties/${p.slug}`, {}, p.slug);
       const location = (r.body.location ?? {}) as { community?: { name?: string } };
       return {
-        summary: r.ok ? `Details for ${String(r.body.title ?? p.slug)}.` : errorText(r.body),
-        data: r.body,
+        summary: r.ok
+          ? `Details for ${String(r.body.title ?? p.slug)}.`
+          : `${errorText(r.body)}. ${SOURCING_OFFER}`,
+        data: r.ok ? r.body : { ...r.body, nextStep: sourcingNextStep },
         areas: location.community?.name ? [location.community.name] : [],
         requested: 0,
         viewed: r.ok ? 1 : 0,
+      };
+    }
+    case "sourcing-request": {
+      // Writes a lead and sends an email, so it gets its own tighter limit.
+      if (!rateLimit(`a2a-sourcing:${ip}`, 5, 60_000).ok) {
+        return { summary: "Too many sourcing requests; try again in a minute.", data: null, ...none };
+      }
+      const parsed = sourcingSchema.safeParse(p);
+      if (!parsed.success) {
+        const problems = [...new Set(parsed.error.issues.map((i) => i.message.replace(/\.$/, "")))];
+        return {
+          summary: `Not sent yet: ${problems.join("; ")}. Ask your user for the missing details and call sourcing-request again.`,
+          data: { missing: problems, nextStep: sourcingNextStep },
+          ...none,
+        };
+      }
+      const { reference, emailed } = await createSourcingRequest(parsed.data, who);
+      return {
+        summary: `Sourcing request received (Ref ${reference}). The DM Global team will search the market for matching properties and contact ${parsed.data.name} directly.`,
+        data: { status: "received", reference, notifiedTeam: emailed },
+        areas: parsed.data.community ? [parsed.data.community] : [],
+        requested: 0,
+        viewed: 0,
       };
     }
     case "project-search": {
@@ -214,8 +258,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const outcome = await runSkill(call);
     const who = identifyAgent(request, message?.metadata ?? null);
+    const outcome = await runSkill(call, who, ip);
     await recordAgentInteraction(who, {
       skill: call.skill,
       areas: outcome.areas,
