@@ -878,3 +878,19 @@ model AgentContact {
   @@index([lastInteractionAt])
   @@map("agent_contacts")
 }
+
+/// One-time sign-in codes sent by WhatsApp or SMS. Only a hash of the code is
+/// stored; a row is deleted once used, and locked after too many wrong tries.
+model OtpCode {
+  id        String   @id @default(cuid())
+  /// E.164, e.g. +971501234567
+  phone     String   @unique
+  codeHash  String   @map("code_hash")
+  /// whatsapp | sms
+  channel   String
+  attempts  Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("otp_codes")
+}

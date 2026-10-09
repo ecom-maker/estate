@@ -4,7 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
-import { verifyOtp } from "@/lib/auth/otp-store";
+import { normalizePhone, verifyOtp } from "@/lib/auth/otp-store";
 import { signInWithGoogleIdToken } from "@/lib/auth/google-one-tap";
 import type { NextAuthConfig } from "next-auth";
 
@@ -95,12 +95,16 @@ providers.push(
       code: { label: "Code", type: "text" },
     },
     async authorize(credentials) {
-      const phone = String(credentials?.phone ?? "").replace(/\s+/g, "");
+      const phone = normalizePhone(String(credentials?.phone ?? ""));
       const code = String(credentials?.code ?? "").trim();
       if (!phone || !code) return null;
 
-      const valid = verifyOtp(phone, code);
-      if (!valid) return null;
+      try {
+        if (!(await verifyOtp(phone, code))) return null;
+      } catch (error) {
+        console.error("[auth] phone-otp verify failed", error);
+        return null;
+      }
 
       try {
         const user = await prisma.user.upsert({

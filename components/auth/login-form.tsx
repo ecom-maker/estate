@@ -5,12 +5,26 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authHref, safeReturnTo } from "@/lib/auth/return-to";
+import { PhoneInput } from "@/components/auth/phone-input";
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { toE164, type Country } from "@/lib/phone/countries";
+import { cn } from "@/lib/utils";
+
+type OtpChannel = "whatsapp" | "sms";
 
 type LoginFormProps = {
   googleEnabled?: boolean;
+  /** Code channels that are set up; the phone section is hidden when empty. */
+  otpChannels?: OtpChannel[];
+  /** Visitor's country from their IP (ISO code), used for the phone picker. */
+  defaultCountry?: string | null;
 };
 
-export function LoginForm({ googleEnabled = false }: LoginFormProps) {
+export function LoginForm({
+  googleEnabled = false,
+  otpChannels = [],
+  defaultCountry = null,
+}: LoginFormProps) {
   const searchParams = useSearchParams();
   const authError = searchParams.get("error");
   // Page the visitor came from (set by Sign in links and protected pages).
@@ -21,6 +35,9 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState<Country | null>(null);
+  const [channel, setChannel] = useState<OtpChannel>(otpChannels[0] ?? "whatsapp");
+  const fullPhone = country ? toE164(country, phone) : "";
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [message, setMessage] = useState<string | null>(null);
@@ -66,15 +83,17 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
       const res = await fetch("/api/auth/otp/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: fullPhone, channel }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message ?? "Failed");
       setStep("code");
       setMessage(
         json.data?.mock
-          ? "Mock OTP sent. Use code 000000."
-          : "OTP sent to your phone.",
+          ? "Development mode: no message sent. Use code 000000."
+          : channel === "whatsapp"
+            ? `We sent a 6-digit code to ${fullPhone} on WhatsApp.`
+            : `We sent a 6-digit code to ${fullPhone} by SMS.`,
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Request failed");
@@ -89,12 +108,12 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
     setMessage(null);
     try {
       const result = await signIn("phone-otp", {
-        phone,
+        phone: fullPhone,
         code,
         redirect: false,
       });
       if (result?.error) {
-        throw new Error("Invalid code or database unavailable.");
+        throw new Error("That code didn't work. Check it, or ask for a new one.");
       }
       // Hard navigation so SessionProvider + header re-read the session.
       window.location.assign(next ?? "/");
@@ -169,54 +188,104 @@ export function LoginForm({ googleEnabled = false }: LoginFormProps) {
           </button>
         ) : null}
 
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
-          Or phone OTP
-        </p>
+        {otpChannels.length ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+              Or sign in with a code
+            </p>
 
-        {step === "phone" ? (
-          <form onSubmit={requestOtp} className="space-y-3">
-            <input
-              id="phone"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+971 50 000 0000"
-              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary disabled:opacity-50"
-            >
-              Send OTP
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={verifyOtp} className="space-y-3">
-            <input
-              id="code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="000000"
-              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm outline-none ring-accent focus:ring-2"
-              required
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary disabled:opacity-50"
-            >
-              Verify & sign in
-            </button>
-            <button
-              type="button"
-              className="w-full text-xs text-muted"
-              onClick={() => setStep("phone")}
-            >
-              Use a different number
-            </button>
-          </form>
-        )}
+            {step === "phone" ? (
+              <form onSubmit={requestOtp} className="space-y-3">
+                {otpChannels.length > 1 ? (
+                  <div role="radiogroup" aria-label="Send the code by" className="grid grid-cols-2 gap-2">
+                    {otpChannels.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        role="radio"
+                        aria-checked={channel === c}
+                        onClick={() => setChannel(c)}
+                        className={cn(
+                          "flex items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-sm font-medium transition",
+                          channel === c
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border bg-card text-primary hover:border-accent",
+                        )}
+                      >
+                        {c === "whatsapp" ? <WhatsAppIcon className="h-4 w-4" /> : null}
+                        {c === "whatsapp" ? "WhatsApp" : "SMS"}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                <PhoneInput
+                  defaultCountry={defaultCountry}
+                  country={country}
+                  onCountryChange={setCountry}
+                  value={phone}
+                  onChange={setPhone}
+                />
+
+                <p className="text-xs leading-relaxed text-muted">
+                  By clicking &quot;Send code&quot;, I agree to DM Global&apos;s{" "}
+                  <Link href="/terms" className="underline underline-offset-2 hover:text-primary">
+                    Terms of Service
+                  </Link>{" "}
+                  and acknowledge the{" "}
+                  <Link href="/privacy" className="underline underline-offset-2 hover:text-primary">
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={loading || !fullPhone}
+                  className="flex w-full items-center justify-center gap-2 rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {loading
+                    ? "Sending…"
+                    : channel === "whatsapp"
+                      ? "Send code on WhatsApp →"
+                      : "Send code by SMS →"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={verifyOtp} className="space-y-3">
+                <input
+                  id="code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6-digit code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  aria-label="Verification code"
+                  className="w-full rounded-sm border border-border bg-card px-4 py-3 text-center text-lg tracking-[0.4em] outline-none ring-accent focus:ring-2"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={loading || code.length !== 6}
+                  className="w-full rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  Verify & sign in
+                </button>
+                <button
+                  type="button"
+                  className="w-full text-xs text-muted"
+                  onClick={() => {
+                    setStep("phone");
+                    setCode("");
+                    setMessage(null);
+                  }}
+                >
+                  Use a different number or channel
+                </button>
+              </form>
+            )}
+          </>
+        ) : null}
       </div>
 
       <p className="text-sm text-muted">
