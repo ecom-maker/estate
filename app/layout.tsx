@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { DM_Sans } from "next/font/google";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
@@ -12,6 +13,9 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
   display: "swap",
 });
+
+// Google Analytics (gtag.js) measurement ID.
+const GA_ID = "G-1MSR0W0FLP";
 
 export const metadata: Metadata = {
   title: {
@@ -42,6 +46,17 @@ export default function RootLayout({
       className={`${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        {/* Google tag (gtag.js) — loaded once per page via the root layout. */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_ID}');`}
+        </Script>
         <Providers googleClientId={googleOneTapClientId}>
           <SiteHeader />
           <main className="flex-1">{children}</main>
