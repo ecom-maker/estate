@@ -7,6 +7,7 @@ import { ArrowUpRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { SellModal } from "@/components/sell/sell-modal";
+import { useSignInGate } from "@/components/auth/sign-in-gate";
 
 const SUGGESTIONS = [
   "Waterfront villas under AED 30M",
@@ -25,8 +26,10 @@ const MODES: { id: Mode; label: string; icon?: boolean }[] = [
   { id: "ai", label: "Ask AI", icon: true },
 ];
 
-export function HeroChatBar() {
+export function HeroChatBar({ googleClientId = null }: { googleClientId?: string | null }) {
   const router = useRouter();
+  // Searches from the home page need a signed-in visitor (Google One Tap).
+  const { guard, gate } = useSignInGate(googleClientId);
   const [mode, setMode] = useState<Mode>("buy");
   const [query, setQuery] = useState("");
   const [sellOpen, setSellOpen] = useState(false);
@@ -47,7 +50,7 @@ export function HeroChatBar() {
   function submitAI(value: string) {
     const trimmed = value.trim();
     if (!trimmed) return;
-    router.push(`/search?${new URLSearchParams({ q: trimmed }).toString()}`);
+    guard(`/search?${new URLSearchParams({ q: trimmed }).toString()}`);
   }
 
   function onSubmit(e: FormEvent) {
@@ -145,10 +148,11 @@ export function HeroChatBar() {
           </div>
         </>
       ) : (
-        <PropertyFilterBar dealType={mode === "rent" ? "rent" : "buy"} />
+        <PropertyFilterBar dealType={mode === "rent" ? "rent" : "buy"} onSearch={guard} />
       )}
 
       <SellModal open={sellOpen} onClose={() => setSellOpen(false)} />
+      {gate}
     </motion.div>
   );
 }
