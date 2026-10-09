@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { verifyOtp } from "@/lib/auth/otp-store";
+import { signInWithGoogleIdToken } from "@/lib/auth/google-one-tap";
 import type { NextAuthConfig } from "next-auth";
 
 const providers: NextAuthConfig["providers"] = [];
@@ -12,6 +13,8 @@ const providers: NextAuthConfig["providers"] = [];
 const googleId = process.env.GOOGLE_CLIENT_ID?.trim();
 const googleSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 export const isGoogleAuthEnabled = Boolean(googleId && googleSecret);
+/** Public OAuth client id for Google One Tap in the browser (null when Google is off). */
+export const googleOneTapClientId = isGoogleAuthEnabled ? googleId! : null;
 
 const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
 if (!authSecret && process.env.NODE_ENV === "production") {
@@ -25,6 +28,25 @@ if (isGoogleAuthEnabled) {
     Google({
       clientId: googleId!,
       clientSecret: googleSecret!,
+    }),
+  );
+  // Google One Tap: the browser hands us a Google-signed ID token.
+  providers.push(
+    Credentials({
+      id: "google-one-tap",
+      name: "Google One Tap",
+      credentials: { credential: { label: "Google ID token", type: "text" } },
+      async authorize(credentials) {
+        const credential = String(credentials?.credential ?? "");
+        if (!credential) return null;
+        try {
+          const user = await signInWithGoogleIdToken(credential, googleId!);
+          return user ? { id: user.id, name: user.name, email: user.email, image: user.image } : null;
+        } catch (error) {
+          console.error("[auth] google-one-tap authorize failed", error);
+          return null;
+        }
+      },
     }),
   );
 }

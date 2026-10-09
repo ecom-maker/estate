@@ -1,4 +1,5 @@
 import { HeroChatBar } from "@/components/ai/hero-chat-bar";
+import { googleOneTapClientId } from "@/lib/auth";
 import { AskAiOnWhatsApp } from "@/components/home/ask-ai-whatsapp";
 
 export default function HomePage() {
@@ -32,7 +33,7 @@ export default function HomePage() {
 
         {/* Search sits directly below the logo. */}
         <div className="mt-8">
-          <HeroChatBar />
+          <HeroChatBar googleClientId={googleOneTapClientId} />
           <div className="mt-4">
             <AskAiOnWhatsApp />
           </div>

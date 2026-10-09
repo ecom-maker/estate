@@ -303,9 +303,12 @@ function PriceRange({
 export function PropertyFilterBar({
   dealType = "buy",
   showDeal = false,
+  onSearch,
 }: {
   dealType?: "rent" | "buy";
   showDeal?: boolean;
+  /** Called with the results URL instead of navigating (home page sign-in gate). */
+  onSearch?: (url: string) => void;
 }) {
   const router = useRouter();
   const [dealState, setDealState] = useState<"rent" | "buy">(dealType);
@@ -352,7 +355,9 @@ export function PropertyFilterBar({
 
     parts.push(deal === "rent" ? "for rent" : "for sale");
     const q = parts.join(" ");
-    router.push(`/search?${new URLSearchParams({ q }).toString()}`);
+    const url = `/search?${new URLSearchParams({ q }).toString()}`;
+    if (onSearch) onSearch(url);
+    else router.push(url);
   }
 
   return (
