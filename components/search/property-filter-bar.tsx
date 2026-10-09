@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRequireAuth } from "@/components/auth/sign-in-gate";
 
 // Rich label list (from the reference) → the app's 6 base types for filtering.
 const TYPE_OPTIONS: { label: string; type: string }[] = [
@@ -303,14 +304,13 @@ function PriceRange({
 export function PropertyFilterBar({
   dealType = "buy",
   showDeal = false,
-  onSearch,
 }: {
   dealType?: "rent" | "buy";
   showDeal?: boolean;
-  /** Called with the results URL instead of navigating (home page sign-in gate). */
-  onSearch?: (url: string) => void;
 }) {
   const router = useRouter();
+  // Results open only for signed-in visitors (agents and automation skip this).
+  const requireAuth = useRequireAuth();
   const [dealState, setDealState] = useState<"rent" | "buy">(dealType);
   const deal = showDeal ? dealState : dealType;
   const [city, setCity] = useState("");
@@ -356,8 +356,7 @@ export function PropertyFilterBar({
     parts.push(deal === "rent" ? "for rent" : "for sale");
     const q = parts.join(" ");
     const url = `/search?${new URLSearchParams({ q }).toString()}`;
-    if (onSearch) onSearch(url);
-    else router.push(url);
+    void requireAuth(() => router.push(url), { next: url });
   }
 
   return (
