@@ -25,6 +25,10 @@ export const metadata: Metadata = {
   description:
     "AI-native luxury real estate discovery — conversational search for villas, residences, and investment properties.",
   metadataBase: new URL(getAppUrl()),
+  // Renders <meta name="google-site-verification" ...> in <head> on every page.
+  verification: {
+    google: "YCxaPp99sf296IxMbtM1FUtXRt1z8UXQpQqaR5FXupg",
+  },
   // Machine-readable entry points for AI agents (A2A Agent Card, API, llms.txt).
   alternates: {
     types: {
