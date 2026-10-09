@@ -6,6 +6,8 @@ import { Sparkles, Send, History, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { decodeBase64UrlJson } from "@/lib/encoding";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
+import { useSession } from "next-auth/react";
+import { takePendingAsk, useRequireAuth } from "@/components/auth/sign-in-gate";
 
 /** End-of-turn metadata follows this character in agent replies (see lib/ai/agent/chat-stream.ts). */
 const META_SEPARATOR = "";
@@ -106,6 +108,11 @@ function writeAutoSend(
   }
 }
 
+const CHAT_GATE = {
+  title: "Sign in to ask our AI",
+  message: "It takes one tap with Google. Your question runs as soon as you\u2019re signed in.",
+};
+
 type AIChatProps = {
   placeholder?: string;
   propertyId?: string;
@@ -148,6 +155,9 @@ export function AIChat({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [handoffNotice, setHandoffNotice] = useState(false);
   const autoSent = useRef(false);
+  // Questions run only for signed-in visitors (agents and automation skip this).
+  const requireAuth = useRequireAuth();
+  const { status } = useSession();
 
   // Record / update a session, merging with what's already in localStorage so
   // nothing is lost even if the in-memory list wasn't loaded yet.
@@ -364,20 +374,35 @@ export function AIChat({
       return;
     }
 
-    void send(autoSendOnMount, [], autoSendOnMount);
+    void requireAuth(() => void send(autoSendOnMount, [], autoSendOnMount), CHAT_GATE);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSendOnMount]);
+
+  // Back from a redirect-based sign-in: send the question asked before it.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const pending = takePendingAsk();
+    // Question saved in sessionStorage (an external system) before leaving.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pending) void send(pending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  function ask(text: string) {
+    if (!text.trim() || streaming) return;
+    void requireAuth(() => void send(text), { ...CHAT_GATE, pendingAsk: text });
+  }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      void send(input);
+      ask(input);
     }
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    void send(input);
+    ask(input);
   }
 
   const isEmpty = messages.length === 0;

@@ -1,19 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { getSession, signIn, useSession } from "next-auth/react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { X } from "lucide-react";
 import { authHref } from "@/lib/auth/return-to";
 
 /**
- * "Sign in to continue" for home-page searches.
+ * "Sign in to continue" before a search or an AI chat question runs.
  *
- * People must be signed in before results open: Google One Tap offers their
- * Google account in one click (the card Google shows in the corner), with a
- * "Sign in with Google" button and other sign-in options as fallback. Once
- * signed in, they land on the search they asked for.
+ * People must be signed in first: Google One Tap offers their Google account
+ * in one click (the card Google shows in the corner), with a "Sign in with
+ * Google" button and other sign-in options as fallback. After One Tap the
+ * search or question runs straight away; after another sign-in method they
+ * come back to the same page and a pending chat question is sent then.
  *
  * Only this UI step is gated. /search, the data API and the A2A endpoint stay
  * open, so AI agents and crawlers are never asked to sign in, and automated
@@ -51,47 +60,143 @@ function loadGis(): Promise<GoogleId | null> {
 
 const isAutomated = () => typeof navigator !== "undefined" && navigator.webdriver === true;
 
-export function useSignInGate(googleClientId: string | null) {
-  const router = useRouter();
-  const { status } = useSession();
-  const [next, setNext] = useState<string | null>(null);
+const PENDING_ASK_KEY = "dm:pending-ask";
+const PENDING_ASK_TTL_MS = 30 * 60 * 1000;
 
-  const guard = useCallback(
-    async (url: string) => {
+const currentPath = () => `${window.location.pathname}${window.location.search}`;
+
+function savePendingAsk(text: string) {
+  try {
+    sessionStorage.setItem(
+      PENDING_ASK_KEY,
+      JSON.stringify({ path: currentPath(), text, ts: Date.now() }),
+    );
+  } catch {
+    // ignore (private mode / blocked storage)
+  }
+}
+
+/** A chat question asked on this page before a redirect-based sign-in. */
+export function takePendingAsk(): string | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ASK_KEY);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as { path?: string; text?: string; ts?: number };
+    if (entry.path !== currentPath()) return null;
+    sessionStorage.removeItem(PENDING_ASK_KEY);
+    if (typeof entry.ts !== "number" || Date.now() - entry.ts > PENDING_ASK_TTL_MS) return null;
+    return entry.text?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export type RequireAuthOptions = {
+  /** Where to land after a redirect-based sign-in (default: this page). */
+  next?: string;
+  /** Chat text to send when the visitor returns from a redirect-based sign-in. */
+  pendingAsk?: string;
+  title?: string;
+  message?: string;
+};
+
+type Pending = RequireAuthOptions & { action: () => void; next: string; openedOn: string };
+
+const RequireAuthContext = createContext<
+  ((action: () => void, opts?: RequireAuthOptions) => Promise<void>) | null
+>(null);
+
+export function SignInGateProvider({
+  googleClientId,
+  children,
+}: {
+  googleClientId: string | null;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { status, update } = useSession();
+  const [pending, setPending] = useState<Pending | null>(null);
+
+  // Left the page (e.g. to /login): drop the gate so it can't reappear on Back.
+  if (pending && pending.openedOn !== pathname) setPending(null);
+
+  const requireAuth = useCallback(
+    async (action: () => void, opts: RequireAuthOptions = {}) => {
       if (status === "authenticated" || isAutomated()) {
-        router.push(url);
+        action();
         return;
       }
       // Session may still be loading on first paint; ask once before gating.
       if (status === "loading" && (await getSession())?.user) {
-        router.push(url);
+        action();
         return;
       }
-      setNext(url);
+      setPending({ ...opts, action, next: opts.next ?? currentPath(), openedOn: window.location.pathname });
     },
-    [router, status],
+    [status],
   );
 
-  const gate = next ? (
-    <SignInGateDialog googleClientId={googleClientId} next={next} onClose={() => setNext(null)} />
-  ) : null;
+  const onSignedIn = useCallback(async () => {
+    const done = pending;
+    setPending(null);
+    // Refresh the session (header avatar) and server-rendered parts.
+    await update();
+    router.refresh();
+    done?.action();
+  }, [pending, update, router]);
 
-  return { guard, gate };
+  return (
+    <RequireAuthContext.Provider value={requireAuth}>
+      {children}
+      {pending && pending.openedOn === pathname ? (
+        <SignInGateDialog
+          googleClientId={googleClientId}
+          pending={pending}
+          onSignedIn={onSignedIn}
+          onClose={() => setPending(null)}
+        />
+      ) : null}
+    </RequireAuthContext.Provider>
+  );
+}
+
+/**
+ * Runs `action` once the visitor is signed in: right away when they already
+ * are (or are an automated browser), otherwise after the sign-in step.
+ */
+export function useRequireAuth() {
+  const requireAuth = useContext(RequireAuthContext);
+  // Outside the provider (tests, isolated renders) nothing is gated.
+  return requireAuth ?? (async (action: () => void) => action());
 }
 
 function SignInGateDialog({
   googleClientId,
-  next,
+  pending,
+  onSignedIn,
   onClose,
 }: {
   googleClientId: string | null;
-  next: string;
+  pending: Pending;
+  onSignedIn: () => void;
   onClose: () => void;
 }) {
+  const { next, pendingAsk } = pending;
   const buttonRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"idle" | "signing-in" | "error">("idle");
   // Google's script can be blocked (ad blockers, strict privacy settings).
   const [gisFailed, setGisFailed] = useState(false);
+  // Latest callback without re-initialising Google on every render.
+  const onSignedInRef = useRef(onSignedIn);
+  useEffect(() => {
+    onSignedInRef.current = onSignedIn;
+  }, [onSignedIn]);
+
+  // Leaving for a redirect-based sign-in: remember the chat question.
+  const rememberAsk = useCallback(() => {
+    if (pendingAsk) savePendingAsk(pendingAsk);
+  }, [pendingAsk]);
 
   useEffect(() => {
     if (!googleClientId) return;
@@ -115,8 +220,7 @@ function SignInGateDialog({
           setState("signing-in");
           const res = await signIn("google-one-tap", { credential, redirect: false });
           if (res?.ok && !res.error) {
-            // Full navigation so the header and session pick up the sign-in.
-            window.location.assign(next);
+            onSignedInRef.current();
           } else {
             setState("error");
           }
@@ -138,7 +242,7 @@ function SignInGateDialog({
       cancelled = true;
       gis?.cancel();
     };
-  }, [googleClientId, next]);
+  }, [googleClientId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -167,18 +271,21 @@ function SignInGateDialog({
           <X className="h-4 w-4" />
         </button>
         <h2 id="signin-gate-title" className="font-serif text-2xl text-primary">
-          Sign in to see results
+          {pending.title ?? "Sign in to see results"}
         </h2>
         <p className="mt-2 text-sm text-muted">
-          It takes one tap with Google. We&apos;ll take you straight to your search.
+          {pending.message ?? "It takes one tap with Google. We’ll take you straight to your search."}
         </p>
 
         <div className="mt-5 flex min-h-[44px] justify-center">
           {googleClientId && gisFailed ? (
-            // Redirect-based Google sign-in, returning to the same search.
+            // Redirect-based Google sign-in, returning to the same place.
             <button
               type="button"
-              onClick={() => signIn("google", { callbackUrl: next })}
+              onClick={() => {
+                rememberAsk();
+                void signIn("google", { callbackUrl: next });
+              }}
               className="rounded-full border border-border px-6 py-2.5 text-sm font-medium text-primary transition hover:border-accent"
             >
               Continue with Google
@@ -192,7 +299,7 @@ function SignInGateDialog({
           <p className="mt-3 text-sm text-red-600">Google sign-in didn&apos;t complete. Try again or use another option.</p>
         ) : null}
 
-        <GateLinks next={next}>
+        <GateLinks next={next} onLeave={rememberAsk}>
           {googleClientId ? "Other ways to sign in" : "Sign in"}
         </GateLinks>
       </div>
@@ -200,14 +307,22 @@ function SignInGateDialog({
   );
 }
 
-function GateLinks({ next, children }: { next: string; children: ReactNode }) {
+function GateLinks({
+  next,
+  onLeave,
+  children,
+}: {
+  next: string;
+  onLeave: () => void;
+  children: ReactNode;
+}) {
   return (
     <p className="mt-5 text-sm text-muted">
-      <Link href={authHref("/login", next)} className="font-medium text-accent hover:underline">
+      <Link href={authHref("/login", next)} onClick={onLeave} className="font-medium text-accent hover:underline">
         {children}
       </Link>
       {" · "}
-      <Link href={authHref("/signup", next)} className="font-medium text-accent hover:underline">
+      <Link href={authHref("/signup", next)} onClick={onLeave} className="font-medium text-accent hover:underline">
         Create account
       </Link>
     </p>

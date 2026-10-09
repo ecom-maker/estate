@@ -3,6 +3,7 @@ import { DM_Sans } from "next/font/google";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Providers } from "@/components/providers";
+import { googleOneTapClientId } from "@/lib/auth";
 import { getAppUrl } from "@/lib/app-url";
 import "./globals.css";
 
@@ -41,7 +42,7 @@ export default function RootLayout({
       className={`${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Providers>
+        <Providers googleClientId={googleOneTapClientId}>
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
