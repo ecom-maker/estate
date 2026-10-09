@@ -134,3 +134,12 @@ h3,
   color: var(--color-primary);
   font-weight: 500;
 }
+
+/* Phone field: the whole box shows focus, not the inner input. */
+.phone-field input:focus-visible {
+  outline: none;
+}
+.phone-field:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
