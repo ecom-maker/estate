@@ -110,7 +110,8 @@ export default async function ContactHistoryPage({
 
               {it.messages.length ? (
                 <div className="space-y-3 border-t border-border px-4 py-4">
-                  {it.messages.map((m, i) => {
+                  {/* Latest message on top, matching the history ordering. */}
+                  {[...it.messages].reverse().map((m, i) => {
                     const isUser = m.role === "USER";
                     return (
                       <div
