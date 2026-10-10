@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
+import { countContacts } from "@/lib/admin/contacts";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin" };
@@ -14,10 +15,11 @@ export default async function AdminPage() {
     { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
     { label: "Knowledge documents", value: "—", href: "/admin/knowledge-base" },
     { label: "AI usage (all)", value: "—", href: "/admin/ai" },
+    { label: "Contacts", value: "—", href: "/admin/contacts" },
   ];
 
   try {
-    const [properties, projects, active, conversations, docs, aiLogs] =
+    const [properties, projects, active, conversations, docs, aiLogs, contacts] =
       await Promise.all([
         prisma.property.count({ where: { deletedAt: null, offPlan: false } }),
         prisma.property.count({ where: { deletedAt: null, offPlan: true } }),
@@ -25,6 +27,7 @@ export default async function AdminPage() {
         prisma.chatSession.count(),
         prisma.knowledgeDocument.count({ where: { deletedAt: null } }),
         prisma.aiLog.count(),
+        countContacts(),
       ]);
     cards = [
       { label: "Properties", value: String(properties), href: "/admin/properties?filter=ready" },
@@ -34,6 +37,7 @@ export default async function AdminPage() {
       { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
       { label: "Knowledge documents", value: String(docs), href: "/admin/knowledge-base" },
       { label: "AI usage (all)", value: String(aiLogs), href: "/admin/ai" },
+      { label: "Contacts", value: String(contacts), href: "/admin/contacts" },
     ];
   } catch {
     // keep placeholders
@@ -41,6 +45,7 @@ export default async function AdminPage() {
 
   const links = [
     ["Properties", "/admin/properties"],
+    ["Contacts", "/admin/contacts"],
     ["Leads", "/admin/leads"],
     ["AI agents (CRM)", "/admin/agents"],
     ["AI", "/admin/ai"],
