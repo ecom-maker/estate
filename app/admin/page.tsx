@@ -16,6 +16,7 @@ export default async function AdminPage() {
     { label: "Knowledge documents", value: "—", href: "/admin/knowledge-base" },
     { label: "AI usage (all)", value: "—", href: "/admin/ai" },
     { label: "Contacts", value: "—", href: "/admin/contacts" },
+    { label: "Calendar", value: "Viewings", href: "/admin/calendar" },
   ];
 
   try {
@@ -38,6 +39,7 @@ export default async function AdminPage() {
       { label: "Knowledge documents", value: String(docs), href: "/admin/knowledge-base" },
       { label: "AI usage (all)", value: String(aiLogs), href: "/admin/ai" },
       { label: "Contacts", value: String(contacts), href: "/admin/contacts" },
+      { label: "Calendar", value: "Viewings", href: "/admin/calendar" },
     ];
   } catch {
     // keep placeholders
@@ -46,6 +48,7 @@ export default async function AdminPage() {
   const links = [
     ["Properties", "/admin/properties"],
     ["Contacts", "/admin/contacts"],
+    ["Calendar", "/admin/calendar"],
     ["Leads", "/admin/leads"],
     ["AI agents (CRM)", "/admin/agents"],
     ["AI", "/admin/ai"],
