@@ -3,16 +3,18 @@ import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
+import { CalendarBoard, type CalViewing } from "@/components/admin/calendar-board";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Calendar" };
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
 type Viewing = {
   id: string;
   name: string | null;
+  phone: string | null;
+  email: string | null;
   preferredDate: string | null;
   preferredTime: string | null;
   status: string;
@@ -54,6 +56,8 @@ export default async function AdminCalendarPage({
       select: {
         id: true,
         name: true,
+        phone: true,
+        email: true,
         preferredDate: true,
         preferredTime: true,
         status: true,
@@ -64,30 +68,24 @@ export default async function AdminCalendarPage({
     viewings = [];
   }
 
-  // Group by day-of-month.
-  const byDay = new Map<number, Viewing[]>();
-  for (const v of viewings) {
-    const d = Number(v.preferredDate?.slice(8, 10));
-    if (!d) continue;
-    const list = byDay.get(d) ?? [];
-    list.push(v);
-    byDay.set(d, list);
-  }
+  // Shape for the interactive board (only rows with a valid YYYY-MM-DD date).
+  const boardViewings: CalViewing[] = viewings
+    .filter((v) => v.preferredDate && /^\d{4}-\d{2}-\d{2}/.test(v.preferredDate))
+    .map((v) => ({
+      id: v.id,
+      name: v.name,
+      phone: v.phone,
+      email: v.email,
+      preferredDate: v.preferredDate!.slice(0, 10),
+      preferredTime: v.preferredTime,
+      status: v.status,
+      propertyTitle: v.property?.title ?? null,
+      propertyHref: v.property
+        ? `/${v.property.offPlan ? "projects" : "properties"}/${v.property.slug}`
+        : null,
+    }));
 
   const first = new Date(year, month - 1, 1);
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const lead = (first.getDay() + 6) % 7; // Monday-first leading blanks
-  const cells: (number | null)[] = [
-    ...Array<null>(lead).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const isToday = (d: number) =>
-    year === now.getFullYear() &&
-    month === now.getMonth() + 1 &&
-    d === now.getDate();
-
   const title = first.toLocaleDateString("en-GB", {
     month: "long",
     year: "numeric",
@@ -145,72 +143,11 @@ export default async function AdminCalendarPage({
         </div>
       </div>
       <p className="mt-2 text-sm text-muted">
-        {viewings.length} {viewings.length === 1 ? "viewing" : "viewings"} this
-        month.
+        {boardViewings.length}{" "}
+        {boardViewings.length === 1 ? "viewing" : "viewings"} this month.
       </p>
 
-      <div className="mt-6 grid grid-cols-7 gap-px overflow-hidden rounded-sm border border-border bg-border">
-        {WEEKDAYS.map((d) => (
-          <div
-            key={d}
-            className="bg-card px-2 py-2 text-center text-[11px] font-medium uppercase tracking-wider text-muted"
-          >
-            {d}
-          </div>
-        ))}
-        {cells.map((d, i) => {
-          const dayViewings = d ? (byDay.get(d) ?? []) : [];
-          return (
-            <div
-              key={i}
-              className={`min-h-28 bg-background p-1.5 ${d ? "" : "bg-card/40"}`}
-            >
-              {d ? (
-                <>
-                  <div
-                    className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs ${
-                      isToday(d)
-                        ? "bg-accent font-semibold text-white"
-                        : "text-muted"
-                    }`}
-                  >
-                    {d}
-                  </div>
-                  <div className="space-y-1">
-                    {dayViewings.map((v) => (
-                      <Link
-                        key={v.id}
-                        href={
-                          v.property
-                            ? `/${v.property.offPlan ? "projects" : "properties"}/${v.property.slug}`
-                            : "/admin/leads"
-                        }
-                        className="block rounded-sm border border-accent/30 bg-accent/10 px-1.5 py-1 text-[11px] leading-tight text-primary transition hover:border-accent"
-                        title={`${v.property?.title ?? "Viewing"} — ${v.name ?? "Unknown"}${v.preferredTime ? ` · ${v.preferredTime}` : ""} (${v.status})`}
-                      >
-                        {v.preferredTime ? (
-                          <span className="font-medium">{v.preferredTime} · </span>
-                        ) : null}
-                        <span className="font-medium">
-                          {v.property?.title ?? "Viewing"}
-                        </span>
-                        <span className="block truncate text-muted">
-                          {v.name ?? "Unknown"}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-
-      <p className="mt-4 text-xs text-muted">
-        Viewings are property-viewing requests booked by customers (via the
-        assistant or an agent). Cancelled viewings are hidden.
-      </p>
+      <CalendarBoard viewings={boardViewings} year={year} month={month} />
     </div>
   );
 }
