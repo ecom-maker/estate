@@ -31,11 +31,15 @@ export default async function AdminPropertiesPage({
 }: {
   searchParams: Promise<{ filter?: string }>;
 }) {
+  let session;
   try {
-    await assertPermission("properties.update");
+    session = await assertPermission("properties.update");
   } catch {
     redirect("/login?next=/admin/properties");
   }
+  const myId = session.user?.id ?? null;
+  const roles = (session.user as { roles?: string[] } | undefined)?.roles ?? [];
+  const isSuper = roles.includes("SUPER_ADMIN");
 
   const { filter: filterParam } = await searchParams;
   const filter: Filter = FILTERS.some((f) => f.key === filterParam)
@@ -69,6 +73,46 @@ export default async function AdminPropertiesPage({
   } catch {
     properties = [];
     total = 0;
+  }
+
+  // Creator per listing, from the property_create audit records (no schema
+  // column). Earliest log wins; map to the user's name/email for display.
+  const creatorByProp = new Map<string, string | null>();
+  const creatorLabel = new Map<string, string>();
+  try {
+    const ids = properties.map((p) => p.id);
+    if (ids.length) {
+      const logs = await prisma.auditLog.findMany({
+        where: {
+          action: "property_create",
+          entityType: "property",
+          entityId: { in: ids },
+        },
+        orderBy: { createdAt: "asc" },
+        select: { entityId: true, userId: true },
+      });
+      for (const l of logs) {
+        if (l.entityId && !creatorByProp.has(l.entityId)) {
+          creatorByProp.set(l.entityId, l.userId);
+        }
+      }
+      const userIds = [
+        ...new Set(
+          [...creatorByProp.values()].filter((v): v is string => Boolean(v)),
+        ),
+      ];
+      if (userIds.length) {
+        const users = await prisma.user.findMany({
+          where: { id: { in: userIds } },
+          select: { id: true, name: true, email: true },
+        });
+        for (const u of users) {
+          creatorLabel.set(u.id, u.name || u.email || "Admin");
+        }
+      }
+    }
+  } catch {
+    // creators are best-effort
   }
 
   return (
@@ -123,38 +167,57 @@ export default async function AdminPropertiesPage({
               <th>Beds</th>
               <th>Price</th>
               <th>Status</th>
+              <th>Created by</th>
               <th className="px-4">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {properties.map((property) => (
-              <tr key={property.id} className="border-t border-border">
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/properties/${property.slug}`}
-                    className="text-primary hover:text-accent"
-                  >
-                    {property.title}
-                  </Link>
-                </td>
-                <td>{property.type}</td>
-                <td>{property.community?.name ?? "—"}</td>
-                <td>{property.bedrooms ?? "—"}</td>
-                <td>{formatAED(property.priceAed)}</td>
-                <td>{property.status}</td>
-                <td className="px-4">
-                  <Link
-                    href={`/admin/properties/${property.id}/edit`}
-                    className="font-medium text-accent hover:underline"
-                  >
-                    Edit
-                  </Link>
-                </td>
-              </tr>
-            ))}
+            {properties.map((property) => {
+              const creatorId = creatorByProp.get(property.id) ?? null;
+              const createdBy = creatorId
+                ? (creatorLabel.get(creatorId) ?? "Admin")
+                : "—";
+              const canEdit =
+                isSuper || creatorId == null || creatorId === myId;
+              return (
+                <tr key={property.id} className="border-t border-border">
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/properties/${property.slug}`}
+                      className="text-primary hover:text-accent"
+                    >
+                      {property.title}
+                    </Link>
+                  </td>
+                  <td>{property.type}</td>
+                  <td>{property.community?.name ?? "—"}</td>
+                  <td>{property.bedrooms ?? "—"}</td>
+                  <td>{formatAED(property.priceAed)}</td>
+                  <td>{property.status}</td>
+                  <td className="text-muted">{createdBy}</td>
+                  <td className="px-4">
+                    {canEdit ? (
+                      <Link
+                        href={`/admin/properties/${property.id}/edit`}
+                        className="font-medium text-accent hover:underline"
+                      >
+                        Edit
+                      </Link>
+                    ) : (
+                      <span
+                        className="cursor-not-allowed font-medium text-muted/50"
+                        title="Only the creator or a Super Admin can edit this listing"
+                      >
+                        Edit
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {properties.length === 0 ? (
               <tr className="border-t border-border">
-                <td colSpan={7} className="px-4 py-6 text-muted">
+                <td colSpan={8} className="px-4 py-6 text-muted">
                   No properties yet.{" "}
                   <Link
                     href="/admin/properties/new"
