@@ -554,11 +554,42 @@ function describe(p: AgentProperty) {
   };
 }
 
+/** Nearby distances stored on metadata.nearbyData, as readable strings. */
+function nearbyFacts(metadata: unknown) {
+  const nd = (
+    metadata as {
+      nearbyData?: {
+        landmarks?: { name?: unknown; km?: unknown }[];
+        schools?: { name?: unknown; km?: unknown }[];
+        hospitals?: { name?: unknown; km?: unknown }[];
+        metro?: { name?: unknown; km?: unknown }[];
+      };
+    } | null
+  )?.nearbyData;
+  if (!nd) return null;
+  const fmt = (arr: { name?: unknown; km?: unknown }[] | undefined) =>
+    Array.isArray(arr)
+      ? arr
+          .filter(
+            (x) => typeof x?.name === "string" && typeof x?.km === "number",
+          )
+          .map((x) => `${x.name as string}: ${x.km as number} km by road`)
+      : [];
+  const landmarks = fmt(nd.landmarks);
+  const schools = fmt(nd.schools);
+  const hospitals = fmt(nd.hospitals);
+  const metro = fmt(nd.metro);
+  if (!landmarks.length && !schools.length && !hospitals.length && !metro.length)
+    return null;
+  return { landmarks, schools, hospitals, metro };
+}
+
 export function propertyDetails(p: AgentProperty) {
   const m = meta(p);
   const done = completion(p);
   return {
     ...summarize({ p }),
+    nearby: nearbyFacts(p.metadata),
     listingStatus: p.status,
     summary: p.summary || null,
     keyPoints: highlightList(p.highlights),

@@ -83,7 +83,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "get_property",
-      description: "Full verified facts for one property or project: unit types with prices and sizes, payment plans, handover, construction progress, service charge, amenities, documents.",
+      description: "Full verified facts for one property or project: unit types with prices and sizes, payment plans, handover, construction progress, service charge, amenities, documents, and nearby landmarks, schools, hospitals and metro stations with road distances (the `nearby` field).",
       parameters: {
         type: "object",
         properties: { property: { type: "string", description: "Property id, slug or name." } },
