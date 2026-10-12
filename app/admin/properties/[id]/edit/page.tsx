@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 import { PropertyForm } from "@/components/admin/property-form";
+import { RefreshNearbyButton } from "@/components/admin/refresh-nearby-button";
 import { canEditProperty } from "@/lib/admin/property-access";
 import { updateProperty } from "../../actions";
 
@@ -105,6 +106,18 @@ export default async function EditPropertyPage({
           you. Only its creator or a Super Admin can edit it.
         </div>
       )}
+
+      <section className="mt-12">
+        <h2 className="font-serif text-2xl text-primary">Nearby data</h2>
+        <p className="mt-1 text-sm text-muted">
+          Schools, hospitals, metro and landmarks are cached in the database.
+          Refresh to recompute them from the maps APIs (e.g. after moving the
+          coordinates).
+        </p>
+        <div className="mt-3">
+          <RefreshNearbyButton propertyId={property.id} />
+        </div>
+      </section>
 
       <section className="mt-12">
         <h2 className="font-serif text-2xl text-primary">Edit history</h2>

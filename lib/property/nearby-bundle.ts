@@ -117,3 +117,42 @@ export async function getNearbyBundle(property: {
 
   return bundle;
 }
+
+/**
+ * Force-recompute the nearby data from the APIs and store it immediately
+ * (synchronous write), overwriting any cached metadata.nearbyData. Used by the
+ * admin "Refresh nearby data" action. Clears the cache when coords are missing.
+ */
+export async function recomputeAndStoreNearby(property: {
+  id: string;
+  latitude: number | null;
+  longitude: number | null;
+}): Promise<NearbyBundle> {
+  const bundle: NearbyBundle = hasCoords(property.latitude, property.longitude)
+    ? await (async () => {
+        const [landmarks, schools, hospitals, metro] = await Promise.all([
+          getNearbyLandmarks(property.latitude, property.longitude),
+          getNearbySchools(property.latitude, property.longitude),
+          getNearbyHospitals(property.latitude, property.longitude),
+          getNearbyMetro(property.latitude, property.longitude),
+        ]);
+        return { landmarks, schools, hospitals, metro };
+      })()
+    : EMPTY;
+
+  const row = await prisma.property.findUnique({
+    where: { id: property.id },
+    select: { metadata: true },
+  });
+  const meta = (row?.metadata as Record<string, unknown> | null) ?? {};
+  await prisma.property.update({
+    where: { id: property.id },
+    data: {
+      metadata: {
+        ...meta,
+        nearbyData: { ...bundle, at: new Date().toISOString() },
+      } as Prisma.InputJsonValue,
+    },
+  });
+  return bundle;
+}

@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 import { canEditProperty } from "@/lib/admin/property-access";
+import { recomputeAndStoreNearby } from "@/lib/property/nearby-bundle";
 import { COMMUNITY_CATALOG, communityForText } from "@/lib/communities/catalog";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 
@@ -95,6 +96,37 @@ async function uniqueSlug(base: string, excludeId?: string) {
     slug = `${root}-${nanoid(4)}`;
   }
   return `${root}-${nanoid(8)}`;
+}
+
+export type RefreshNearbyState = { ok?: boolean; error?: string };
+
+/** Admin action: recompute and re-store a property's nearby data from the APIs. */
+export async function refreshNearbyData(
+  _prev: RefreshNearbyState,
+  formData: FormData,
+): Promise<RefreshNearbyState> {
+  try {
+    await assertPermission("properties.update");
+  } catch {
+    return { error: "You must be an admin to refresh nearby data." };
+  }
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing property id." };
+  try {
+    const property = await prisma.property.findUnique({
+      where: { id },
+      select: { id: true, slug: true, latitude: true, longitude: true, offPlan: true },
+    });
+    if (!property) return { error: "Property not found." };
+    await recomputeAndStoreNearby(property);
+    revalidatePath(`/${property.offPlan ? "projects" : "properties"}/${property.slug}`);
+    revalidatePath(`/admin/properties/${id}/edit`);
+    return { ok: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not refresh.",
+    };
+  }
 }
 
 export async function createProperty(
