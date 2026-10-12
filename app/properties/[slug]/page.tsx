@@ -15,11 +15,8 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import type { Metadata } from "next";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
-import { formatKm, storedNearby } from "@/lib/property/nearby";
-import { getNearbyLandmarks } from "@/lib/property/nearby-live";
-import { getNearbySchools } from "@/lib/property/schools";
-import { getNearbyHospitals } from "@/lib/property/hospitals";
-import { getNearbyMetro } from "@/lib/property/metro";
+import { formatKm } from "@/lib/property/nearby";
+import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 import { metaDescription } from "@/lib/property/description";
 
 export const dynamic = "force-dynamic";
@@ -121,22 +118,14 @@ export default async function PropertyDetailPage({ params }: Props) {
   // RERA is hidden entirely when there's nothing on file.
   const reraLabel = property.reraStatus?.trim() || null;
 
-  // Driving distances (Google Distance Matrix, straight-line fallback).
-  let nearby = await getNearbyLandmarks(property.latitude, property.longitude);
-  if (!nearby.length) nearby = storedNearby(property.metadata) ?? [];
-  const nearbySchools = await getNearbySchools(
-    property.latitude,
-    property.longitude,
-  );
-  const nearbyHospitals = await getNearbyHospitals(
-    property.latitude,
-    property.longitude,
-  );
-  // Metro only shows when a station is within 2 km (empty list hides it).
-  const nearbyMetro = await getNearbyMetro(
-    property.latitude,
-    property.longitude,
-  );
+  // Nearby data: served from the DB (metadata.nearbyData) after the first
+  // compute; the APIs are only called when it isn't stored yet.
+  const {
+    landmarks: nearby,
+    schools: nearbySchools,
+    hospitals: nearbyHospitals,
+    metro: nearbyMetro,
+  } = await getNearbyBundle(property);
 
   return (
     <div className="mx-auto grid max-w-7xl gap-10 px-6 pb-28 pt-14 lg:grid-cols-[1.4fr_0.8fr] md:px-10">

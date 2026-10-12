@@ -13,11 +13,8 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
-import { formatKm, storedNearby } from "@/lib/property/nearby";
-import { getNearbyLandmarks } from "@/lib/property/nearby-live";
-import { getNearbySchools } from "@/lib/property/schools";
-import { getNearbyHospitals } from "@/lib/property/hospitals";
-import { getNearbyMetro } from "@/lib/property/metro";
+import { formatKm } from "@/lib/property/nearby";
+import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 
 export const dynamic = "force-dynamic";
 
@@ -146,21 +143,14 @@ export default async function ProjectDetailPage({ params }: Props) {
         },
   ].filter((m) => m.date);
 
-  // Driving distances from the project's coordinates (Google Distance Matrix,
-  // straight-line fallback). Stored metadata is used only when we have no
-  // coordinates to route from.
-  let nearby = await getNearbyLandmarks(project.latitude, project.longitude);
-  if (!nearby.length) nearby = storedNearby(project.metadata) ?? [];
-  const nearbySchools = await getNearbySchools(
-    project.latitude,
-    project.longitude,
-  );
-  const nearbyHospitals = await getNearbyHospitals(
-    project.latitude,
-    project.longitude,
-  );
-  // Metro only shows when a station is within 2 km (empty list hides it).
-  const nearbyMetro = await getNearbyMetro(project.latitude, project.longitude);
+  // Nearby data: served from the DB (metadata.nearbyData) after the first
+  // compute; the APIs are only called when it isn't stored yet.
+  const {
+    landmarks: nearby,
+    schools: nearbySchools,
+    hospitals: nearbyHospitals,
+    metro: nearbyMetro,
+  } = await getNearbyBundle(project);
 
   return (
     <div className="mx-auto max-w-7xl px-6 pb-28 pt-14 md:px-10">
