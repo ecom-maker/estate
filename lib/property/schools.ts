@@ -42,8 +42,23 @@ type PlacesResponse = {
   places?: {
     displayName?: { text?: string };
     location?: { latitude?: number; longitude?: number };
+    types?: string[];
   }[];
 };
+
+// Place types that are nurseries/early-years, not actual schools.
+const EXCLUDED_TYPES = new Set(["preschool", "child_care_agency"]);
+
+// Names that signal a nursery/playschool/activity centre, not a real school —
+// even when Google mis-tags it. Real schools won't contain these words.
+const NURSERY_NAME =
+  /\b(nurser(?:y|ies)|play\s?-?school|pre-?school|kindergarten|early\s?(?:learning|years|childhood)|day\s?-?care|cr[eè]che|nido|swim(?:ming)?|lesson|tutor|tuition|coaching)\b/i;
+
+function isRealSchool(name: string, types: string[] | undefined): boolean {
+  if (NURSERY_NAME.test(name)) return false;
+  if (types?.some((t) => EXCLUDED_TYPES.has(t))) return false;
+  return true;
+}
 
 export async function getNearbySchools(
   lat: number | null | undefined,
@@ -66,11 +81,14 @@ export async function getNearbySchools(
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask": "places.displayName,places.location",
+          "X-Goog-FieldMask": "places.displayName,places.location,places.types",
         },
         body: JSON.stringify({
-          includedTypes: ["school"],
-          maxResultCount: 15,
+          // Only actual schools — not the generic "school" type, which also
+          // tags nurseries, swimming lessons and tutoring centres.
+          includedTypes: ["primary_school", "secondary_school"],
+          excludedTypes: ["preschool", "child_care_agency"],
+          maxResultCount: 20,
           rankPreference: "DISTANCE",
           locationRestriction: {
             circle: {
@@ -93,6 +111,7 @@ export async function getNearbySchools(
         if (!name || typeof plat !== "number" || typeof plng !== "number") {
           return null;
         }
+        if (!isRealSchool(name, p.types)) return null;
         return {
           name,
           lat: plat,
