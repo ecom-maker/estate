@@ -49,12 +49,17 @@ type PlacesResponse = {
 // Place types that are nurseries/early-years, not actual schools.
 const EXCLUDED_TYPES = new Set(["preschool", "child_care_agency"]);
 
-// Names that signal a nursery/playschool/activity centre, not a real school —
-// even when Google mis-tags it. Real schools won't contain these words.
+// A real school's name says so. Dubai's Places data is full of junk listings
+// (individual tutors, random names) mis-typed as schools, so we require a
+// positive signal rather than only filtering negatives.
+const SCHOOL_NAME = /\b(schools?|academy|academies|college|grammar)\b/i;
+
+// Names that signal a nursery/playschool/activity centre, not a real school.
 const NURSERY_NAME =
   /\b(nurser(?:y|ies)|play\s?-?school|pre-?school|kindergarten|early\s?(?:learning|years|childhood)|day\s?-?care|cr[eè]che|nido|swim(?:ming)?|lesson|tutor|tuition|coaching)\b/i;
 
 function isRealSchool(name: string, types: string[] | undefined): boolean {
+  if (!SCHOOL_NAME.test(name)) return false;
   if (NURSERY_NAME.test(name)) return false;
   if (types?.some((t) => EXCLUDED_TYPES.has(t))) return false;
   return true;
