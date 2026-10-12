@@ -11,6 +11,17 @@ import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 
 export type PropertyFormState = { error?: string };
 
+/** Normalise a value for change comparison (null/""/undefined all equal). */
+function norm(v: unknown): string {
+  if (v == null || v === "") return "";
+  return String(v);
+}
+/** Readable, length-capped value for the edit-history record. */
+function hv(v: unknown): string {
+  const s = v == null || v === "" ? "—" : String(v);
+  return s.length > 200 ? `${s.slice(0, 200)}…` : s;
+}
+
 const TYPES: PropertyType[] = [
   "VILLA",
   "APARTMENT",
@@ -146,8 +157,9 @@ export async function updateProperty(
   _prev: PropertyFormState,
   formData: FormData,
 ): Promise<PropertyFormState> {
+  let session;
   try {
-    await assertPermission("properties.update");
+    session = await assertPermission("properties.update");
   } catch {
     return { error: "You must be signed in as an admin to edit properties." };
   }
@@ -163,7 +175,22 @@ export async function updateProperty(
       : undefined;
     const existing = await prisma.property.findUnique({
       where: { id },
-      select: { metadata: true, description: true },
+      select: {
+        metadata: true,
+        description: true,
+        title: true,
+        type: true,
+        status: true,
+        priceAed: true,
+        bedrooms: true,
+        bathrooms: true,
+        areaSqft: true,
+        offPlan: true,
+        ready: true,
+        waterfront: true,
+        furnished: true,
+        slug: true,
+      },
     });
     const metadata: Record<string, unknown> = {
       ...((existing?.metadata as Record<string, unknown> | null) ?? {}),
@@ -202,6 +229,48 @@ export async function updateProperty(
           : { disconnect: true },
       },
     });
+
+    // Edit history: record which fields changed, by whom. Best-effort so a
+    // logging hiccup never fails the edit.
+    try {
+      const oldMeta =
+        (existing?.metadata as Record<string, unknown> | null) ?? {};
+      const fields: [string, unknown, unknown][] = [
+        ["title", existing?.title, input.title],
+        ["type", existing?.type, type],
+        ["status", existing?.status, input.status],
+        ["price (AED)", existing?.priceAed, input.priceAed],
+        ["bedrooms", existing?.bedrooms, input.bedrooms],
+        ["bathrooms", existing?.bathrooms, input.bathrooms],
+        ["area (sqft)", existing?.areaSqft, input.areaSqft],
+        ["off-plan", existing?.offPlan, input.offPlan],
+        ["ready", existing?.ready, input.ready],
+        ["waterfront", existing?.waterfront, input.waterfront],
+        ["furnished", existing?.furnished, input.furnished],
+        ["handover date", oldMeta.handoverDate ?? null, metadata.handoverDate ?? null],
+        ["deal type", oldMeta.dealType ?? null, metadata.dealType ?? null],
+        ["description", existing?.description, input.description],
+        ...(slug
+          ? ([["slug", existing?.slug, slug]] as [string, unknown, unknown][])
+          : []),
+      ];
+      const changes = fields
+        .filter(([, a, b]) => norm(a) !== norm(b))
+        .map(([field, from, to]) => ({ field, from: hv(from), to: hv(to) }));
+      if (changes.length) {
+        await prisma.auditLog.create({
+          data: {
+            userId: session.user?.id ?? null,
+            action: "property_update",
+            entityType: "property",
+            entityId: id,
+            meta: { changes, title: input.title } as Prisma.InputJsonValue,
+          },
+        });
+      }
+    } catch {
+      // ignore history write errors
+    }
   } catch (error) {
     return {
       error:

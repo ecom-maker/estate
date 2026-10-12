@@ -8,6 +8,18 @@ import { updateProperty } from "../../actions";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit Property" };
 
+type Change = { field: string; from: string; to: string };
+
+function fmtDateTime(d: Date): string {
+  return d.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function EditPropertyPage({
   params,
 }: {
@@ -32,6 +44,17 @@ export default async function EditPropertyPage({
   ]);
 
   if (!property) notFound();
+
+  const history = await prisma.auditLog.findMany({
+    where: {
+      entityType: "property",
+      entityId: property.id,
+      action: "property_update",
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: { user: { select: { name: true, email: true } } },
+  });
 
   const meta = (property.metadata ?? {}) as {
     handoverDate?: string;
@@ -71,6 +94,46 @@ export default async function EditPropertyPage({
         }}
         submitLabel="Save changes"
       />
+
+      <section className="mt-12">
+        <h2 className="font-serif text-2xl text-primary">Edit history</h2>
+        {history.length === 0 ? (
+          <p className="mt-2 text-sm text-muted">
+            No edits recorded yet. Changes made from here on are logged.
+          </p>
+        ) : (
+          <ol className="mt-4 space-y-3">
+            {history.map((h) => {
+              const changes = ((h.meta as { changes?: Change[] } | null)
+                ?.changes ?? []) as Change[];
+              return (
+                <li
+                  key={h.id}
+                  className="rounded-sm border border-border bg-card p-4"
+                >
+                  <div className="flex items-center justify-between text-xs text-muted">
+                    <span className="font-medium text-primary">
+                      {h.user?.name || h.user?.email || "Unknown"}
+                    </span>
+                    <span>{fmtDateTime(h.createdAt)}</span>
+                  </div>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {changes.map((c, i) => (
+                      <li key={i}>
+                        <span className="font-medium text-primary">
+                          {c.field}:
+                        </span>{" "}
+                        <span className="text-muted line-through">{c.from}</span>{" "}
+                        → <span className="text-primary">{c.to}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
     </div>
   );
 }
