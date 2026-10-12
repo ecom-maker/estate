@@ -1,4 +1,5 @@
 import { computeNearbySchools, type NearbyLandmark } from "@/lib/property/nearby";
+import { roadDistancesKm } from "@/lib/property/road-distance";
 
 /**
  * Nearby schools from Google Places (Nearby Search, New). Needs
@@ -84,7 +85,7 @@ export async function getNearbySchools(
     if (!res.ok) throw new Error(`Places ${res.status}`);
     const data = (await res.json()) as PlacesResponse;
 
-    const schools: NearbyLandmark[] = (data.places ?? [])
+    const nearest = (data.places ?? [])
       .map((p) => {
         const name = p.displayName?.text?.trim();
         const plat = p.location?.latitude;
@@ -94,11 +95,24 @@ export async function getNearbySchools(
         }
         return {
           name,
+          lat: plat,
+          lng: plng,
           km: Math.round(haversineKm(lat, lng as number, plat, plng) * 10) / 10,
         };
       })
-      .filter((s): s is NearbyLandmark => s !== null)
+      .filter((s): s is { name: string; lat: number; lng: number; km: number } =>
+        s !== null,
+      )
       .slice(0, MAX_RESULTS);
+
+    // Upgrade to driving distance where Google can route it.
+    const road = await roadDistancesKm(
+      { lat, lng: lng as number },
+      nearest.map((s) => ({ lat: s.lat, lng: s.lng })),
+    );
+    const schools: NearbyLandmark[] = nearest
+      .map((s, i) => ({ name: s.name, km: road[i] ?? s.km }))
+      .sort((a, b) => a.km - b.km);
 
     const result = schools.length ? schools : computeNearbySchools(lat, lng);
     cache.set(key, { at: Date.now(), schools: result });

@@ -13,7 +13,8 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
-import { computeNearby, formatKm, storedNearby } from "@/lib/property/nearby";
+import { formatKm, storedNearby } from "@/lib/property/nearby";
+import { getNearbyLandmarks } from "@/lib/property/nearby-live";
 import { getNearbySchools } from "@/lib/property/schools";
 
 export const dynamic = "force-dynamic";
@@ -143,11 +144,11 @@ export default async function ProjectDetailPage({ params }: Props) {
         },
   ].filter((m) => m.date);
 
-  // Straight-line distances from the project's coordinates (stored by
-  // scripts/compute-nearby.ts; computed here if a re-import dropped them).
-  const nearby =
-    storedNearby(project.metadata) ??
-    computeNearby(project.latitude, project.longitude);
+  // Driving distances from the project's coordinates (Google Distance Matrix,
+  // straight-line fallback). Stored metadata is used only when we have no
+  // coordinates to route from.
+  let nearby = await getNearbyLandmarks(project.latitude, project.longitude);
+  if (!nearby.length) nearby = storedNearby(project.metadata) ?? [];
   const nearbySchools = await getNearbySchools(
     project.latitude,
     project.longitude,
@@ -280,7 +281,7 @@ export default async function ProjectDetailPage({ params }: Props) {
             <section className="mt-10">
               <h2 className="font-serif text-2xl text-primary">Nearby</h2>
               <p className="mt-1 text-sm text-muted">
-                Straight-line distance from the project
+                Driving distance from the project
               </p>
               <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                 {nearby.map((n) => (
@@ -305,7 +306,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                 Nearby Schools
               </h2>
               <p className="mt-1 text-sm text-muted">
-                Straight-line distance from the project
+                Driving distance from the project
               </p>
               <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                 {nearbySchools.map((s) => (

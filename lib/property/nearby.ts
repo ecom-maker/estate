@@ -76,6 +76,24 @@ export function computeNearby(
   return all.slice(0, MAX_RESULTS);
 }
 
+export type NearbyGeo = { name: string; lat: number; lng: number; km: number };
+
+/** Nearest landmarks WITH coordinates (so callers can fetch road distance). */
+export function nearestLandmarks(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): NearbyGeo[] {
+  if (!validCoord(lat, lng)) return [];
+  const all = LANDMARKS.map((l) => ({
+    name: l.name,
+    lat: l.lat,
+    lng: l.lng,
+    km: Math.round(haversineKm(lat!, lng!, l.lat, l.lng) * 10) / 10,
+  })).sort((a, b) => a.km - b.km);
+  if (!all.length || all[0].km > MAX_NEAREST_KM) return [];
+  return all.slice(0, MAX_RESULTS);
+}
+
 /** Nearest schools to the project's coordinates, straight-line, nearest first. */
 export function computeNearbySchools(
   lat: number | null | undefined,
