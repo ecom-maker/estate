@@ -19,8 +19,27 @@ const LANDMARKS: { name: string; lat: number; lng: number }[] = [
   { name: "Al Maktoum International Airport (DWC)", lat: 24.8962, lng: 55.1614 },
 ];
 
+/** Well-known Dubai schools, for the "Nearby Schools" section. Coordinates are
+ *  approximate — distances are straight-line, like the landmarks above. */
+const SCHOOLS: { name: string; lat: number; lng: number }[] = [
+  { name: "GEMS Wellington International School", lat: 25.114, lng: 55.186 },
+  { name: "Dubai College", lat: 25.118, lng: 55.179 },
+  { name: "Kings' School Dubai (Umm Suqeim)", lat: 25.14, lng: 55.201 },
+  { name: "Jumeirah College", lat: 25.16, lng: 55.236 },
+  { name: "Raffles World Academy", lat: 25.118, lng: 55.236 },
+  { name: "GEMS Dubai American Academy", lat: 25.105, lng: 55.196 },
+  { name: "GEMS World Academy", lat: 25.105, lng: 55.207 },
+  { name: "Dubai International Academy (Emirates Hills)", lat: 25.059, lng: 55.176 },
+  { name: "Dubai British School (Emirates Hills)", lat: 25.062, lng: 55.172 },
+  { name: "Nord Anglia International School Dubai", lat: 25.064, lng: 55.236 },
+  { name: "Repton School Dubai (Nad Al Sheba)", lat: 25.16, lng: 55.32 },
+  { name: "GEMS Modern Academy (Nad Al Sheba)", lat: 25.166, lng: 55.328 },
+];
+
 /** How many landmarks to keep, nearest first. */
 const MAX_RESULTS = 5;
+/** Schools further than this from the project aren't worth listing. */
+const SCHOOL_MAX_NEAREST_KM = 25;
 /** Beyond this the property isn't in Dubai (e.g. Abu Dhabi, RAK) — show none. */
 const MAX_NEAREST_KM = 60;
 
@@ -54,6 +73,20 @@ export function computeNearby(
     km: Math.round(haversineKm(lat!, lng!, l.lat, l.lng) * 10) / 10,
   })).sort((a, b) => a.km - b.km);
   if (!all.length || all[0].km > MAX_NEAREST_KM) return [];
+  return all.slice(0, MAX_RESULTS);
+}
+
+/** Nearest schools to the project's coordinates, straight-line, nearest first. */
+export function computeNearbySchools(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): NearbyLandmark[] {
+  if (!validCoord(lat, lng)) return [];
+  const all = SCHOOLS.map((s) => ({
+    name: s.name,
+    km: Math.round(haversineKm(lat!, lng!, s.lat, s.lng) * 10) / 10,
+  })).sort((a, b) => a.km - b.km);
+  if (!all.length || all[0].km > SCHOOL_MAX_NEAREST_KM) return [];
   return all.slice(0, MAX_RESULTS);
 }
 
