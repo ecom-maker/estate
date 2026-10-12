@@ -36,10 +36,28 @@ const SCHOOLS: { name: string; lat: number; lng: number }[] = [
   { name: "GEMS Modern Academy (Nad Al Sheba)", lat: 25.166, lng: 55.328 },
 ];
 
+/** Major Dubai hospitals, for the "Nearby Hospitals" section (approximate
+ *  coordinates; distances are straight-line like the landmarks). */
+const HOSPITALS: { name: string; lat: number; lng: number }[] = [
+  { name: "Rashid Hospital", lat: 25.234, lng: 55.314 },
+  { name: "American Hospital Dubai", lat: 25.231, lng: 55.319 },
+  { name: "Mediclinic City Hospital", lat: 25.232, lng: 55.328 },
+  { name: "Emirates Hospital Jumeirah", lat: 25.205, lng: 55.247 },
+  { name: "Medcare Hospital Al Safa", lat: 25.179, lng: 55.243 },
+  { name: "Aster Hospital Mankhool", lat: 25.249, lng: 55.295 },
+  { name: "Canadian Specialist Hospital", lat: 25.268, lng: 55.333 },
+  { name: "Saudi German Hospital Dubai", lat: 25.105, lng: 55.189 },
+  { name: "King's College Hospital Dubai", lat: 25.11, lng: 55.248 },
+  { name: "Zulekha Hospital Dubai", lat: 25.288, lng: 55.372 },
+  { name: "Dubai Hospital", lat: 25.286, lng: 55.32 },
+];
+
 /** How many landmarks to keep, nearest first. */
 const MAX_RESULTS = 5;
 /** Schools further than this from the project aren't worth listing. */
 const SCHOOL_MAX_NEAREST_KM = 25;
+/** Hospitals further than this aren't worth listing. */
+const HOSPITAL_MAX_NEAREST_KM = 25;
 /** Beyond this the property isn't in Dubai (e.g. Abu Dhabi, RAK) — show none. */
 const MAX_NEAREST_KM = 60;
 
@@ -105,6 +123,20 @@ export function computeNearbySchools(
     km: Math.round(haversineKm(lat!, lng!, s.lat, s.lng) * 10) / 10,
   })).sort((a, b) => a.km - b.km);
   if (!all.length || all[0].km > SCHOOL_MAX_NEAREST_KM) return [];
+  return all.slice(0, MAX_RESULTS);
+}
+
+/** Nearest hospitals to the coordinates, straight-line, nearest first. */
+export function computeNearbyHospitals(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): NearbyLandmark[] {
+  if (!validCoord(lat, lng)) return [];
+  const all = HOSPITALS.map((h) => ({
+    name: h.name,
+    km: Math.round(haversineKm(lat!, lng!, h.lat, h.lng) * 10) / 10,
+  })).sort((a, b) => a.km - b.km);
+  if (!all.length || all[0].km > HOSPITAL_MAX_NEAREST_KM) return [];
   return all.slice(0, MAX_RESULTS);
 }
 

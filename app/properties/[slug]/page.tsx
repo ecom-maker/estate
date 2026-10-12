@@ -18,6 +18,7 @@ import { PropertyDescription } from "@/components/property/property-description"
 import { formatKm, storedNearby } from "@/lib/property/nearby";
 import { getNearbyLandmarks } from "@/lib/property/nearby-live";
 import { getNearbySchools } from "@/lib/property/schools";
+import { getNearbyHospitals } from "@/lib/property/hospitals";
 import { metaDescription } from "@/lib/property/description";
 
 export const dynamic = "force-dynamic";
@@ -123,6 +124,10 @@ export default async function PropertyDetailPage({ params }: Props) {
   let nearby = await getNearbyLandmarks(property.latitude, property.longitude);
   if (!nearby.length) nearby = storedNearby(property.metadata) ?? [];
   const nearbySchools = await getNearbySchools(
+    property.latitude,
+    property.longitude,
+  );
+  const nearbyHospitals = await getNearbyHospitals(
     property.latitude,
     property.longitude,
   );
@@ -314,6 +319,30 @@ export default async function PropertyDetailPage({ params }: Props) {
                     {formatKm(s.km)}
                   </span>
                   <span className="min-w-0 text-sm text-primary">{s.name}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {nearbyHospitals.length ? (
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl text-primary">
+              Nearby Hospitals
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Driving distance from the property
+            </p>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {nearbyHospitals.map((h) => (
+                <li
+                  key={h.name}
+                  className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                >
+                  <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                    {formatKm(h.km)}
+                  </span>
+                  <span className="min-w-0 text-sm text-primary">{h.name}</span>
                 </li>
               ))}
             </ul>
