@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
+import { canEditProperty } from "@/lib/admin/property-access";
 import { COMMUNITY_CATALOG, communityForText } from "@/lib/communities/catalog";
 import { Prisma, type PropertyStatus, type PropertyType } from "@prisma/client";
 
@@ -100,8 +101,9 @@ export async function createProperty(
   _prev: PropertyFormState,
   formData: FormData,
 ): Promise<PropertyFormState> {
+  let session;
   try {
-    await assertPermission("properties.create");
+    session = await assertPermission("properties.create");
   } catch {
     return { error: "You must be signed in as an admin to create properties." };
   }
@@ -115,7 +117,7 @@ export async function createProperty(
     const slug = await uniqueSlug(
       input.slugInput ? slugify(input.slugInput) : slugify(input.title),
     );
-    await prisma.property.create({
+    const created = await prisma.property.create({
       data: {
         title: input.title,
         slug,
@@ -141,6 +143,21 @@ export async function createProperty(
           : {}),
       },
     });
+
+    // Record the creator (used to scope who may later edit this listing).
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user?.id ?? null,
+          action: "property_create",
+          entityType: "property",
+          entityId: created.id,
+          meta: { title: input.title } as Prisma.InputJsonValue,
+        },
+      });
+    } catch {
+      // ignore
+    }
   } catch (error) {
     return {
       error:
@@ -168,6 +185,10 @@ export async function updateProperty(
   if (input.title.length < 2) return { error: "Title is required." };
   const type = input.type;
   if (!type) return { error: "Please choose a property type." };
+
+  if (!(await canEditProperty(id, session))) {
+    return { error: "You can only edit listings you created." };
+  }
 
   try {
     const slug = input.slugInput

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 import { PropertyForm } from "@/components/admin/property-form";
+import { canEditProperty } from "@/lib/admin/property-access";
 import { updateProperty } from "../../actions";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +28,9 @@ export default async function EditPropertyPage({
 }) {
   const { id } = await params;
 
+  let session;
   try {
-    await assertPermission("properties.update");
+    session = await assertPermission("properties.update");
   } catch {
     redirect(`/login?next=/admin/properties/${id}/edit`);
   }
@@ -44,6 +46,8 @@ export default async function EditPropertyPage({
   ]);
 
   if (!property) notFound();
+
+  const editable = await canEditProperty(property.id, session);
 
   const history = await prisma.auditLog.findMany({
     where: {
@@ -84,16 +88,23 @@ export default async function EditPropertyPage({
         .
       </p>
 
-      <PropertyForm
-        action={updateProperty.bind(null, property.id)}
-        communities={communities}
-        property={{
-          ...property,
-          handoverDate: meta.handoverDate ?? null,
-          dealType: meta.dealType ?? "sale",
-        }}
-        submitLabel="Save changes"
-      />
+      {editable ? (
+        <PropertyForm
+          action={updateProperty.bind(null, property.id)}
+          communities={communities}
+          property={{
+            ...property,
+            handoverDate: meta.handoverDate ?? null,
+            dealType: meta.dealType ?? "sale",
+          }}
+          submitLabel="Save changes"
+        />
+      ) : (
+        <div className="mt-6 rounded-sm border border-border bg-card p-6 text-sm text-muted">
+          This listing was created by another admin, so it is read-only for
+          you. Only its creator or a Super Admin can edit it.
+        </div>
+      )}
 
       <section className="mt-12">
         <h2 className="font-serif text-2xl text-primary">Edit history</h2>
