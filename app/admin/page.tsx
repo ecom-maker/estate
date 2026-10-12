@@ -48,7 +48,7 @@ export default async function AdminPage() {
   const links = [
     ["Properties", "/admin/properties"],
     ["Contacts", "/admin/contacts"],
-    ["Calendar", "/admin/calendar"],
+    ["Admin contacts", "/admin/users"],
     ["Leads", "/admin/leads"],
     ["AI agents (CRM)", "/admin/agents"],
     ["AI", "/admin/ai"],
