@@ -13,12 +13,8 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
-import {
-  computeNearby,
-  computeNearbySchools,
-  formatKm,
-  storedNearby,
-} from "@/lib/property/nearby";
+import { computeNearby, formatKm, storedNearby } from "@/lib/property/nearby";
+import { getNearbySchools } from "@/lib/property/schools";
 
 export const dynamic = "force-dynamic";
 
@@ -152,7 +148,7 @@ export default async function ProjectDetailPage({ params }: Props) {
   const nearby =
     storedNearby(project.metadata) ??
     computeNearby(project.latitude, project.longitude);
-  const nearbySchools = computeNearbySchools(
+  const nearbySchools = await getNearbySchools(
     project.latitude,
     project.longitude,
   );
