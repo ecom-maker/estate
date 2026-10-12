@@ -15,6 +15,9 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import type { Metadata } from "next";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
+import { formatKm, storedNearby } from "@/lib/property/nearby";
+import { getNearbyLandmarks } from "@/lib/property/nearby-live";
+import { getNearbySchools } from "@/lib/property/schools";
 import { metaDescription } from "@/lib/property/description";
 
 export const dynamic = "force-dynamic";
@@ -115,6 +118,14 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   // RERA is hidden entirely when there's nothing on file.
   const reraLabel = property.reraStatus?.trim() || null;
+
+  // Driving distances (Google Distance Matrix, straight-line fallback).
+  let nearby = await getNearbyLandmarks(property.latitude, property.longitude);
+  if (!nearby.length) nearby = storedNearby(property.metadata) ?? [];
+  const nearbySchools = await getNearbySchools(
+    property.latitude,
+    property.longitude,
+  );
 
   return (
     <div className="mx-auto grid max-w-7xl gap-10 px-6 pb-28 pt-14 lg:grid-cols-[1.4fr_0.8fr] md:px-10">
@@ -264,6 +275,50 @@ export default async function PropertyDetailPage({ params }: Props) {
             ))}
           </ul>
         </section>
+
+        {nearby.length ? (
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl text-primary">Nearby</h2>
+            <p className="mt-1 text-sm text-muted">
+              Driving distance from the property
+            </p>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {nearby.map((n) => (
+                <li
+                  key={n.name}
+                  className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                >
+                  <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                    {formatKm(n.km)}
+                  </span>
+                  <span className="min-w-0 text-sm text-primary">{n.name}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {nearbySchools.length ? (
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl text-primary">Nearby Schools</h2>
+            <p className="mt-1 text-sm text-muted">
+              Driving distance from the property
+            </p>
+            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+              {nearbySchools.map((s) => (
+                <li
+                  key={s.name}
+                  className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                >
+                  <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                    {formatKm(s.km)}
+                  </span>
+                  <span className="min-w-0 text-sm text-primary">{s.name}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <UnitsSection
           category={property.type}
