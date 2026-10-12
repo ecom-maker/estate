@@ -52,8 +52,28 @@ const HOSPITALS: { name: string; lat: number; lng: number }[] = [
   { name: "Dubai Hospital", lat: 25.286, lng: 55.32 },
 ];
 
+/** Dubai Metro stations (approximate coords) for the curated fallback. */
+const METRO_STATIONS: { name: string; lat: number; lng: number }[] = [
+  { name: "Burj Khalifa / Dubai Mall Metro Station", lat: 25.2019, lng: 55.2792 },
+  { name: "Business Bay Metro Station", lat: 25.1872, lng: 55.2655 },
+  { name: "Financial Centre Metro Station", lat: 25.2136, lng: 55.2817 },
+  { name: "Emirates Towers Metro Station", lat: 25.2177, lng: 55.2847 },
+  { name: "World Trade Centre Metro Station", lat: 25.2287, lng: 55.2893 },
+  { name: "Al Jafiliya Metro Station", lat: 25.229, lng: 55.278 },
+  { name: "BurJuman Metro Station", lat: 25.2546, lng: 55.3027 },
+  { name: "Max Metro Station", lat: 25.247, lng: 55.304 },
+  { name: "Dubai Marina Metro Station", lat: 25.076, lng: 55.1396 },
+  { name: "DMCC Metro Station", lat: 25.068, lng: 55.1413 },
+  { name: "Sobha Realty Metro Station", lat: 25.096, lng: 55.162 },
+  { name: "Mall of the Emirates Metro Station", lat: 25.1192, lng: 55.2004 },
+  { name: "Equiti Metro Station", lat: 25.13, lng: 55.211 },
+  { name: "Sharaf DG Metro Station", lat: 25.1097, lng: 55.196 },
+];
+
 /** How many landmarks to keep, nearest first. */
 const MAX_RESULTS = 5;
+/** Metro is only "nearby" when this close (km). */
+export const METRO_MAX_KM = 2;
 /** Schools further than this from the project aren't worth listing. */
 const SCHOOL_MAX_NEAREST_KM = 25;
 /** Hospitals further than this aren't worth listing. */
@@ -138,6 +158,21 @@ export function computeNearbyHospitals(
   })).sort((a, b) => a.km - b.km);
   if (!all.length || all[0].km > HOSPITAL_MAX_NEAREST_KM) return [];
   return all.slice(0, MAX_RESULTS);
+}
+
+/** Metro stations within METRO_MAX_KM (straight-line), nearest first. */
+export function computeNearbyMetro(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): NearbyLandmark[] {
+  if (!validCoord(lat, lng)) return [];
+  return METRO_STATIONS.map((m) => ({
+    name: m.name,
+    km: Math.round(haversineKm(lat!, lng!, m.lat, m.lng) * 10) / 10,
+  }))
+    .filter((m) => m.km <= METRO_MAX_KM)
+    .sort((a, b) => a.km - b.km)
+    .slice(0, MAX_RESULTS);
 }
 
 /** Read `metadata.nearby` if it is a well-formed list; otherwise null. */

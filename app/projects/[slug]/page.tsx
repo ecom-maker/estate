@@ -17,6 +17,7 @@ import { formatKm, storedNearby } from "@/lib/property/nearby";
 import { getNearbyLandmarks } from "@/lib/property/nearby-live";
 import { getNearbySchools } from "@/lib/property/schools";
 import { getNearbyHospitals } from "@/lib/property/hospitals";
+import { getNearbyMetro } from "@/lib/property/metro";
 
 export const dynamic = "force-dynamic";
 
@@ -158,6 +159,8 @@ export default async function ProjectDetailPage({ params }: Props) {
     project.latitude,
     project.longitude,
   );
+  // Metro only shows when a station is within 2 km (empty list hides it).
+  const nearbyMetro = await getNearbyMetro(project.latitude, project.longitude);
 
   return (
     <div className="mx-auto max-w-7xl px-6 pb-28 pt-14 md:px-10">
@@ -348,6 +351,31 @@ export default async function ProjectDetailPage({ params }: Props) {
                       {formatKm(h.km)}
                     </span>
                     <span className="min-w-0 text-sm text-primary">{h.name}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {/* Nearby metro — only when within 2 km */}
+          {nearbyMetro.length ? (
+            <section className="mt-10">
+              <h2 className="font-serif text-2xl text-primary">
+                Nearby Metro Stations
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Driving distance from the project · within 2 km
+              </p>
+              <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+                {nearbyMetro.map((m) => (
+                  <li
+                    key={m.name}
+                    className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                  >
+                    <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                      {formatKm(m.km)}
+                    </span>
+                    <span className="min-w-0 text-sm text-primary">{m.name}</span>
                   </li>
                 ))}
               </ul>

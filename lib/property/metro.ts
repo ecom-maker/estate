@@ -1,0 +1,124 @@
+import {
+  computeNearbyMetro,
+  METRO_MAX_KM,
+  type NearbyLandmark,
+} from "@/lib/property/nearby";
+import { roadDistancesKm } from "@/lib/property/road-distance";
+
+/**
+ * Nearby Dubai Metro stations within 2 km, by driving distance. Google Places
+ * (subway stations) when GOOGLE_MAPS_API_KEY is set; curated fallback otherwise.
+ * Returns an empty list when nothing is within 2 km, so the caller hides the
+ * section entirely. Cached per rounded coordinate for a week.
+ */
+
+const MAX_RESULTS = 5;
+const SEARCH_RADIUS_M = METRO_MAX_KM * 1000; // 2 km
+const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+const cache = new Map<string, { at: number; metro: NearbyLandmark[] }>();
+
+function validCoord(lat?: number | null, lng?: number | null): lat is number {
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180 &&
+    !(lat === 0 && lng === 0)
+  );
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 6371;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(lat2 - lat1);
+  const dLng = rad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+type PlacesResponse = {
+  places?: {
+    displayName?: { text?: string };
+    location?: { latitude?: number; longitude?: number };
+  }[];
+};
+
+export async function getNearbyMetro(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): Promise<NearbyLandmark[]> {
+  if (!validCoord(lat, lng)) return [];
+
+  const key = `${lat.toFixed(3)},${(lng as number).toFixed(3)}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.metro;
+
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return computeNearbyMetro(lat, lng);
+
+  try {
+    const res = await fetch(
+      "https://places.googleapis.com/v1/places:searchNearby",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": apiKey,
+          "X-Goog-FieldMask": "places.displayName,places.location",
+        },
+        body: JSON.stringify({
+          includedTypes: ["subway_station"],
+          maxResultCount: 10,
+          rankPreference: "DISTANCE",
+          locationRestriction: {
+            circle: {
+              center: { latitude: lat, longitude: lng as number },
+              radius: SEARCH_RADIUS_M,
+            },
+          },
+        }),
+        next: { revalidate: 604800 },
+      },
+    );
+    if (!res.ok) throw new Error(`Places ${res.status}`);
+    const data = (await res.json()) as PlacesResponse;
+
+    const nearest = (data.places ?? [])
+      .map((p) => {
+        const name = p.displayName?.text?.trim();
+        const plat = p.location?.latitude;
+        const plng = p.location?.longitude;
+        if (!name || typeof plat !== "number" || typeof plng !== "number") {
+          return null;
+        }
+        return {
+          name,
+          lat: plat,
+          lng: plng,
+          km: Math.round(haversineKm(lat, lng as number, plat, plng) * 10) / 10,
+        };
+      })
+      .filter((m): m is { name: string; lat: number; lng: number; km: number } =>
+        m !== null,
+      )
+      .slice(0, MAX_RESULTS);
+
+    const road = await roadDistancesKm(
+      { lat, lng: lng as number },
+      nearest.map((m) => ({ lat: m.lat, lng: m.lng })),
+    );
+    const metro: NearbyLandmark[] = nearest
+      .map((m, i) => ({ name: m.name, km: road[i] ?? m.km }))
+      .sort((a, b) => a.km - b.km);
+
+    cache.set(key, { at: Date.now(), metro });
+    return metro;
+  } catch {
+    return computeNearbyMetro(lat, lng);
+  }
+}
