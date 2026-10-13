@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db/prisma";
+import { getSupabaseAdmin, uploadObject } from "@/lib/storage/supabase";
 import { assertPermission } from "@/lib/rbac/guards";
 import { canEditProperty } from "@/lib/admin/property-access";
 import { recomputeAndStoreNearby } from "@/lib/property/nearby-bundle";
@@ -283,6 +284,103 @@ function parseUnitFields(formData: FormData): UnitFields | { error: string } {
     out.status = s || null;
   }
   return out;
+}
+
+const PLAN_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PLAN_MAX_BYTES = 3.5 * 1024 * 1024; // under the 4 MB server-action limit
+
+/** Load a unit for a floor-plan change and check the admin may edit it. */
+async function unitForPlanEdit(id: string) {
+  let session;
+  try {
+    session = await assertPermission("properties.update");
+  } catch {
+    return { error: "You must be an admin to edit units." } as const;
+  }
+  const unit = id
+    ? await prisma.propertyUnit.findUnique({
+        where: { id },
+        select: {
+          unitNumber: true,
+          areaSqft: true,
+          propertyId: true,
+          property: { select: { slug: true, offPlan: true } },
+        },
+      })
+    : null;
+  if (!unit) return { error: "Unit not found." } as const;
+  if (!(await canEditProperty(unit.propertyId, session))) {
+    return { error: "Only this listing's creator or a Super Admin can edit it." } as const;
+  }
+  return { unit } as const;
+}
+
+/**
+ * Upload a floor plan for one unit. It is stored as the property's floor plan
+ * for that unit number (replacing any earlier one), which is what the unit
+ * page and the project's Units section match on.
+ */
+export async function uploadUnitFloorplan(
+  _prev: UnitDetailsState,
+  formData: FormData,
+): Promise<UnitDetailsState> {
+  const id = String(formData.get("id") ?? "");
+  const found = await unitForPlanEdit(id);
+  if ("error" in found) return { error: found.error };
+  const { unit } = found;
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image file." };
+  if (!PLAN_TYPES.has(file.type)) return { error: "Use a JPG, PNG or WebP image." };
+  if (file.size > PLAN_MAX_BYTES) return { error: "Image is too large (3.5 MB max)." };
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `floorplans/${unit.propertyId}/${id}-${Date.now()}.${ext}`;
+  let url: string;
+  if (getSupabaseAdmin()) {
+    url = (await uploadObject({ path, body: bytes, contentType: file.type })).publicUrl;
+  } else if (process.env.NODE_ENV !== "production") {
+    // Local development without Supabase: keep the file under public/.
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const { dirname, join } = await import("node:path");
+    const target = join(process.cwd(), "public", "uploads", path);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, bytes);
+    url = `/uploads/${path}`;
+  } else {
+    return { error: "File storage isn't configured (Supabase)." };
+  }
+
+  await prisma.$transaction([
+    prisma.propertyFloorplan.deleteMany({
+      where: { propertyId: unit.propertyId, unitRef: unit.unitNumber },
+    }),
+    prisma.propertyFloorplan.create({
+      data: {
+        propertyId: unit.propertyId,
+        unitRef: unit.unitNumber,
+        title: `${unit.unitNumber} floor plan`,
+        url,
+        mimeType: file.type,
+        areaSqft: unit.areaSqft,
+      },
+    }),
+  ]);
+  revalidateUnitPages(unit.propertyId, unit.property, id);
+  return { ok: true };
+}
+
+/** Remove a unit's own floor plan (the one stored for its unit number). */
+export async function removeUnitFloorplan(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const found = await unitForPlanEdit(id);
+  if ("error" in found) return;
+  const { unit } = found;
+  await prisma.propertyFloorplan.deleteMany({
+    where: { propertyId: unit.propertyId, unitRef: unit.unitNumber },
+  });
+  revalidateUnitPages(unit.propertyId, unit.property, id);
 }
 
 function revalidateUnitPages(

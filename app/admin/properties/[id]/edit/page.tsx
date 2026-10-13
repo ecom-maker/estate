@@ -7,6 +7,7 @@ import { RefreshNearbyButton } from "@/components/admin/refresh-nearby-button";
 import { canEditProperty } from "@/lib/admin/property-access";
 import { updateProperty, setUnitHidden, createUnit } from "../../actions";
 import { AddUnitForm } from "@/components/admin/add-unit-form";
+import { UnitFloorplanCell } from "@/components/admin/unit-floorplan-cell";
 import { UnitTypeSelect } from "@/components/admin/unit-type-select";
 import { UnitSaveButton } from "@/components/admin/unit-save-button";
 
@@ -74,6 +75,16 @@ export default async function EditPropertyPage({
       unitType: true,
     },
   });
+
+  // Each unit's own floor plan (stored under its unit number).
+  const unitPlans = new Map(
+    (
+      await prisma.propertyFloorplan.findMany({
+        where: { propertyId: property.id, unitRef: { in: units.map((u) => u.unitNumber) } },
+        select: { unitRef: true, url: true },
+      })
+    ).map((f) => [f.unitRef, f.url]),
+  );
 
   // Columns the feed rarely fills; shown only when some unit has a value.
   const showFloor = units.some((u) => u.floor != null);
@@ -162,6 +173,7 @@ export default async function EditPropertyPage({
                   <th>Price (AED)</th>
                   {showView ? <th>View</th> : null}
                   <th>Status</th>
+                  <th>Floor plan</th>
                   <th className="px-4">Visibility</th>
                   {editable ? <th className="pr-4">Edit</th> : null}
                 </tr>
@@ -247,6 +259,22 @@ export default async function EditPropertyPage({
                         </select>
                       ) : (
                         (u.status ?? "—")
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {editable ? (
+                        <UnitFloorplanCell id={u.id} url={unitPlans.get(u.unitNumber) ?? null} />
+                      ) : unitPlans.get(u.unitNumber) ? (
+                        <a
+                          href={unitPlans.get(u.unitNumber)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-accent hover:underline"
+                        >
+                          View
+                        </a>
+                      ) : (
+                        "—"
                       )}
                     </td>
                     <td className="px-4">
