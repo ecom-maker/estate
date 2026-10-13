@@ -17,6 +17,13 @@ const TYPE: Record<string, PropertyType> = {
 
 const text = (v: string) => ({ contains: v, mode: "insensitive" as const });
 
+/** The property types an intent asks for, as enum values. */
+export function intentTypes(intent: SearchIntent): PropertyType[] {
+  return (intent.propertyTypes?.length ? intent.propertyTypes : intent.propertyType ? [intent.propertyType] : [])
+    .map((t) => TYPE[t])
+    .filter(Boolean);
+}
+
 export function intentToUnitWhere(
   intent: SearchIntent,
   projectIds: string[] = [],
@@ -43,9 +50,7 @@ export function intentToUnitWhere(
   }
   if (intent.developer) and.push({ property: { developer: { name: text(intent.developer) } } });
 
-  const types = (intent.propertyTypes?.length ? intent.propertyTypes : intent.propertyType ? [intent.propertyType] : [])
-    .map((t) => TYPE[t])
-    .filter(Boolean);
+  const types = intentTypes(intent);
   if (types.length) {
     // The unit's own type when known, otherwise the project's.
     and.push({
