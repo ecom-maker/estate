@@ -5,9 +5,11 @@ import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
 import { UnitAiSearchBar } from "@/components/search/unit-ai-search-bar";
 import { extractSearchIntent } from "@/lib/ai/intent";
+import { projectListsType } from "@/lib/property/unit-type";
 import {
   describeIntent,
   intentToUnitWhere,
+  intentTypes,
   mentionedProjects,
 } from "@/lib/search/intent-units";
 import {
@@ -73,12 +75,38 @@ export default async function PropertiesPage({
   const live = { deletedAt: null, status: "ACTIVE" as const };
   let aiWhere: Prisma.PropertyUnitWhereInput[] = [];
   let understood: string[] = [];
+  // When no unit is marked with a requested type yet, offer the projects whose
+  // feed lists it (what the Projects AI matches on).
+  let offering: { slug: string; title: string; community: string | null }[] = [];
+  let offeringLabel = "";
+  let findOffering = () => {};
   if (query) {
     try {
       const [intent, projects] = await Promise.all([
         extractSearchIntent(query),
-        prisma.property.findMany({ where: live, select: { id: true, title: true } }),
+        prisma.property.findMany({
+          where: live,
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            type: true,
+            metadata: true,
+            community: { select: { name: true } },
+          },
+        }),
       ]);
+      const wanted = intentTypes(intent);
+      if (wanted.length) {
+        findOffering = () => {
+          const place = (intent.community ?? intent.location)?.toLowerCase();
+          offering = projects
+            .filter((p) => wanted.some((t) => p.type === t || projectListsType(p.metadata, t)))
+            .filter((p) => !place || (p.community?.name ?? "").toLowerCase().includes(place))
+            .map((p) => ({ slug: p.slug, title: p.title, community: p.community?.name ?? null }));
+          offeringLabel = wanted.map((t) => t.toLowerCase() + "s").join(" or ");
+        };
+      }
       const named = mentionedProjects(query, projects);
       aiWhere = intentToUnitWhere(intent, named.map((p) => p.id));
       understood = describeIntent(intent, named.map((p) => p.title));
@@ -147,6 +175,8 @@ export default async function PropertiesPage({
     total = 0;
   }
 
+  if (!units.length) findOffering();
+
   // Each project's photos, loaded once in a fixed order (id breaks sortOrder
   // ties) with duplicate URLs removed, so cards can rotate through them.
   const photos = new Map<string, Photo[]>();
@@ -194,9 +224,32 @@ export default async function PropertiesPage({
       </div>
 
       {units.length === 0 ? (
-        <p className="mt-10 text-sm text-muted">
-          No units match these filters.
-        </p>
+        offering.length ? (
+          <div className="mt-10">
+            <p className="text-sm text-muted">
+              No individual units are marked as {offeringLabel} yet, but these
+              projects offer them. Open a project for its units and availability.
+            </p>
+            <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {offering.map((p) => (
+                <li key={p.slug}>
+                  <Link
+                    href={`/projects/${p.slug}`}
+                    className="block rounded-xl border border-border bg-card p-4 transition hover:border-accent hover:shadow-sm"
+                  >
+                    <p className="text-[11px] uppercase tracking-wider text-accent">
+                      {p.community ?? "Dubai"}
+                    </p>
+                    <p className="mt-1 font-serif text-lg text-primary">{p.title}</p>
+                    <p className="mt-1 text-sm text-accent">View project →</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="mt-10 text-sm text-muted">No units match these filters.</p>
+        )
       ) : (
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {units.map((u, i) => {
