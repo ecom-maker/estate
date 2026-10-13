@@ -21,31 +21,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   try {
-    const [properties, projects, communities] = await Promise.all([
+    // Developments (both off-plan and ready) live under /projects; individual
+    // units are the /properties/unit/<id> listings.
+    const [projects, units, communities] = await Promise.all([
       prisma.property.findMany({
-        where: { deletedAt: null, status: "ACTIVE", offPlan: false },
+        where: { deletedAt: null, status: "ACTIVE" },
         select: { slug: true, updatedAt: true },
         take: 5000,
       }),
-      prisma.property.findMany({
-        where: { deletedAt: null, offPlan: true },
-        select: { slug: true, updatedAt: true },
-        take: 5000,
+      prisma.propertyUnit.findMany({
+        where: { property: { deletedAt: null, status: "ACTIVE" } },
+        select: { id: true, updatedAt: true },
+        take: 10000,
       }),
       prisma.community.findMany({ select: { slug: true, updatedAt: true } }),
     ]);
 
-    const propertyPages: MetadataRoute.Sitemap = properties.map((p) => ({
-      url: `${SITE_URL}/properties/${p.slug}`,
-      lastModified: p.updatedAt,
-      changeFrequency: "weekly",
-      priority: 0.8,
-    }));
     const projectPages: MetadataRoute.Sitemap = projects.map((p) => ({
       url: `${SITE_URL}/projects/${p.slug}`,
       lastModified: p.updatedAt,
       changeFrequency: "weekly",
       priority: 0.8,
+    }));
+    const unitPages: MetadataRoute.Sitemap = units.map((u) => ({
+      url: `${SITE_URL}/properties/unit/${u.id}`,
+      lastModified: u.updatedAt,
+      changeFrequency: "weekly",
+      priority: 0.7,
     }));
     const communityPages: MetadataRoute.Sitemap = communities.map((c) => ({
       url: `${SITE_URL}/search?q=${encodeURIComponent(c.slug)}`,
@@ -54,12 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.5,
     }));
 
-    return [
-      ...staticPages,
-      ...propertyPages,
-      ...projectPages,
-      ...communityPages,
-    ];
+    return [...staticPages, ...projectPages, ...unitPages, ...communityPages];
   } catch {
     return staticPages;
   }
