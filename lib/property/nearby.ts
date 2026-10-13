@@ -11,6 +11,7 @@ export type NearbyLandmark = { name: string; km: number };
 
 const LANDMARKS: { name: string; lat: number; lng: number }[] = [
   { name: "Burj Khalifa & Downtown Dubai", lat: 25.1972, lng: 55.2744 },
+  { name: "The Dubai Mall", lat: 25.1972, lng: 55.2796 },
   { name: "Dubai Marina", lat: 25.0805, lng: 55.1403 },
   { name: "Palm Jumeirah (Atlantis)", lat: 25.1304, lng: 55.1171 },
   { name: "Burj Al Arab", lat: 25.1412, lng: 55.1853 },

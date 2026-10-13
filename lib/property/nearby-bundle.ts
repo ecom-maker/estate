@@ -21,6 +21,10 @@ const EMPTY: NearbyBundle = {
   metro: [],
 };
 
+// Bump whenever the landmark set or filtering logic changes — stored caches
+// with an older version are treated as stale and recomputed on next view.
+const NEARBY_VERSION = 2;
+
 function validList(v: unknown): v is NearbyLandmark[] {
   return (
     Array.isArray(v) &&
@@ -33,11 +37,13 @@ function validList(v: unknown): v is NearbyLandmark[] {
   );
 }
 
-/** The stored bundle from metadata.nearbyData, or null if absent/malformed. */
+/** The stored bundle from metadata.nearbyData, or null if absent/stale. */
 function readStored(metadata: unknown): NearbyBundle | null {
   const d = (metadata as { nearbyData?: unknown } | null)?.nearbyData;
   if (!d || typeof d !== "object") return null;
-  const b = d as Partial<NearbyBundle>;
+  const b = d as Partial<NearbyBundle> & { version?: number };
+  // Older/unversioned caches are stale once the data set changes.
+  if (b.version !== NEARBY_VERSION) return null;
   if (
     validList(b.landmarks) &&
     validList(b.schools) &&
@@ -106,7 +112,7 @@ export async function getNearbyBundle(property: {
         data: {
           metadata: {
             ...meta,
-            nearbyData: { ...bundle, at: new Date().toISOString() },
+            nearbyData: { ...bundle, version: NEARBY_VERSION, at: new Date().toISOString() },
           } as Prisma.InputJsonValue,
         },
       });
@@ -150,7 +156,7 @@ export async function recomputeAndStoreNearby(property: {
     data: {
       metadata: {
         ...meta,
-        nearbyData: { ...bundle, at: new Date().toISOString() },
+        nearbyData: { ...bundle, version: NEARBY_VERSION, at: new Date().toISOString() },
       } as Prisma.InputJsonValue,
     },
   });
