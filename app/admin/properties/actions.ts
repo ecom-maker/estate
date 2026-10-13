@@ -152,6 +152,60 @@ export async function setUnitType(formData: FormData): Promise<void> {
   }
 }
 
+export type UnitDetailsState = { ok?: boolean; error?: string };
+
+const UNIT_STATUSES = ["available", "reserved", "sold"] as const;
+
+/** Edit one unit's bedrooms, price and status from the property edit page. */
+export async function updateUnitDetails(
+  _prev: UnitDetailsState,
+  formData: FormData,
+): Promise<UnitDetailsState> {
+  let session;
+  try {
+    session = await assertPermission("properties.update");
+  } catch {
+    return { error: "You must be an admin to edit units." };
+  }
+  const id = String(formData.get("id") ?? "");
+  const unit = id
+    ? await prisma.propertyUnit.findUnique({
+        where: { id },
+        select: { propertyId: true, property: { select: { slug: true, offPlan: true } } },
+      })
+    : null;
+  if (!unit) return { error: "Unit not found." };
+  if (!(await canEditProperty(unit.propertyId, session))) {
+    return { error: "Only this listing's creator or a Super Admin can edit it." };
+  }
+
+  const bedsRaw = String(formData.get("bedrooms") ?? "").trim();
+  const bedrooms = bedsRaw === "" ? null : Number(bedsRaw);
+  if (bedrooms != null && (!Number.isInteger(bedrooms) || bedrooms < 0 || bedrooms > 20)) {
+    return { error: "Beds must be a whole number from 0 (studio) to 20." };
+  }
+  const priceRaw = String(formData.get("priceAed") ?? "").replace(/,/g, "").trim();
+  const priceAed = priceRaw === "" ? null : Number(priceRaw);
+  if (priceAed != null && (!Number.isFinite(priceAed) || priceAed <= 0)) {
+    return { error: "Price must be a positive number in AED." };
+  }
+  const statusRaw = String(formData.get("status") ?? "").trim().toLowerCase();
+  if (statusRaw && !(UNIT_STATUSES as readonly string[]).includes(statusRaw)) {
+    return { error: "Status must be available, reserved or sold." };
+  }
+
+  await prisma.propertyUnit.update({
+    where: { id },
+    data: { bedrooms, priceAed, status: statusRaw || null },
+  });
+  revalidatePath(`/admin/properties/${unit.propertyId}/edit`);
+  revalidatePath("/admin/units");
+  revalidatePath("/properties");
+  revalidatePath(`/properties/unit/${id}`);
+  revalidatePath(`/${unit.property.offPlan ? "projects" : "properties"}/${unit.property.slug}`);
+  return { ok: true };
+}
+
 export type RefreshNearbyState = { ok?: boolean; error?: string };
 
 /** Admin action: recompute and re-store a property's nearby data from the APIs. */

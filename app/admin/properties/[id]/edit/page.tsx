@@ -7,6 +7,11 @@ import { RefreshNearbyButton } from "@/components/admin/refresh-nearby-button";
 import { canEditProperty } from "@/lib/admin/property-access";
 import { updateProperty, setUnitHidden } from "../../actions";
 import { UnitTypeSelect } from "@/components/admin/unit-type-select";
+import { UnitSaveButton } from "@/components/admin/unit-save-button";
+
+const UNIT_STATUSES = ["available", "reserved", "sold"];
+const cellInput =
+  "rounded-sm border border-border bg-card px-2 py-1 text-sm text-primary";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit Property" };
@@ -69,6 +74,10 @@ export default async function EditPropertyPage({
     },
   });
 
+  // Columns the feed rarely fills; shown only when some unit has a value.
+  const showFloor = units.some((u) => u.floor != null);
+  const showView = units.some((u) => u.view);
+
   const history = await prisma.auditLog.findMany({
     where: {
       entityType: "property",
@@ -93,7 +102,7 @@ export default async function EditPropertyPage({
   const backHref = `/admin/properties?filter=${isProject ? "offplan" : "ready"}`;
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-28 md:px-10">
+    <div className="mx-auto max-w-5xl px-6 py-28 md:px-10">
       <Link href={backHref} className="text-xs text-muted hover:text-primary">
         ← Back to {isProject ? "projects" : "properties"}
       </Link>
@@ -140,19 +149,20 @@ export default async function EditPropertyPage({
         </p>
         {units.length ? (
           <div className="mt-4 overflow-x-auto rounded-sm border border-border bg-card">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wider text-muted">
                 <tr>
                   <th className="px-4 py-3">Unit #</th>
                   <th>Type</th>
-                  <th>Floor</th>
+                  {showFloor ? <th>Floor</th> : null}
                   <th>Beds</th>
                   <th>Bath</th>
                   <th>Area (sqft)</th>
                   <th>Price (AED)</th>
-                  <th>View</th>
+                  {showView ? <th>View</th> : null}
                   <th>Status</th>
                   <th className="px-4">Visibility</th>
+                  {editable ? <th className="pr-4">Edit</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -177,8 +187,24 @@ export default async function EditPropertyPage({
                         </span>
                       )}
                     </td>
-                    <td>{u.floor ?? "—"}</td>
-                    <td>{u.bedrooms ?? "—"}</td>
+                    {showFloor ? <td>{u.floor ?? "—"}</td> : null}
+                    <td>
+                      {editable ? (
+                        <input
+                          form={`unit-${u.id}`}
+                          name="bedrooms"
+                          type="number"
+                          min={0}
+                          max={20}
+                          step={1}
+                          defaultValue={u.bedrooms ?? ""}
+                          aria-label={`Beds for unit ${u.unitNumber}`}
+                          className={`${cellInput} w-14`}
+                        />
+                      ) : (
+                        (u.bedrooms ?? "—")
+                      )}
+                    </td>
                     <td>{u.bathrooms ?? "—"}</td>
                     <td>
                       {u.areaSqft
@@ -186,10 +212,42 @@ export default async function EditPropertyPage({
                         : "—"}
                     </td>
                     <td>
-                      {u.priceAed ? Math.round(u.priceAed).toLocaleString() : "—"}
+                      {editable ? (
+                        <input
+                          form={`unit-${u.id}`}
+                          name="priceAed"
+                          inputMode="numeric"
+                          defaultValue={u.priceAed ? Math.round(u.priceAed) : ""}
+                          aria-label={`Price in AED for unit ${u.unitNumber}`}
+                          className={`${cellInput} w-28`}
+                        />
+                      ) : u.priceAed ? (
+                        Math.round(u.priceAed).toLocaleString()
+                      ) : (
+                        "—"
+                      )}
                     </td>
-                    <td>{u.view ?? "—"}</td>
-                    <td>{u.status ?? "—"}</td>
+                    {showView ? <td>{u.view ?? "—"}</td> : null}
+                    <td>
+                      {editable ? (
+                        <select
+                          form={`unit-${u.id}`}
+                          name="status"
+                          defaultValue={(u.status ?? "").toLowerCase()}
+                          aria-label={`Status for unit ${u.unitNumber}`}
+                          className={cellInput}
+                        >
+                          <option value="">—</option>
+                          {UNIT_STATUSES.map((st) => (
+                            <option key={st} value={st} className="capitalize">
+                              {st.charAt(0).toUpperCase() + st.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        (u.status ?? "—")
+                      )}
+                    </td>
                     <td className="px-4">
                       <form action={setUnitHidden} className="inline">
                         <input type="hidden" name="id" value={u.id} />
@@ -206,6 +264,11 @@ export default async function EditPropertyPage({
                         </button>
                       </form>
                     </td>
+                    {editable ? (
+                      <td className="py-2 pr-4">
+                        <UnitSaveButton id={u.id} formId={`unit-${u.id}`} />
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

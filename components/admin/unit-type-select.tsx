@@ -27,7 +27,7 @@ export function UnitTypeSelect({
         aria-label="Unit type"
         className="rounded-sm border border-border bg-card px-2 py-1 text-xs text-primary"
       >
-        <option value="">Same as project ({label(projectType)})</option>
+        <option value="">Default ({label(projectType)})</option>
         {TYPES.map((t) => (
           <option key={t} value={t}>
             {label(t)}
