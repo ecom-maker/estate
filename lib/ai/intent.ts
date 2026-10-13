@@ -231,11 +231,11 @@ export function extractSearchIntentHeuristic(
         : undefined;
   }
 
-  // Bedrooms — collect every "N bed" (plus "studio" → 0). One → bedrooms (min /
-  // "N+"); several → bedroomsList (exact any-of).
-  const bedNums = [...text.matchAll(/(\d+)\s*[- ]?\s*bed/gi)].map((m) =>
-    Number(m[1]),
-  );
+  // Bedrooms — collect every "N bed", "N BHK" or "N BR" (plus "studio" → 0).
+  // One → bedrooms (min / "N+"); several → bedroomsList (exact any-of).
+  const bedNums = [
+    ...text.matchAll(/(\d+)\s*[- ]?\s*(?:bed(?:room)?s?|bhk|br)\b/gi),
+  ].map((m) => Number(m[1]));
   if (/\bstudio\b/.test(text)) bedNums.push(0);
   const uniqBeds = [...new Set(bedNums)].sort((a, b) => a - b);
   if (uniqBeds.length) {
