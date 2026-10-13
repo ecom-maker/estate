@@ -3,10 +3,15 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
-import { PropertyFilterBar } from "@/components/search/property-filter-bar";
+import { UnitAiSearchBar } from "@/components/search/unit-ai-search-bar";
+import { extractSearchIntent } from "@/lib/ai/intent";
+import {
+  describeIntent,
+  intentToUnitWhere,
+  mentionedProjects,
+} from "@/lib/search/intent-units";
 import {
   parseUnitFilters,
-  unitFiltersToSearch,
   unitFiltersWhere,
 } from "@/lib/search/unit-filters";
 
@@ -60,13 +65,37 @@ export default async function PropertiesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // Plain database filters from the filter bar (no AI).
-  const filters = parseUnitFilters(await searchParams);
+  const params = await searchParams;
+  // `q` is the AI query; the other params are plain filters (shared links).
+  const filters = { ...parseUnitFilters(params), q: "" };
+  const query = parseUnitFilters(params).q;
+
+  const live = { deletedAt: null, status: "ACTIVE" as const };
+  let aiWhere: Prisma.PropertyUnitWhereInput[] = [];
+  let understood: string[] = [];
+  if (query) {
+    try {
+      const [intent, projects] = await Promise.all([
+        extractSearchIntent(query),
+        prisma.property.findMany({ where: live, select: { id: true, title: true } }),
+      ]);
+      const named = mentionedProjects(query, projects);
+      aiWhere = intentToUnitWhere(intent, named.map((p) => p.id));
+      understood = describeIntent(intent, named.map((p) => p.title));
+      // Nothing recognised: fall back to a plain text match.
+      if (!aiWhere.length) {
+        aiWhere = unitFiltersWhere({ ...filters, q: query });
+        understood = [`“${query}”`];
+      }
+    } catch {
+      aiWhere = unitFiltersWhere({ ...filters, q: query });
+    }
+  }
 
   const where: Prisma.PropertyUnitWhereInput = {
     hidden: false,
-    property: { deletedAt: null, status: "ACTIVE" },
-    AND: unitFiltersWhere(filters),
+    property: live,
+    AND: [...unitFiltersWhere(filters), ...aiWhere],
   };
 
   let units: Array<{
@@ -153,21 +182,15 @@ export default async function PropertiesPage({
             Available units
           </h1>
           <p className="mt-2 text-sm text-muted">
-            {total} {total === 1 ? "unit" : "units"} across our projects ·{" "}
-            <Link href="/search" className="text-accent hover:underline">
-              AI search
-            </Link>
+            {total} {total === 1 ? "unit" : "units"}{" "}
+            {query ? "match your search" : "across our projects"}
           </p>
         </div>
       </div>
 
       {/* Stays under the site header while the list scrolls. */}
       <div className="sticky top-[69px] z-30 -mx-2 mt-6 bg-background px-2 py-3 md:top-[73px]">
-        <PropertyFilterBar
-          key={unitFiltersToSearch(filters)}
-          mode="listing"
-          initial={filters}
-        />
+        <UnitAiSearchBar key={query} initialQuery={query} understood={understood} />
       </div>
 
       {units.length === 0 ? (

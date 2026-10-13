@@ -5,15 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRequireAuth } from "@/components/auth/sign-in-gate";
-import {
-  BATHROOMS,
-  BEDROOMS,
-  EMPTY_FILTERS,
-  TYPE_OPTIONS,
-  hasUnitFilters,
-  unitFiltersToSearch,
-  type UnitFilters,
-} from "@/lib/search/unit-filters";
+import { BATHROOMS, BEDROOMS, TYPE_OPTIONS } from "@/lib/search/unit-filters";
 
 const TYPE_PREVIEW = 6; // shown before "View more"
 
@@ -294,47 +286,24 @@ function PriceRange({
 export function PropertyFilterBar({
   dealType = "buy",
   showDeal = false,
-  mode = "search",
-  initial = EMPTY_FILTERS,
 }: {
   dealType?: "rent" | "buy";
   showDeal?: boolean;
-  /**
-   * "search": AI search on /search (sign-in gated).
-   * "listing": plain filters on the /properties unit list, no AI.
-   */
-  mode?: "search" | "listing";
-  initial?: UnitFilters;
 }) {
   const router = useRouter();
   // Results open only for signed-in visitors (agents and automation skip this).
   const requireAuth = useRequireAuth();
   const [dealState, setDealState] = useState<"rent" | "buy">(dealType);
   const deal = showDeal ? dealState : dealType;
-  const [city, setCity] = useState(initial.q);
-  const [typeLabels, setTypeLabels] = useState<string[]>(initial.types);
-  const [beds, setBeds] = useState<string[]>(initial.beds);
-  const [baths, setBaths] = useState<string[]>(initial.baths);
-  const [minPrice, setMinPrice] = useState(initial.min);
-  const [maxPrice, setMaxPrice] = useState(initial.max);
-  const [status, setStatus] = useState<"" | "offplan" | "ready">(initial.status);
-  const listing = mode === "listing";
+  const [city, setCity] = useState("");
+  const [typeLabels, setTypeLabels] = useState<string[]>([]);
+  const [beds, setBeds] = useState<string[]>([]);
+  const [baths, setBaths] = useState<string[]>([]);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [status, setStatus] = useState<"" | "offplan" | "ready">("");
 
   function search() {
-    if (listing) {
-      // Plain database filters on the unit list (no AI).
-      const qs = unitFiltersToSearch({
-        q: city,
-        types: typeLabels,
-        beds,
-        baths,
-        min: minPrice,
-        max: maxPrice,
-        status,
-      });
-      router.push(qs ? `/properties?${qs}` : "/properties");
-      return;
-    }
 
     // Compose a natural-language query so the existing intent extraction and
     // search pipeline handle the filters — no separate filtered endpoint needed.
@@ -453,22 +422,10 @@ export function PropertyFilterBar({
           </button>
         </div>
 
-        {listing && hasUnitFilters(initial) ? (
-          <button
-            type="button"
-            onClick={() => router.push("/properties")}
-            className="ml-auto text-sm font-medium text-muted transition hover:text-primary"
-          >
-            Clear
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={search}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90",
-            !(listing && hasUnitFilters(initial)) && "ml-auto",
-          )}
+          className="ml-auto inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
         >
           <Search className="h-4 w-4" aria-hidden />
           Search
