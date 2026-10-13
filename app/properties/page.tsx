@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
+import { handoverLabel } from "@/lib/property/handover";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import {
   hasUnitFilters,
@@ -56,6 +57,19 @@ function statusStyle(status: string | null): string {
   return "bg-white/95 text-primary"; // available / default
 }
 
+/**
+ * Off-plan / completed badge for the top-right of a card, with the handover or
+ * completion date when it's on file (metadata.handoverDate, else completionLabel).
+ */
+function deliveryBadge(
+  offPlan: boolean,
+  metadata: unknown,
+): { label: string; date: string | null } {
+  const meta = (metadata ?? {}) as { completionLabel?: string | null };
+  const date = handoverLabel(metadata) ?? meta.completionLabel?.trim() ?? null;
+  return { label: offPlan ? "Off-plan" : "Completed", date };
+}
+
 export default async function PropertiesPage({
   searchParams,
 }: {
@@ -86,6 +100,8 @@ export default async function PropertiesPage({
       id: string;
       title: string;
       slug: string;
+      offPlan: boolean;
+      metadata: Prisma.JsonValue;
       community: { name: string } | null;
     };
   }> = [];
@@ -110,6 +126,8 @@ export default async function PropertiesPage({
               id: true,
               title: true,
               slug: true,
+              offPlan: true,
+              metadata: true,
               community: { select: { name: true } },
             },
           },
@@ -179,6 +197,7 @@ export default async function PropertiesPage({
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {units.map((u, i) => {
             const img = cardPhotos[i];
+            const delivery = deliveryBadge(u.property.offPlan, u.property.metadata);
             return (
               <Link
                 key={u.id}
@@ -198,6 +217,16 @@ export default async function PropertiesPage({
                       {u.status}
                     </span>
                   ) : null}
+                  <span
+                    className={`absolute right-3 top-3 rounded-full px-2.5 py-0.5 text-[11px] font-medium shadow-sm ${
+                      u.property.offPlan
+                        ? "bg-accent/90 text-white"
+                        : "bg-white/95 text-primary"
+                    }`}
+                  >
+                    {delivery.label}
+                    {delivery.date ? ` · ${delivery.date}` : ""}
+                  </span>
                 </div>
                 <div className="p-4">
                   <p className="text-[11px] uppercase tracking-wider text-accent">
