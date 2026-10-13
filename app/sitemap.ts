@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { getRequestSiteUrl } from "@/lib/site-url";
+import { unitSlug } from "@/lib/property/unit-url";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }),
       prisma.propertyUnit.findMany({
         where: { hidden: false, property: { deletedAt: null, status: "ACTIVE" } },
-        select: { id: true, updatedAt: true },
+        select: {
+          id: true,
+          bedrooms: true,
+          unitType: true,
+          updatedAt: true,
+          property: {
+            select: {
+              slug: true,
+              title: true,
+              type: true,
+              community: { select: { name: true, emirate: true } },
+            },
+          },
+        },
         take: 10000,
       }),
       prisma.community.findMany({ select: { slug: true, updatedAt: true } }),
@@ -44,7 +58,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
     const unitPages: MetadataRoute.Sitemap = units.map((u) => ({
-      url: `${SITE_URL}/properties/unit/${u.id}`,
+      url: `${SITE_URL}/properties/unit/${unitSlug(u)}`,
       lastModified: u.updatedAt,
       changeFrequency: "weekly",
       priority: 0.7,

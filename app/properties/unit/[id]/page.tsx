@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
 import { handoverLabel } from "@/lib/property/handover";
+import { unitIdFromParam, unitSlug } from "@/lib/property/unit-url";
+import { SITE_URL } from "@/lib/data-layer/canonical";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { AIChat } from "@/components/ai/ai-chat";
 import { formatKm } from "@/lib/property/nearby";
@@ -41,16 +43,36 @@ function bedLabel(beds: number | null): string {
   return beds === 0 ? "Studio" : `${beds}-Bedroom`;
 }
 
+type LoadedUnit = NonNullable<Awaited<ReturnType<typeof loadUnit>>>;
+
+/** Canonical SEO slug for a loaded unit. */
+function canonicalSlug(unit: LoadedUnit): string {
+  return unitSlug({
+    id: unit.id,
+    bedrooms: unit.bedrooms,
+    unitType: unit.unitType,
+    property: {
+      slug: unit.property.slug,
+      title: unit.property.title,
+      type: unit.property.type,
+      community: unit.property.community,
+    },
+  });
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const unit = await loadUnit(id);
+  const unit = await loadUnit(unitIdFromParam(id));
   if (!unit) return { title: "Unit" };
   const title = `${bedLabel(unit.bedrooms)} at ${unit.property.title}`;
-  return { title };
+  return {
+    title,
+    alternates: { canonical: `${SITE_URL}/properties/unit/${canonicalSlug(unit)}` },
+  };
 }
 
 export default async function UnitDetailPage({
@@ -59,8 +81,13 @@ export default async function UnitDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const unit = await loadUnit(id);
+  const unit = await loadUnit(unitIdFromParam(id));
   if (!unit || unit.hidden) notFound();
+
+  // Redirect legacy bare-id links (and any stale slug) to the canonical URL.
+  const canonical = canonicalSlug(unit);
+  if (id !== canonical) permanentRedirect(`/properties/unit/${canonical}`);
+
   const p = unit.property;
 
   // Unit numbers are admin-only — shown here only to signed-in admins.

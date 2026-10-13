@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
 import { handoverLabel } from "@/lib/property/handover";
+import { unitPath } from "@/lib/property/unit-url";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import {
   hasUnitFilters,
@@ -100,9 +101,10 @@ export default async function PropertiesPage({
       id: string;
       title: string;
       slug: string;
+      type: string;
       offPlan: boolean;
       metadata: Prisma.JsonValue;
-      community: { name: string } | null;
+      community: { name: string; emirate: string | null } | null;
     };
   }> = [];
   let total = 0;
@@ -126,9 +128,10 @@ export default async function PropertiesPage({
               id: true,
               title: true,
               slug: true,
+              type: true,
               offPlan: true,
               metadata: true,
-              community: { select: { name: true } },
+              community: { select: { name: true, emirate: true } },
             },
           },
         },
@@ -201,7 +204,12 @@ export default async function PropertiesPage({
             return (
               <Link
                 key={u.id}
-                href={`/properties/unit/${u.id}`}
+                href={unitPath({
+                  id: u.id,
+                  bedrooms: u.bedrooms,
+                  unitType: u.unitType,
+                  property: u.property,
+                })}
                 className="group overflow-hidden rounded-xl border border-border bg-card transition hover:border-accent hover:shadow-sm"
               >
                 <div className="relative aspect-[4/3] overflow-hidden">

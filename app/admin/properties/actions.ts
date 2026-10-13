@@ -293,7 +293,8 @@ function revalidateUnitPages(
   revalidatePath(`/admin/properties/${propertyId}/edit`);
   revalidatePath("/admin/units");
   revalidatePath("/properties");
-  revalidatePath(`/properties/unit/${unitId}`);
+  // The unit URL now carries an SEO slug; revalidate the whole dynamic route.
+  revalidatePath("/properties/unit/[id]", "page");
   revalidatePath(`/${property.offPlan ? "projects" : "properties"}/${property.slug}`);
 }
 

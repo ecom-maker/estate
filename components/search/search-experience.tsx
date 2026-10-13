@@ -7,6 +7,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { cn, formatAED } from "@/lib/utils";
+import { unitPath } from "@/lib/property/unit-url";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 type Unit = {
@@ -17,12 +18,14 @@ type Unit = {
   priceAed: number | null;
   view: string | null;
   status: string | null;
+  unitType?: string | null;
 };
 
 type PropertyCard = {
   id: string;
   slug: string;
   title: string;
+  type?: string | null;
   priceAed: number | null;
   bedrooms: number | null;
   bathrooms: number | null;
@@ -30,7 +33,7 @@ type PropertyCard = {
   offPlan?: boolean | null;
   score?: number;
   images?: Array<{ url: string; alt: string | null }>;
-  community?: { name: string } | null;
+  community?: { name: string; emirate?: string | null } | null;
   units?: Unit[];
 };
 
@@ -156,7 +159,17 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                   // the same project don't all show the same image.
                   return p.units.slice(0, 6).map((u, i) => ({
                     key: `u-${u.id}`,
-                    href: `/properties/unit/${u.id}`,
+                    href: unitPath({
+                      id: u.id,
+                      bedrooms: u.bedrooms,
+                      unitType: u.unitType,
+                      property: {
+                        slug: p.slug,
+                        title: p.title,
+                        type: p.type,
+                        community: p.community,
+                      },
+                    }),
                     ...base,
                     image: imgs.length ? imgs[i % imgs.length] : null,
                     bedrooms: u.bedrooms,
