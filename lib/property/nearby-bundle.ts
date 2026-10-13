@@ -23,7 +23,7 @@ const EMPTY: NearbyBundle = {
 
 // Bump whenever the landmark set or filtering logic changes — stored caches
 // with an older version are treated as stale and recomputed on next view.
-const NEARBY_VERSION = 2;
+const NEARBY_VERSION = 3;
 
 function validList(v: unknown): v is NearbyLandmark[] {
   return (

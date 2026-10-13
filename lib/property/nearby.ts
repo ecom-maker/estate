@@ -51,6 +51,16 @@ const HOSPITALS: { name: string; lat: number; lng: number }[] = [
   { name: "King's College Hospital Dubai", lat: 25.11, lng: 55.248 },
   { name: "Zulekha Hospital Dubai", lat: 25.288, lng: 55.372 },
   { name: "Dubai Hospital", lat: 25.286, lng: 55.32 },
+  // Ajman
+  { name: "Sheikh Khalifa Hospital Ajman", lat: 25.3925, lng: 55.4816 },
+  { name: "Thumbay University Hospital Ajman", lat: 25.412, lng: 55.489 },
+  { name: "Thumbay Hospital Ajman", lat: 25.384, lng: 55.462 },
+  { name: "GMC Hospital Ajman", lat: 25.407, lng: 55.478 },
+  { name: "Amina Hospital Ajman", lat: 25.397, lng: 55.482 },
+  // Sharjah (between Ajman and Dubai)
+  { name: "Al Qassimi Hospital Sharjah", lat: 25.354, lng: 55.429 },
+  { name: "Zulekha Hospital Sharjah", lat: 25.348, lng: 55.393 },
+  { name: "University Hospital Sharjah", lat: 25.293, lng: 55.491 },
 ];
 
 /** Dubai Metro stations (approximate coords) for the curated fallback. */
