@@ -1,3 +1,7 @@
+import {
+  PaymentPlanSection,
+  ProjectTimelineSection,
+} from "@/components/property/payment-timeline";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -256,6 +260,10 @@ export default async function UnitDetailPage({
         {section("Nearby Schools", nearby.schools)}
         {section("Nearby Hospitals", nearby.hospitals)}
         {section("Nearby Metro Stations", nearby.metro)}
+
+        {/* Same as the project page. */}
+        <PaymentPlanSection project={p} />
+        <ProjectTimelineSection project={p} />
       </div>
 
       <aside className="h-fit rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
