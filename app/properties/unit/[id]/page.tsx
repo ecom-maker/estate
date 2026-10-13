@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
+import { handoverLabel } from "@/lib/property/handover";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { AIChat } from "@/components/ai/ai-chat";
 import { formatKm } from "@/lib/property/nearby";
@@ -70,6 +71,17 @@ export default async function UnitDetailPage({
 
   const nearby = await getNearbyBundle(p);
 
+  // Delivery badge: off-plan with handover date, or completed with the
+  // completion date when it's on file (metadata.handoverDate / completionLabel).
+  const delivery = {
+    label: p.offPlan ? "Off-plan" : "Completed",
+    date:
+      handoverLabel(p.metadata) ??
+      (p.metadata as { completionLabel?: string | null } | null)
+        ?.completionLabel?.trim() ??
+      null,
+  };
+
   const specs: [string, string][] = [
     ["Bedrooms", unit.bedrooms == null ? "—" : unit.bedrooms === 0 ? "Studio" : String(unit.bedrooms)],
     ["Bathrooms", unit.bathrooms != null ? String(unit.bathrooms) : "—"],
@@ -131,6 +143,15 @@ export default async function UnitDetailPage({
               {unit.status}
             </span>
           ) : null}
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-[11px] font-medium",
+              p.offPlan ? "bg-accent/90 text-white" : "bg-primary/10 text-primary",
+            )}
+          >
+            {delivery.label}
+            {delivery.date ? ` · ${delivery.date}` : ""}
+          </span>
           {isAdminViewer ? (
             <span className="inline-flex flex-wrap items-center gap-2 rounded-sm border border-accent/30 bg-accent/5 px-2.5 py-0.5 text-xs text-primary">
               <span className="font-medium">Unit {unit.unitNumber}</span>
