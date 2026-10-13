@@ -2,7 +2,19 @@ import type { UnitGroup, UnitRow } from "@/components/property/units-section";
 
 export const PLACEHOLDER_PLAN = "/floorplan-placeholder.svg";
 
-type FloorplanLike = { url: string; title: string; unitRef: string | null };
+type FloorplanLike = {
+  url: string;
+  title: string;
+  unitRef: string | null;
+  mimeType?: string | null;
+};
+
+/** A floor plan stored as a PDF (shown embedded / as a file tile, not an <img>). */
+export function isPdfPlan(url: string, mimeType?: string | null): boolean {
+  return mimeType === "application/pdf" || /\.pdf(?:$|[?#])/i.test(url);
+}
+
+type MatchedPlan = { url: string; title: string; isPdf: boolean };
 type UnitLike = {
   id: string;
   unitNumber: string;
@@ -42,10 +54,11 @@ const fromLabel = (price: number | null) =>
  * null; never a placeholder or a mismatched plan.
  */
 export function floorplanMatcher(floorplans: FloorplanLike[]) {
-  const floorplanByUnit = new Map<string, { url: string; title: string }>();
-  const floorplanByBeds = new Map<number, { url: string; title: string }>();
+  const floorplanByUnit = new Map<string, MatchedPlan>();
+  const floorplanByBeds = new Map<number, MatchedPlan>();
   for (const fp of floorplans) {
-    if (fp.unitRef) floorplanByUnit.set(fp.unitRef, { url: fp.url, title: fp.title });
+    const plan = { url: fp.url, title: fp.title, isPdf: isPdfPlan(fp.url, fp.mimeType) };
+    if (fp.unitRef) floorplanByUnit.set(fp.unitRef, plan);
     const ref = `${fp.unitRef ?? ""} ${fp.title ?? ""}`;
     let beds: number | null = /studio/i.test(ref) ? 0 : null;
     if (beds == null) {
@@ -53,7 +66,7 @@ export function floorplanMatcher(floorplans: FloorplanLike[]) {
       if (m) beds = Number(m[1]);
     }
     if (beds != null && !floorplanByBeds.has(beds)) {
-      floorplanByBeds.set(beds, { url: fp.url, title: fp.title });
+      floorplanByBeds.set(beds, plan);
     }
   }
   return (unit: { unitNumber: string; bedrooms: number | null }) =>
@@ -112,6 +125,7 @@ export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
       bathrooms: u.bathrooms ?? property.bathrooms,
       areaSqft: u.areaSqft ?? property.areaSqft,
       floorplanUrl: fp?.url ?? "",
+      floorplanIsPdf: fp?.isPdf ?? false,
       floorplanTitle: `${label} floor plan`,
     });
   }

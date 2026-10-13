@@ -2,6 +2,7 @@ import {
   PaymentPlanSection,
   ProjectTimelineSection,
 } from "@/components/property/payment-timeline";
+import { FileText } from "lucide-react";
 import { floorplanMatcher } from "@/lib/property/unit-groups";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -270,23 +271,58 @@ export default async function UnitDetailPage({
         {floorplan ? (
           <section className="mt-10">
             <h2 className="font-serif text-2xl text-primary">Floor plan</h2>
-            <a
-              href={floorplan.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 block overflow-hidden rounded-sm border border-border bg-card p-4 transition hover:border-accent"
-              aria-label="Open the floor plan full size"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={floorplan.url}
-                alt={`${bedLabel(unit.bedrooms)} floor plan at ${p.title}`}
-                className="mx-auto max-h-[560px] w-full object-contain"
-              />
-              <span className="mt-3 block text-center text-xs text-muted">
-                Tap to open full size
-              </span>
-            </a>
+            {floorplan.isPdf ? (
+              <div className="mt-4 overflow-hidden rounded-sm border border-border bg-card">
+                <object
+                  data={floorplan.url}
+                  type="application/pdf"
+                  aria-label={`${bedLabel(unit.bedrooms)} floor plan at ${p.title}`}
+                  className="h-[420px] w-full sm:h-[640px]"
+                >
+                  {/* Shown where the browser can't embed PDFs (most phones). */}
+                  <a
+                    href={floorplan.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+                  >
+                    <FileText className="h-10 w-10 text-accent" aria-hidden />
+                    <span className="text-sm font-medium text-primary">
+                      Floor plan (PDF)
+                    </span>
+                    <span className="rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                      Open floor plan
+                    </span>
+                  </a>
+                </object>
+                <a
+                  href={floorplan.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block border-t border-border py-3 text-center text-sm font-medium text-accent hover:underline"
+                >
+                  Open floor plan (PDF)
+                </a>
+              </div>
+            ) : (
+              <a
+                href={floorplan.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 block overflow-hidden rounded-sm border border-border bg-card p-4 transition hover:border-accent"
+                aria-label="Open the floor plan full size"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={floorplan.url}
+                  alt={`${bedLabel(unit.bedrooms)} floor plan at ${p.title}`}
+                  className="mx-auto max-h-[560px] w-full object-contain"
+                />
+                <span className="mt-3 block text-center text-xs text-muted">
+                  Tap to open full size
+                </span>
+              </a>
+            )}
           </section>
         ) : null}
         <ProjectTimelineSection project={p} />
