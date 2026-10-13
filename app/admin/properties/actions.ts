@@ -98,6 +98,31 @@ async function uniqueSlug(base: string, excludeId?: string) {
   return `${root}-${nanoid(8)}`;
 }
 
+/** Hide/show a unit from the public (kept in the DB either way). */
+export async function setUnitHidden(formData: FormData): Promise<void> {
+  try {
+    await assertPermission("properties.update");
+  } catch {
+    return;
+  }
+  const id = String(formData.get("id") ?? "");
+  const hidden = String(formData.get("hidden") ?? "") === "true";
+  if (!id) return;
+  try {
+    const unit = await prisma.propertyUnit.update({
+      where: { id },
+      data: { hidden },
+      select: { property: { select: { slug: true, offPlan: true } } },
+    });
+    revalidatePath("/admin/units");
+    revalidatePath(
+      `/${unit.property.offPlan ? "projects" : "properties"}/${unit.property.slug}`,
+    );
+  } catch {
+    // ignore
+  }
+}
+
 export type RefreshNearbyState = { ok?: boolean; error?: string };
 
 /** Admin action: recompute and re-store a property's nearby data from the APIs. */

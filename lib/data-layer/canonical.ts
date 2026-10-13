@@ -154,7 +154,9 @@ export function toCanonicalProperty(p: CanonicalPropertyRecord) {
 
     amenities: p.amenities.map((a) => a.amenity.name),
 
-    units: p.units.map((u) => ({
+    units: p.units
+      .filter((u) => !(u as { hidden?: boolean }).hidden)
+      .map((u) => ({
       // Unit numbers are admin-only — never exposed in the public API / to bots.
       floor: u.floor,
       bedrooms: u.bedrooms,

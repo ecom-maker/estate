@@ -5,7 +5,7 @@ import { assertPermission } from "@/lib/rbac/guards";
 import { PropertyForm } from "@/components/admin/property-form";
 import { RefreshNearbyButton } from "@/components/admin/refresh-nearby-button";
 import { canEditProperty } from "@/lib/admin/property-access";
-import { updateProperty } from "../../actions";
+import { updateProperty, setUnitHidden } from "../../actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit Property" };
@@ -63,6 +63,7 @@ export default async function EditPropertyPage({
       priceAed: true,
       view: true,
       status: true,
+      hidden: true,
     },
   });
 
@@ -146,12 +147,16 @@ export default async function EditPropertyPage({
                   <th>Area (sqft)</th>
                   <th>Price (AED)</th>
                   <th>View</th>
-                  <th className="px-4">Status</th>
+                  <th>Status</th>
+                  <th className="px-4">Visibility</th>
                 </tr>
               </thead>
               <tbody>
                 {units.map((u) => (
-                  <tr key={u.id} className="border-t border-border">
+                  <tr
+                    key={u.id}
+                    className={`border-t border-border ${u.hidden ? "opacity-60" : ""}`}
+                  >
                     <td className="px-4 py-3 font-medium text-primary">
                       {u.unitNumber}
                     </td>
@@ -167,7 +172,23 @@ export default async function EditPropertyPage({
                       {u.priceAed ? Math.round(u.priceAed).toLocaleString() : "—"}
                     </td>
                     <td>{u.view ?? "—"}</td>
-                    <td className="px-4">{u.status ?? "—"}</td>
+                    <td>{u.status ?? "—"}</td>
+                    <td className="px-4">
+                      <form action={setUnitHidden} className="inline">
+                        <input type="hidden" name="id" value={u.id} />
+                        <input
+                          type="hidden"
+                          name="hidden"
+                          value={String(!u.hidden)}
+                        />
+                        <button
+                          type="submit"
+                          className="font-medium text-accent hover:underline"
+                        >
+                          {u.hidden ? "Show" : "Hide"}
+                        </button>
+                      </form>
+                    </td>
                   </tr>
                 ))}
               </tbody>

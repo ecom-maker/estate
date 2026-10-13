@@ -30,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         take: 5000,
       }),
       prisma.propertyUnit.findMany({
-        where: { property: { deletedAt: null, status: "ACTIVE" } },
+        where: { hidden: false, property: { deletedAt: null, status: "ACTIVE" } },
         select: { id: true, updatedAt: true },
         take: 10000,
       }),

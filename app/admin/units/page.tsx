@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { assertPermission } from "@/lib/rbac/guards";
 import { prisma } from "@/lib/db/prisma";
+import { setUnitHidden } from "@/app/admin/properties/actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Units" };
@@ -21,6 +22,7 @@ export default async function AdminUnitsPage() {
     areaSqft: number | null;
     priceAed: number | null;
     status: string | null;
+    hidden: boolean;
     property: { id: string; title: string };
   }> = [];
   let total = 0;
@@ -38,6 +40,7 @@ export default async function AdminUnitsPage() {
           areaSqft: true,
           priceAed: true,
           status: true,
+          hidden: true,
           property: { select: { id: true, title: true } },
         },
       }),
@@ -71,12 +74,16 @@ export default async function AdminUnitsPage() {
               <th>Area (sqft)</th>
               <th>Price (AED)</th>
               <th>Status</th>
+              <th>Visibility</th>
               <th className="px-4">Manage</th>
             </tr>
           </thead>
           <tbody>
             {units.map((u) => (
-              <tr key={u.id} className="border-t border-border">
+              <tr
+                key={u.id}
+                className={`border-t border-border ${u.hidden ? "opacity-60" : ""}`}
+              >
                 <td className="px-4 py-3 font-medium text-primary">
                   {u.unitNumber}
                 </td>
@@ -90,19 +97,46 @@ export default async function AdminUnitsPage() {
                   {u.priceAed ? Math.round(u.priceAed).toLocaleString() : "—"}
                 </td>
                 <td className="capitalize">{u.status ?? "—"}</td>
-                <td className="px-4">
-                  <Link
-                    href={`/admin/properties/${u.property.id}/edit`}
-                    className="font-medium text-accent hover:underline"
+                <td>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      u.hidden
+                        ? "bg-primary/10 text-muted"
+                        : "bg-accent/10 text-accent"
+                    }`}
                   >
-                    Project
-                  </Link>
+                    {u.hidden ? "Hidden" : "Visible"}
+                  </span>
+                </td>
+                <td className="px-4">
+                  <div className="flex items-center gap-3">
+                    <form action={setUnitHidden}>
+                      <input type="hidden" name="id" value={u.id} />
+                      <input
+                        type="hidden"
+                        name="hidden"
+                        value={String(!u.hidden)}
+                      />
+                      <button
+                        type="submit"
+                        className="font-medium text-accent hover:underline"
+                      >
+                        {u.hidden ? "Show" : "Hide"}
+                      </button>
+                    </form>
+                    <Link
+                      href={`/admin/properties/${u.property.id}/edit`}
+                      className="text-muted hover:text-accent"
+                    >
+                      Project
+                    </Link>
+                  </div>
                 </td>
               </tr>
             ))}
             {units.length === 0 ? (
               <tr className="border-t border-border">
-                <td colSpan={8} className="px-4 py-6 text-muted">
+                <td colSpan={9} className="px-4 py-6 text-muted">
                   No units yet.
                 </td>
               </tr>

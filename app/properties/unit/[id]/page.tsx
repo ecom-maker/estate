@@ -57,7 +57,7 @@ export default async function UnitDetailPage({
 }) {
   const { id } = await params;
   const unit = await loadUnit(id);
-  if (!unit) notFound();
+  if (!unit || unit.hidden) notFound();
   const p = unit.property;
 
   const nearby = await getNearbyBundle(p);

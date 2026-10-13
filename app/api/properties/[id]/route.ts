@@ -31,8 +31,10 @@ export async function GET(
       return failure("NOT_FOUND", "Property not found", 404);
     }
 
-    // Unit numbers are admin-only — never expose them in this public API.
-    const units = property.units.map(({ unitNumber: _unitNumber, ...u }) => u);
+    // Hidden units aren't public; unit numbers are admin-only — strip both.
+    const units = property.units
+      .filter((u) => !u.hidden)
+      .map(({ unitNumber: _unitNumber, hidden: _hidden, ...u }) => u);
 
     return success({
       ...property,

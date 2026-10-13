@@ -307,6 +307,9 @@ model PropertyUnit {
   id         String   @id @default(cuid())
   propertyId String   @map("property_id")
   unitNumber String   @map("unit_number")
+  /// Hidden from the public (frontend, API, AI) but kept in the DB — e.g. a
+  /// sold/placeholder unit retained for future secondary-sale listings.
+  hidden     Boolean  @default(false)
   floor      Int?
   bedrooms   Int?
   bathrooms  Int?

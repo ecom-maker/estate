@@ -146,6 +146,7 @@ export type UnitType = {
 
 export function unitTypes(p: AgentProperty): UnitType[] {
   return p.units
+    .filter((u) => !(u as { hidden?: boolean }).hidden)
     .map((u) => {
       const m = (u.metadata ?? {}) as UnitMeta;
       return {

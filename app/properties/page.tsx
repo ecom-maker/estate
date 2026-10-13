@@ -38,6 +38,7 @@ export default async function PropertiesPage({
   const bedFilter = BED_FILTERS.some((b) => b.key === beds) ? beds : "any";
 
   const where: Prisma.PropertyUnitWhereInput = {
+    hidden: false,
     property: { deletedAt: null, status: "ACTIVE" },
     ...(bedFilter && bedFilter !== "any"
       ? bedFilter === "4"

@@ -10,6 +10,7 @@ type UnitLike = {
   bathrooms: number | null;
   areaSqft: number | null;
   priceAed: number | null;
+  hidden?: boolean;
 };
 type PropertyLike = {
   id: string;
@@ -55,8 +56,10 @@ export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
     }
   }
 
-  const unitSource: UnitLike[] = property.units.length
-    ? property.units
+  // Hidden units are kept in the DB but never shown publicly.
+  const visibleUnits = property.units.filter((u) => !u.hidden);
+  const unitSource: UnitLike[] = visibleUnits.length
+    ? visibleUnits
     : [
         {
           id: property.id,
