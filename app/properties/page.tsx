@@ -84,7 +84,8 @@ export default async function PropertiesPage({
               community: { select: { name: true } },
               images: {
                 orderBy: { sortOrder: "asc" },
-                take: 1,
+                // Several, so cards from the same project can differ.
+                take: 8,
                 select: { url: true, alt: true },
               },
             },
@@ -97,6 +98,8 @@ export default async function PropertiesPage({
     units = [];
     total = 0;
   }
+
+  const photoTurn = new Map<string, number>();
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
@@ -140,7 +143,12 @@ export default async function PropertiesPage({
       ) : (
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {units.map((u) => {
-            const img = u.property.images[0];
+            // Rotate through the project's photos so units from the same
+            // project don't show the same picture side by side.
+            const seen = photoTurn.get(u.property.slug) ?? 0;
+            photoTurn.set(u.property.slug, seen + 1);
+            const imgs = u.property.images;
+            const img = imgs.length ? imgs[seen % imgs.length] : undefined;
             return (
               <Link
                 key={u.id}
