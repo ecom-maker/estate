@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRequireAuth } from "@/components/auth/sign-in-gate";
+import type { Place } from "@/app/api/places/route";
 import {
   BATHROOMS,
   BEDROOMS,
@@ -320,6 +321,47 @@ export function PropertyFilterBar({
   const [status, setStatus] = useState<"" | "offplan" | "ready">(initial.status);
   const listing = mode === "listing";
 
+  // Autocomplete for the city/community/building field, loaded from the DB.
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [placesOpen, setPlacesOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const cityRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/places");
+        const json = await res.json();
+        if (!cancelled && json?.success) setPlaces(json.data.places as Place[]);
+      } catch {
+        // No suggestions — the field still works as free text.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!placesOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (cityRef.current && !cityRef.current.contains(e.target as Node)) {
+        setPlacesOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [placesOpen]);
+
+  const suggestions = useMemo(() => {
+    const text = city.trim().toLowerCase();
+    const matches = text
+      ? places.filter((p) => p.label.toLowerCase().includes(text))
+      : places;
+    return matches.slice(0, 8);
+  }, [city, places]);
+
   function search() {
     if (listing) {
       // Plain database filters on the unit list (no AI).
@@ -375,21 +417,84 @@ export function PropertyFilterBar({
 
   return (
     <div className="rounded-sm border border-white/15 bg-white/95 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.35)] backdrop-blur">
-      <div className="flex items-center gap-3 border-b border-border px-1 pb-3">
-        <Search className="h-5 w-5 shrink-0 text-muted" aria-hidden />
-        <label htmlFor="filter-city" className="sr-only">
-          City, community or building
-        </label>
-        <input
-          id="filter-city"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") search();
-          }}
-          placeholder="City, community or building"
-          className="w-full bg-transparent text-base text-primary outline-none placeholder:text-muted"
-        />
+      <div ref={cityRef} className="relative">
+        <div className="flex items-center gap-3 border-b border-border px-1 pb-3">
+          <Search className="h-5 w-5 shrink-0 text-muted" aria-hidden />
+          <label htmlFor="filter-city" className="sr-only">
+            City, community or building
+          </label>
+          <input
+            id="filter-city"
+            role="combobox"
+            aria-expanded={placesOpen && suggestions.length > 0}
+            aria-controls="filter-city-list"
+            aria-autocomplete="list"
+            autoComplete="off"
+            value={city}
+            onChange={(e) => {
+              setCity(e.target.value);
+              setPlacesOpen(true);
+              setHighlight(-1);
+            }}
+            onFocus={() => setPlacesOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown" && suggestions.length) {
+                e.preventDefault();
+                setPlacesOpen(true);
+                setHighlight((h) => (h + 1) % suggestions.length);
+              } else if (e.key === "ArrowUp" && suggestions.length) {
+                e.preventDefault();
+                setHighlight((h) =>
+                  h <= 0 ? suggestions.length - 1 : h - 1,
+                );
+              } else if (e.key === "Enter") {
+                if (placesOpen && highlight >= 0 && suggestions[highlight]) {
+                  e.preventDefault();
+                  setCity(suggestions[highlight].label);
+                  setPlacesOpen(false);
+                  setHighlight(-1);
+                } else {
+                  search();
+                }
+              } else if (e.key === "Escape") {
+                setPlacesOpen(false);
+                setHighlight(-1);
+              }
+            }}
+            placeholder="City, community or building"
+            className="w-full bg-transparent text-base text-primary outline-none placeholder:text-muted"
+          />
+        </div>
+        {placesOpen && suggestions.length ? (
+          <ul
+            id="filter-city-list"
+            role="listbox"
+            className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto overscroll-contain rounded-md border border-border bg-white py-1 shadow-[0_20px_60px_rgba(15,23,42,0.25)]"
+          >
+            {suggestions.map((p, i) => (
+              <li key={`${p.kind}:${p.label}`} role="option" aria-selected={i === highlight}>
+                <button
+                  type="button"
+                  onMouseEnter={() => setHighlight(i)}
+                  onClick={() => {
+                    setCity(p.label);
+                    setPlacesOpen(false);
+                    setHighlight(-1);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm transition",
+                    i === highlight ? "bg-accent/10 text-accent" : "text-primary/80",
+                  )}
+                >
+                  <span className="truncate">{p.label}</span>
+                  <span className="shrink-0 text-[11px] uppercase tracking-wider text-muted">
+                    {p.kind}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
