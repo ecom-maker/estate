@@ -139,7 +139,12 @@ export async function setUnitType(formData: FormData): Promise<void> {
     ? (raw as (typeof UNIT_TYPES)[number])
     : null;
   try {
-    await prisma.propertyUnit.update({ where: { id }, data: { unitType } });
+    const unit = await prisma.propertyUnit.update({
+      where: { id },
+      data: { unitType },
+      select: { propertyId: true },
+    });
+    revalidatePath(`/admin/properties/${unit.propertyId}/edit`);
     revalidatePath("/admin/units");
     revalidatePath("/properties");
   } catch {

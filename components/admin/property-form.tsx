@@ -38,6 +38,7 @@ export function PropertyForm({
   communities,
   property,
   submitLabel = "Save property",
+  typePerUnit = false,
 }: {
   action: (
     state: PropertyFormState,
@@ -46,6 +47,8 @@ export function PropertyForm({
   communities: Community[];
   property?: PropertyDefaults;
   submitLabel?: string;
+  /** A project with units: types are set per unit in the Units table. */
+  typePerUnit?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<
     PropertyFormState,
@@ -88,27 +91,38 @@ export function PropertyForm({
       </div>
 
       <div className="grid gap-6 sm:grid-cols-3">
-        <div>
-          <label htmlFor="type" className={labelClass}>
-            Type *
-          </label>
-          <select
-            id="type"
-            name="type"
-            defaultValue={property?.type ?? ""}
-            required
-            className={fieldClass}
-          >
-            <option value="" disabled>
-              Select…
-            </option>
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t.charAt(0) + t.slice(1).toLowerCase()}
+        {typePerUnit ? (
+          <div>
+            <p className={labelClass}>Type</p>
+            {/* Kept as the project's default; units carry their own type. */}
+            <input type="hidden" name="type" value={property?.type ?? "APARTMENT"} />
+            <p className="mt-1.5 rounded-sm border border-dashed border-border px-3 py-2 text-sm text-muted">
+              Set per unit in the Units table below
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="type" className={labelClass}>
+              Type *
+            </label>
+            <select
+              id="type"
+              name="type"
+              defaultValue={property?.type ?? ""}
+              required
+              className={fieldClass}
+            >
+              <option value="" disabled>
+                Select…
               </option>
-            ))}
-          </select>
-        </div>
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0) + t.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label htmlFor="status" className={labelClass}>
             Status

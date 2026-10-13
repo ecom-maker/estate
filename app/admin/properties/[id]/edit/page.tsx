@@ -6,6 +6,7 @@ import { PropertyForm } from "@/components/admin/property-form";
 import { RefreshNearbyButton } from "@/components/admin/refresh-nearby-button";
 import { canEditProperty } from "@/lib/admin/property-access";
 import { updateProperty, setUnitHidden } from "../../actions";
+import { UnitTypeSelect } from "@/components/admin/unit-type-select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit Property" };
@@ -64,6 +65,7 @@ export default async function EditPropertyPage({
       view: true,
       status: true,
       hidden: true,
+      unitType: true,
     },
   });
 
@@ -119,6 +121,7 @@ export default async function EditPropertyPage({
             dealType: meta.dealType ?? "sale",
           }}
           submitLabel="Save changes"
+          typePerUnit={units.length > 0}
         />
       ) : (
         <div className="mt-6 rounded-sm border border-border bg-card p-6 text-sm text-muted">
@@ -137,10 +140,11 @@ export default async function EditPropertyPage({
         </p>
         {units.length ? (
           <div className="mt-4 overflow-x-auto rounded-sm border border-border bg-card">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wider text-muted">
                 <tr>
                   <th className="px-4 py-3">Unit #</th>
+                  <th>Type</th>
                   <th>Floor</th>
                   <th>Beds</th>
                   <th>Bath</th>
@@ -159,6 +163,19 @@ export default async function EditPropertyPage({
                   >
                     <td className="px-4 py-3 font-medium text-primary">
                       {u.unitNumber}
+                    </td>
+                    <td className="pr-3">
+                      {editable ? (
+                        <UnitTypeSelect
+                          id={u.id}
+                          value={u.unitType}
+                          projectType={property.type}
+                        />
+                      ) : (
+                        <span className="capitalize">
+                          {(u.unitType ?? property.type).toLowerCase()}
+                        </span>
+                      )}
                     </td>
                     <td>{u.floor ?? "—"}</td>
                     <td>{u.bedrooms ?? "—"}</td>
