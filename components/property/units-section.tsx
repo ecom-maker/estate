@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type UnitRow = {
@@ -9,6 +10,7 @@ export type UnitRow = {
   bathrooms: number | null;
   areaSqft: number | null;
   floorplanUrl: string;
+  floorplanIsPdf?: boolean;
   floorplanTitle: string;
 };
 
@@ -31,7 +33,9 @@ export function UnitsSection({
   fromDeveloper?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(groups[0]?.key ?? null);
-  const [plan, setPlan] = useState<{ url: string; title: string } | null>(null);
+  const [plan, setPlan] = useState<{ url: string; title: string; isPdf: boolean } | null>(
+    null,
+  );
 
   return (
     <section id="units" className="mt-10 scroll-mt-24">
@@ -110,17 +114,25 @@ export function UnitsSection({
                                   setPlan({
                                     url: u.floorplanUrl,
                                     title: u.floorplanTitle,
+                                    isPdf: Boolean(u.floorplanIsPdf),
                                   })
                                 }
                                 className="inline-block overflow-hidden rounded-sm border border-border transition hover:border-accent"
                                 aria-label={`Open floor plan for ${u.layoutType}`}
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={u.floorplanUrl}
-                                  alt={u.floorplanTitle}
-                                  className="h-16 w-20 bg-background object-cover"
-                                />
+                                {u.floorplanIsPdf ? (
+                                  <span className="flex h-16 w-20 flex-col items-center justify-center gap-1 bg-background text-muted">
+                                    <FileText className="h-5 w-5" aria-hidden />
+                                    <span className="text-[10px] font-semibold">PDF</span>
+                                  </span>
+                                ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={u.floorplanUrl}
+                                    alt={u.floorplanTitle}
+                                    className="h-16 w-20 bg-background object-cover"
+                                  />
+                                )}
                               </button>
                             ) : (
                               <span className="text-xs text-muted">—</span>
@@ -157,13 +169,36 @@ export function UnitsSection({
             >
               ✕
             </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={plan.url}
-              alt={plan.title}
-              className="mx-auto max-h-[82vh] w-auto"
-            />
-            <p className="mt-3 text-center text-sm text-muted">{plan.title}</p>
+            {plan.isPdf ? (
+              <iframe
+                src={plan.url}
+                title={plan.title}
+                className="h-[78vh] w-full rounded-sm border border-border"
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={plan.url}
+                alt={plan.title}
+                className="mx-auto max-h-[82vh] w-auto"
+              />
+            )}
+            <p className="mt-3 text-center text-sm text-muted">
+              {plan.title}
+              {plan.isPdf ? (
+                <>
+                  {" · "}
+                  <a
+                    href={plan.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline"
+                  >
+                    Open PDF
+                  </a>
+                </>
+              ) : null}
+            </p>
           </div>
         </div>
       ) : null}

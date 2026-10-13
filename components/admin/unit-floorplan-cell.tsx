@@ -6,6 +6,7 @@ import {
   uploadUnitFloorplan,
   type UnitDetailsState,
 } from "@/app/admin/properties/actions";
+import { isPdfPlan } from "@/lib/property/unit-groups";
 
 /** Floor plan for one unit in the admin Units table: preview, upload, remove. */
 export function UnitFloorplanCell({ id, url }: { id: string; url: string | null }) {
@@ -19,12 +20,18 @@ export function UnitFloorplanCell({ id, url }: { id: string; url: string | null 
     <div className="flex items-center gap-2">
       {url ? (
         <a href={url} target="_blank" rel="noopener noreferrer" title="Open floor plan">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt="Floor plan"
-            className="h-10 w-12 rounded-sm border border-border bg-background object-cover"
-          />
+          {isPdfPlan(url) ? (
+            <span className="flex h-10 w-12 items-center justify-center rounded-sm border border-border bg-background text-[10px] font-semibold text-muted">
+              PDF
+            </span>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt="Floor plan"
+              className="h-10 w-12 rounded-sm border border-border bg-background object-cover"
+            />
+          )}
         </a>
       ) : null}
       <div className="flex flex-col items-start gap-0.5">
@@ -39,7 +46,7 @@ export function UnitFloorplanCell({ id, url }: { id: string; url: string | null 
             <input
               type="file"
               name="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
               className="sr-only"
               onChange={(e) => {
                 if (e.currentTarget.files?.length) formRef.current?.requestSubmit();

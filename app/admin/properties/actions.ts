@@ -286,7 +286,7 @@ function parseUnitFields(formData: FormData): UnitFields | { error: string } {
   return out;
 }
 
-const PLAN_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PLAN_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 const PLAN_MAX_BYTES = 3.5 * 1024 * 1024; // under the 4 MB server-action limit
 
 /** Load a unit for a floor-plan change and check the admin may edit it. */
@@ -330,12 +330,16 @@ export async function uploadUnitFloorplan(
   const { unit } = found;
 
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image file." };
-  if (!PLAN_TYPES.has(file.type)) return { error: "Use a JPG, PNG or WebP image." };
-  if (file.size > PLAN_MAX_BYTES) return { error: "Image is too large (3.5 MB max)." };
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image or PDF file." };
+  if (!PLAN_TYPES.has(file.type)) return { error: "Use a PDF or a JPG, PNG or WebP image." };
+  if (file.size > PLAN_MAX_BYTES) return { error: "File is too large (3.5 MB max)." };
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const ext = {
+    "image/png": "png",
+    "image/webp": "webp",
+    "application/pdf": "pdf",
+  }[file.type] ?? "jpg";
   const path = `floorplans/${unit.propertyId}/${id}-${Date.now()}.${ext}`;
   let url: string;
   if (getSupabaseAdmin()) {
