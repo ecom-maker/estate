@@ -5,7 +5,8 @@ import { assertPermission } from "@/lib/rbac/guards";
 import { PropertyForm } from "@/components/admin/property-form";
 import { RefreshNearbyButton } from "@/components/admin/refresh-nearby-button";
 import { canEditProperty } from "@/lib/admin/property-access";
-import { updateProperty, setUnitHidden } from "../../actions";
+import { updateProperty, setUnitHidden, createUnit } from "../../actions";
+import { AddUnitForm } from "@/components/admin/add-unit-form";
 import { UnitTypeSelect } from "@/components/admin/unit-type-select";
 import { UnitSaveButton } from "@/components/admin/unit-save-button";
 
@@ -279,6 +280,12 @@ export default async function EditPropertyPage({
             No units recorded for this {kind} yet.
           </p>
         )}
+        {editable ? (
+          <AddUnitForm
+            action={createUnit.bind(null, property.id)}
+            projectType={property.type}
+          />
+        ) : null}
       </section>
 
       <section className="mt-12">

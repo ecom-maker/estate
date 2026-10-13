@@ -179,31 +179,122 @@ export async function updateUnitDetails(
     return { error: "Only this listing's creator or a Super Admin can edit it." };
   }
 
-  const bedsRaw = String(formData.get("bedrooms") ?? "").trim();
-  const bedrooms = bedsRaw === "" ? null : Number(bedsRaw);
-  if (bedrooms != null && (!Number.isInteger(bedrooms) || bedrooms < 0 || bedrooms > 20)) {
-    return { error: "Beds must be a whole number from 0 (studio) to 20." };
+  const fields = parseUnitFields(formData);
+  if ("error" in fields) return fields;
+
+  await prisma.propertyUnit.update({ where: { id }, data: fields });
+  revalidateUnitPages(unit.propertyId, unit.property, id);
+  return { ok: true };
+}
+
+/** Add a unit to a property from its edit page. */
+export async function createUnit(
+  propertyId: string,
+  _prev: UnitDetailsState,
+  formData: FormData,
+): Promise<UnitDetailsState> {
+  let session;
+  try {
+    session = await assertPermission("properties.update");
+  } catch {
+    return { error: "You must be an admin to add units." };
   }
-  const priceRaw = String(formData.get("priceAed") ?? "").replace(/,/g, "").trim();
-  const priceAed = priceRaw === "" ? null : Number(priceRaw);
-  if (priceAed != null && (!Number.isFinite(priceAed) || priceAed <= 0)) {
-    return { error: "Price must be a positive number in AED." };
-  }
-  const statusRaw = String(formData.get("status") ?? "").trim().toLowerCase();
-  if (statusRaw && !(UNIT_STATUSES as readonly string[]).includes(statusRaw)) {
-    return { error: "Status must be available, reserved or sold." };
+  const property = await prisma.property.findUnique({
+    where: { id: propertyId },
+    select: { slug: true, offPlan: true },
+  });
+  if (!property) return { error: "Property not found." };
+  if (!(await canEditProperty(propertyId, session))) {
+    return { error: "Only this listing's creator or a Super Admin can edit it." };
   }
 
-  await prisma.propertyUnit.update({
-    where: { id },
-    data: { bedrooms, priceAed, status: statusRaw || null },
-  });
-  revalidatePath(`/admin/properties/${unit.propertyId}/edit`);
+  const unitNumber = String(formData.get("unitNumber") ?? "").trim();
+  if (!unitNumber) return { error: "Enter a unit number, e.g. 1BR-12 or PH-01." };
+  if (unitNumber.length > 40) return { error: "Unit number is too long (40 characters max)." };
+  const typeRaw = String(formData.get("unitType") ?? "");
+  const unitType = (UNIT_TYPES as readonly string[]).includes(typeRaw)
+    ? (typeRaw as (typeof UNIT_TYPES)[number])
+    : null;
+  const fields = parseUnitFields(formData);
+  if ("error" in fields) return fields;
+
+  try {
+    const unit = await prisma.propertyUnit.create({
+      data: { propertyId, unitNumber, unitType, ...fields },
+      select: { id: true },
+    });
+    revalidateUnitPages(propertyId, property, unit.id);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { error: `Unit ${unitNumber} already exists in this property.` };
+    }
+    throw error;
+  }
+  return { ok: true };
+}
+
+type UnitFields = {
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  areaSqft?: number | null;
+  priceAed?: number | null;
+  status?: string | null;
+};
+
+/**
+ * Unit fields from a form. A field missing from the form is left out (not
+ * changed); an empty one is cleared.
+ */
+function parseUnitFields(formData: FormData): UnitFields | { error: string } {
+  const out: UnitFields = {};
+  const raw = (key: string) => {
+    const v = formData.get(key);
+    return v == null ? undefined : String(v).replace(/,/g, "").trim();
+  };
+  const count = (key: "bedrooms" | "bathrooms", label: string, min: number) => {
+    const v = raw(key);
+    if (v === undefined) return;
+    const n = v === "" ? null : Number(v);
+    if (n != null && (!Number.isInteger(n) || n < min || n > 20)) {
+      return `${label} must be a whole number from ${min === 0 ? "0 (studio)" : min} to 20.`;
+    }
+    out[key] = n;
+  };
+  const positive = (key: "areaSqft" | "priceAed", message: string) => {
+    const v = raw(key);
+    if (v === undefined) return;
+    const n = v === "" ? null : Number(v);
+    if (n != null && (!Number.isFinite(n) || n <= 0)) return message;
+    out[key] = n;
+  };
+  const error =
+    count("bedrooms", "Beds", 0) ??
+    count("bathrooms", "Baths", 1) ??
+    positive("areaSqft", "Area must be a positive number of sqft.") ??
+    positive("priceAed", "Price must be a positive number in AED.");
+  if (error) return { error };
+
+  const status = raw("status");
+  if (status !== undefined) {
+    const s = status.toLowerCase();
+    if (s && !(UNIT_STATUSES as readonly string[]).includes(s)) {
+      return { error: "Status must be available, reserved or sold." };
+    }
+    out.status = s || null;
+  }
+  return out;
+}
+
+function revalidateUnitPages(
+  propertyId: string,
+  property: { slug: string; offPlan: boolean },
+  unitId: string,
+) {
+  revalidatePath(`/admin/properties/${propertyId}/edit`);
   revalidatePath("/admin/units");
   revalidatePath("/properties");
-  revalidatePath(`/properties/unit/${id}`);
-  revalidatePath(`/${unit.property.offPlan ? "projects" : "properties"}/${unit.property.slug}`);
-  return { ok: true };
+  revalidatePath(`/properties/unit/${unitId}`);
+  revalidatePath(`/${property.offPlan ? "projects" : "properties"}/${property.slug}`);
 }
 
 export type RefreshNearbyState = { ok?: boolean; error?: string };
