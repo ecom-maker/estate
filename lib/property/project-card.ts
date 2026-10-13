@@ -60,12 +60,18 @@ function joinAmp(parts: string[]): string {
 }
 
 function handoverLabel(metadata: unknown): string | null {
-  const meta = (metadata ?? {}) as { handoverDate?: string };
-  if (!meta.handoverDate) return null;
-  const d = new Date(meta.handoverDate);
-  return Number.isNaN(d.getTime())
-    ? null
-    : d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  const meta = (metadata ?? {}) as {
+    handoverDate?: string;
+    completionLabel?: string | null;
+  };
+  if (meta.handoverDate) {
+    const d = new Date(meta.handoverDate);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+    }
+  }
+  // Completed projects often carry only a human completion label.
+  return meta.completionLabel?.trim() || null;
 }
 
 export function toProjectCardData(p: ProjectLike): ProjectCardData {

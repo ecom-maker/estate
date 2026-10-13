@@ -12,18 +12,14 @@ export function ProjectCard({ p }: { p: ProjectCardData }) {
       {/* Image + badges */}
       <div className="relative aspect-[16/11] bg-primary/10">
         <ProjectImage url={p.imageUrl} alt={p.imageAlt} title={p.title} />
-        <div className="absolute left-3 top-3 flex items-center gap-2">
-          {p.offPlan ? (
-            <span className="rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary shadow-sm">
-              Off-plan
-            </span>
-          ) : null}
-          {p.handover ? (
-            <span className="rounded-md bg-primary/90 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary-foreground shadow-sm">
-              Handover {p.handover}
-            </span>
-          ) : null}
-        </div>
+        <span
+          className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow-sm ${
+            p.offPlan ? "bg-accent/90 text-white" : "bg-white/95 text-primary"
+          }`}
+        >
+          {p.offPlan ? "Off-plan" : "Completed"}
+          {p.handover ? ` · ${p.handover}` : ""}
+        </span>
       </div>
 
       {/* Body */}
