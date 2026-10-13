@@ -181,7 +181,8 @@ export function describeUnit(u: UnitType): string {
         ? `${Math.round(u.sizeFromSqft).toLocaleString("en-US")}–${sqft(u.sizeToSqft)}`
         : sqft(u.sizeFromSqft);
   const baths = u.bathrooms != null ? `${u.bathrooms} bath` : null;
-  return [`${bedLabel(u.bedrooms)} (${u.unit}): ${price}`, size, baths, u.status].filter(Boolean).join(" · ");
+  // Unit numbers are admin-only — never surface them to the assistant/customers.
+  return [`${bedLabel(u.bedrooms)}: ${price}`, size, baths, u.status].filter(Boolean).join(" · ");
 }
 
 export type BedroomGroup = { bedrooms: number | null; options: UnitType[] };

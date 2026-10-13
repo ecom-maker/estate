@@ -537,6 +537,33 @@ async function main() {
     }
   }
 
+  // Seed 10 individual units (with real unit numbers) on one project, to
+  // demonstrate "properties = units inside a project". Unit numbers are
+  // admin-only in the UI.
+  const unitSeedProject = await prisma.property.findUnique({
+    where: { slug: "business-bay-canal-residence" },
+  });
+  if (unitSeedProject) {
+    const seedUnits = [
+      { unitNumber: "BBC-0803", floor: 8, bedrooms: 1, bathrooms: 1, areaSqft: 720, priceAed: 1_450_000, view: "Canal", status: "available" },
+      { unitNumber: "BBC-1104", floor: 11, bedrooms: 1, bathrooms: 2, areaSqft: 780, priceAed: 1_580_000, view: "City", status: "available" },
+      { unitNumber: "BBC-1507", floor: 15, bedrooms: 2, bathrooms: 2, areaSqft: 1180, priceAed: 2_350_000, view: "Canal", status: "available" },
+      { unitNumber: "BBC-1802", floor: 18, bedrooms: 2, bathrooms: 2, areaSqft: 1240, priceAed: 2_520_000, view: "Burj Khalifa", status: "reserved" },
+      { unitNumber: "BBC-2101", floor: 21, bedrooms: 2, bathrooms: 3, areaSqft: 1320, priceAed: 2_780_000, view: "Canal", status: "available" },
+      { unitNumber: "BBC-2406", floor: 24, bedrooms: 3, bathrooms: 3, areaSqft: 1760, priceAed: 3_950_000, view: "Burj Khalifa", status: "available" },
+      { unitNumber: "BBC-2705", floor: 27, bedrooms: 3, bathrooms: 4, areaSqft: 1840, priceAed: 4_250_000, view: "Canal", status: "sold" },
+      { unitNumber: "BBC-3002", floor: 30, bedrooms: 3, bathrooms: 4, areaSqft: 1980, priceAed: 4_680_000, view: "Burj Khalifa", status: "available" },
+      { unitNumber: "BBC-3301", floor: 33, bedrooms: 4, bathrooms: 5, areaSqft: 2650, priceAed: 6_900_000, view: "Panoramic", status: "available" },
+      { unitNumber: "BBC-PH3501", floor: 35, bedrooms: 4, bathrooms: 5, areaSqft: 3200, priceAed: 9_500_000, view: "Panoramic penthouse", status: "available" },
+    ];
+    await prisma.propertyUnit.deleteMany({
+      where: { propertyId: unitSeedProject.id },
+    });
+    await prisma.propertyUnit.createMany({
+      data: seedUnits.map((u) => ({ propertyId: unitSeedProject.id, ...u })),
+    });
+  }
+
   await prisma.promptTemplate.upsert({
     where: { key: "system" },
     update: {},

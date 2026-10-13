@@ -74,19 +74,25 @@ export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
     }
     const grp = groupMap.get(key)!;
     if (u.priceAed != null) grp.prices.push(u.priceAed);
+    // Unit numbers are admin-only — never expose them publicly. Show a neutral
+    // layout label (e.g. "2 Bed · Layout A") derived from position, not the
+    // stored unit_number. Floor plans are still matched by unitNumber internally.
+    const letter = String.fromCharCode(65 + Math.min(grp.units.length, 25));
+    const label =
+      grp.label === "Other" ? `Layout ${letter}` : `${grp.label} · Layout ${letter}`;
     const fp =
       floorplanByUnit.get(u.unitNumber) ??
       anyFloorplan ?? {
         url: PLACEHOLDER_PLAN,
-        title: `${u.unitNumber} floor plan`,
+        title: `${label} floor plan`,
       };
     grp.units.push({
       id: u.id,
-      layoutType: u.unitNumber,
+      layoutType: label,
       bathrooms: u.bathrooms ?? property.bathrooms,
       areaSqft: u.areaSqft ?? property.areaSqft,
       floorplanUrl: fp.url,
-      floorplanTitle: fp.title,
+      floorplanTitle: `${label} floor plan`,
     });
   }
 

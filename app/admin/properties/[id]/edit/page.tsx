@@ -50,6 +50,22 @@ export default async function EditPropertyPage({
 
   const editable = await canEditProperty(property.id, session);
 
+  const units = await prisma.propertyUnit.findMany({
+    where: { propertyId: property.id },
+    orderBy: [{ unitNumber: "asc" }],
+    select: {
+      id: true,
+      unitNumber: true,
+      floor: true,
+      bedrooms: true,
+      bathrooms: true,
+      areaSqft: true,
+      priceAed: true,
+      view: true,
+      status: true,
+    },
+  });
+
   const history = await prisma.auditLog.findMany({
     where: {
       entityType: "property",
@@ -109,6 +125,60 @@ export default async function EditPropertyPage({
           you. Only its creator or a Super Admin can edit it.
         </div>
       )}
+
+      <section className="mt-12">
+        <h2 className="font-serif text-2xl text-primary">
+          Units ({units.length})
+        </h2>
+        <p className="mt-1 text-sm text-muted">
+          Individual units in this {kind}. Unit numbers are visible to admins
+          only — never shown to the public or the AI assistant.
+        </p>
+        {units.length ? (
+          <div className="mt-4 overflow-x-auto rounded-sm border border-border bg-card">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="px-4 py-3">Unit #</th>
+                  <th>Floor</th>
+                  <th>Beds</th>
+                  <th>Bath</th>
+                  <th>Area (sqft)</th>
+                  <th>Price (AED)</th>
+                  <th>View</th>
+                  <th className="px-4">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {units.map((u) => (
+                  <tr key={u.id} className="border-t border-border">
+                    <td className="px-4 py-3 font-medium text-primary">
+                      {u.unitNumber}
+                    </td>
+                    <td>{u.floor ?? "—"}</td>
+                    <td>{u.bedrooms ?? "—"}</td>
+                    <td>{u.bathrooms ?? "—"}</td>
+                    <td>
+                      {u.areaSqft
+                        ? Math.round(u.areaSqft).toLocaleString()
+                        : "—"}
+                    </td>
+                    <td>
+                      {u.priceAed ? Math.round(u.priceAed).toLocaleString() : "—"}
+                    </td>
+                    <td>{u.view ?? "—"}</td>
+                    <td className="px-4">{u.status ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted">
+            No units recorded for this {kind} yet.
+          </p>
+        )}
+      </section>
 
       <section className="mt-12">
         <h2 className="font-serif text-2xl text-primary">Nearby data</h2>
