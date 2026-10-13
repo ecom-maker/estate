@@ -193,6 +193,22 @@ function mentionsBroadLocation(text: string): boolean {
   );
 }
 
+// UAE emirates other than Dubai — scope a search to that emirate so results
+// don't leak in from Dubai. ("Dubai" itself is handled as a broad location.)
+const EMIRATES: [RegExp, string][] = [
+  [/\bajman\b/i, "Ajman"],
+  [/\babu\s*dhabi\b/i, "Abu Dhabi"],
+  [/\bsharjah\b/i, "Sharjah"],
+  [/\bras\s*al\s*khaimah\b|\brak\b/i, "Ras Al Khaimah"],
+  [/\bfujairah\b/i, "Fujairah"],
+  [/\bumm\s*al\s*quwain\b|\buaq\b/i, "Umm Al Quwain"],
+];
+
+function detectEmirate(text: string): string | null {
+  for (const [re, name] of EMIRATES) if (re.test(text)) return name;
+  return null;
+}
+
 export function extractSearchIntentHeuristic(
   message: string,
   previous?: SearchIntent | null,
@@ -408,9 +424,14 @@ export function extractSearchIntentHeuristic(
     }
   }
 
+  const emirate = detectEmirate(text);
   if (detected) {
     next.community = detected;
     next.location = detected;
+  } else if (emirate) {
+    // "in ajman" / "in abu dhabi" → scope to that emirate (no Dubai community).
+    next.community = undefined;
+    next.location = emirate;
   } else if (mentionsBroadLocation(text)) {
     // "in dubai" / "anywhere" / "any location" → search the whole city, so drop
     // any specific community (including one carried over from a previous search).
