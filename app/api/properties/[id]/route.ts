@@ -31,7 +31,14 @@ export async function GET(
       return failure("NOT_FOUND", "Property not found", 404);
     }
 
-    return success({ ...property, handover: handoverLabel(property.metadata) });
+    // Unit numbers are admin-only — never expose them in this public API.
+    const units = property.units.map(({ unitNumber: _unitNumber, ...u }) => u);
+
+    return success({
+      ...property,
+      units,
+      handover: handoverLabel(property.metadata),
+    });
   } catch (error) {
     return failure(
       "PROPERTY_ERROR",

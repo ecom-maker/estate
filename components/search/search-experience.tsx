@@ -9,6 +9,16 @@ import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { cn, formatAED } from "@/lib/utils";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
+type Unit = {
+  id: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  areaSqft: number | null;
+  priceAed: number | null;
+  view: string | null;
+  status: string | null;
+};
+
 type PropertyCard = {
   id: string;
   slug: string;
@@ -21,6 +31,7 @@ type PropertyCard = {
   score?: number;
   images?: Array<{ url: string; alt: string | null }>;
   community?: { name: string } | null;
+  units?: Unit[];
 };
 
 export function SearchExperience({ initialQuery }: { initialQuery: string }) {
@@ -128,55 +139,102 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {properties.map((property) => {
-              const image = property.images?.[0];
-              return (
+            {/* Results are individual units from the matched projects (max 6
+                per project), preserving the assistant's ranking. */}
+            {properties
+              .flatMap((p) => {
+                const image = p.images?.[0] ?? null;
+                const base = {
+                  projectSlug: p.slug,
+                  projectTitle: p.title,
+                  community: p.community?.name ?? "Dubai",
+                  image,
+                  offPlan: p.offPlan ?? false,
+                };
+                if (p.units && p.units.length) {
+                  return p.units.slice(0, 6).map((u) => ({
+                    key: `u-${u.id}`,
+                    href: `/properties/unit/${u.id}`,
+                    ...base,
+                    bedrooms: u.bedrooms,
+                    bathrooms: u.bathrooms,
+                    areaSqft: u.areaSqft,
+                    priceAed: u.priceAed,
+                    view: u.view,
+                    status: u.status,
+                  }));
+                }
+                return [
+                  {
+                    key: `p-${p.id}`,
+                    href: `/projects/${p.slug}`,
+                    ...base,
+                    bedrooms: p.bedrooms,
+                    bathrooms: p.bathrooms,
+                    areaSqft: p.areaSqft,
+                    priceAed: p.priceAed,
+                    view: null as string | null,
+                    status: null as string | null,
+                  },
+                ];
+              })
+              .map((c) => (
                 <Link
-                  key={property.id}
-                  href={`/properties/${property.slug}`}
+                  key={c.key}
+                  href={c.href}
                   className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-accent"
                 >
                   <div className="relative aspect-[4/3] bg-primary/10">
                     <ProjectImage
-                      url={image?.url ?? null}
-                      alt={image?.alt ?? null}
-                      title={property.title}
+                      url={c.image?.url ?? null}
+                      alt={c.image?.alt ?? null}
+                      title={c.projectTitle}
                     />
                   </div>
                   <div className="p-4">
                     <p className="text-xs uppercase tracking-wider text-muted">
-                      {property.community?.name ?? "Dubai"}
+                      {c.community}
                     </p>
-                    <h2 className="mt-1 font-serif text-xl text-primary">
-                      {property.title}
+                    <h2 className="mt-1 truncate font-serif text-xl text-primary">
+                      {c.projectTitle}
                     </h2>
                     <p className="mt-2 text-sm text-muted">
-                      {property.bedrooms ?? "—"} bed ·{" "}
-                      {property.bathrooms ?? "—"} bath ·{" "}
-                      {property.areaSqft != null
-                        ? Math.round(property.areaSqft).toLocaleString()
+                      {c.bedrooms == null
+                        ? "—"
+                        : c.bedrooms === 0
+                          ? "Studio"
+                          : `${c.bedrooms} bed`}{" "}
+                      · {c.bathrooms ?? "—"} bath ·{" "}
+                      {c.areaSqft != null
+                        ? Math.round(c.areaSqft).toLocaleString()
                         : "—"}{" "}
                       sqft
+                      {c.view ? ` · ${c.view} view` : ""}
                     </p>
                     <div className="mt-3 flex items-center gap-2">
                       <p className="text-sm font-medium text-primary">
-                        {formatAED(property.priceAed)}
+                        {formatAED(c.priceAed)}
                       </p>
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-                          property.offPlan
-                            ? "bg-accent/15 text-accent"
-                            : "bg-primary/10 text-primary",
-                        )}
-                      >
-                        {property.offPlan ? "Off-plan" : "Completed"}
-                      </span>
+                      {c.status ? (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide capitalize text-primary">
+                          {c.status}
+                        </span>
+                      ) : (
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                            c.offPlan
+                              ? "bg-accent/15 text-accent"
+                              : "bg-primary/10 text-primary",
+                          )}
+                        >
+                          {c.offPlan ? "Off-plan" : "Completed"}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Link>
-              );
-            })}
+              ))}
           </div>
         )}
       </section>
