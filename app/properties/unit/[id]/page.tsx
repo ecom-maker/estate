@@ -3,6 +3,7 @@ import {
   ProjectTimelineSection,
 } from "@/components/property/payment-timeline";
 import { FileText } from "lucide-react";
+import { descriptionSections } from "@/lib/property/description";
 import { floorplanMatcher } from "@/lib/property/unit-groups";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -96,6 +97,9 @@ export default async function UnitDetailPage({
   if (id !== canonical) permanentRedirect(`/properties/unit/${canonical}`);
 
   const p = unit.property;
+  // First paragraph of the project's "About the project" (as on its page).
+  const aboutProject =
+    descriptionSections(p).find((s) => s.key === "about")?.paragraphs[0] ?? null;
   // Same match as the project page's Units section (unit number, then beds).
   const floorplan = floorplanMatcher(p.floorplans)(unit);
 
@@ -216,6 +220,13 @@ export default async function UnitDetailPage({
                 : null
             }
           />
+        ) : null}
+
+        {aboutProject ? (
+          <section className="mt-8">
+            <h2 className="font-serif text-2xl text-primary">About the project</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">{aboutProject}</p>
+          </section>
         ) : null}
 
         <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
