@@ -131,17 +131,16 @@ export default async function UnitDetailPage({
               {unit.status}
             </span>
           ) : null}
+          {isAdminViewer ? (
+            <span className="inline-flex flex-wrap items-center gap-2 rounded-sm border border-accent/30 bg-accent/5 px-2.5 py-0.5 text-xs text-primary">
+              <span className="font-medium">Unit {unit.unitNumber}</span>
+              {unit.floor != null ? (
+                <span className="text-muted">· Floor {unit.floor}</span>
+              ) : null}
+              <span className="text-muted">· admin-only</span>
+            </span>
+          ) : null}
         </div>
-
-        {isAdminViewer ? (
-          <p className="mt-2 inline-flex flex-wrap items-center gap-2 rounded-sm border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs text-primary">
-            <span className="font-medium">Unit {unit.unitNumber}</span>
-            {unit.floor != null ? (
-              <span className="text-muted">· Floor {unit.floor}</span>
-            ) : null}
-            <span className="text-muted">· admin-only</span>
-          </p>
-        ) : null}
 
         {p.images.length ? (
           <ProjectGallery
