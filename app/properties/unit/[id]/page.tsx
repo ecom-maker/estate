@@ -8,6 +8,8 @@ import { AIChat } from "@/components/ai/ai-chat";
 import { formatKm } from "@/lib/property/nearby";
 import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { auth } from "@/lib/auth";
+import { isAdmin } from "@/lib/rbac/check";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +61,12 @@ export default async function UnitDetailPage({
   const unit = await loadUnit(id);
   if (!unit || unit.hidden) notFound();
   const p = unit.property;
+
+  // Unit numbers are admin-only — shown here only to signed-in admins.
+  const session = await auth();
+  const isAdminViewer = isAdmin(
+    (session?.user as { roles?: string[] } | undefined)?.roles,
+  );
 
   const nearby = await getNearbyBundle(p);
 
@@ -124,6 +132,16 @@ export default async function UnitDetailPage({
             </span>
           ) : null}
         </div>
+
+        {isAdminViewer ? (
+          <p className="mt-2 inline-flex flex-wrap items-center gap-2 rounded-sm border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs text-primary">
+            <span className="font-medium">Unit {unit.unitNumber}</span>
+            {unit.floor != null ? (
+              <span className="text-muted">· Floor {unit.floor}</span>
+            ) : null}
+            <span className="text-muted">· admin-only</span>
+          </p>
+        ) : null}
 
         {p.images.length ? (
           <ProjectGallery
