@@ -7,6 +7,34 @@ import { formatAED } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Properties" };
 
+type Photo = { url: string; alt: string | null };
+
+/**
+ * One photo per card. Each project's cards rotate through its photos, and a
+ * card never repeats the photo of the card just before it, so units from the
+ * same project don't look identical side by side.
+ */
+function pickPhotos(
+  projectIds: string[],
+  photos: Map<string, Photo[]>,
+): (Photo | undefined)[] {
+  const turns = new Map<string, number>();
+  let lastUrl: string | null = null;
+  return projectIds.map((id) => {
+    const list = photos.get(id) ?? [];
+    if (!list.length) {
+      lastUrl = null;
+      return undefined;
+    }
+    let turn = turns.get(id) ?? 0;
+    if (list.length > 1 && list[turn % list.length].url === lastUrl) turn++;
+    turns.set(id, turn + 1);
+    const photo = list[turn % list.length];
+    lastUrl = photo.url;
+    return photo;
+  });
+}
+
 // A property = an individual unit inside a project.
 const BED_FILTERS = [
   { key: "any", label: "Any beds" },
@@ -56,10 +84,10 @@ export default async function PropertiesPage({
     view: string | null;
     status: string | null;
     property: {
+      id: string;
       title: string;
       slug: string;
       community: { name: string } | null;
-      images: { url: string; alt: string | null }[];
     };
   }> = [];
   let total = 0;
@@ -79,15 +107,10 @@ export default async function PropertiesPage({
           status: true,
           property: {
             select: {
+              id: true,
               title: true,
               slug: true,
               community: { select: { name: true } },
-              images: {
-                orderBy: { sortOrder: "asc" },
-                // Several, so cards from the same project can differ.
-                take: 8,
-                select: { url: true, alt: true },
-              },
             },
           },
         },
@@ -99,7 +122,29 @@ export default async function PropertiesPage({
     total = 0;
   }
 
-  const photoTurn = new Map<string, number>();
+  // Each project's photos, loaded once in a fixed order (id breaks sortOrder
+  // ties) with duplicate URLs removed, so cards can rotate through them.
+  const photos = new Map<string, Photo[]>();
+  try {
+    const rows = await prisma.propertyImage.findMany({
+      where: { propertyId: { in: [...new Set(units.map((u) => u.property.id))] } },
+      orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }, { id: "asc" }],
+      select: { propertyId: true, url: true, alt: true },
+    });
+    for (const r of rows) {
+      const list = photos.get(r.propertyId) ?? [];
+      if (list.length < 8 && !list.some((x) => x.url === r.url)) {
+        list.push({ url: r.url, alt: r.alt });
+      }
+      photos.set(r.propertyId, list);
+    }
+  } catch {
+    // Cards fall back to the placeholder.
+  }
+  const cardPhotos = pickPhotos(
+    units.map((u) => u.property.id),
+    photos,
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
@@ -142,13 +187,8 @@ export default async function PropertiesPage({
         </p>
       ) : (
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {units.map((u) => {
-            // Rotate through the project's photos so units from the same
-            // project don't show the same picture side by side.
-            const seen = photoTurn.get(u.property.slug) ?? 0;
-            photoTurn.set(u.property.slug, seen + 1);
-            const imgs = u.property.images;
-            const img = imgs.length ? imgs[seen % imgs.length] : undefined;
+          {units.map((u, i) => {
+            const img = cardPhotos[i];
             return (
               <Link
                 key={u.id}
