@@ -36,7 +36,12 @@ describe("unit filters", () => {
       status: "ready",
     });
     expect(where).toEqual([
-      { property: { type: { in: ["VILLA"] } } },
+      {
+        OR: [
+          { unitType: { in: ["VILLA"] } },
+          { unitType: null, property: { type: { in: ["VILLA"] } } },
+        ],
+      },
       { OR: [{ bedrooms: 0 }, { bedrooms: { gte: 7 } }] },
       { priceAed: { gte: 100 } },
       { property: { offPlan: false } },

@@ -123,6 +123,30 @@ export async function setUnitHidden(formData: FormData): Promise<void> {
   }
 }
 
+const UNIT_TYPES = ["APARTMENT", "PENTHOUSE", "TOWNHOUSE", "VILLA", "UNIT", "LAND"] as const;
+
+/** Set a unit's own type; empty = unknown (the project's type applies). */
+export async function setUnitType(formData: FormData): Promise<void> {
+  try {
+    await assertPermission("properties.update");
+  } catch {
+    return;
+  }
+  const id = String(formData.get("id") ?? "");
+  const raw = String(formData.get("unitType") ?? "");
+  if (!id) return;
+  const unitType = (UNIT_TYPES as readonly string[]).includes(raw)
+    ? (raw as (typeof UNIT_TYPES)[number])
+    : null;
+  try {
+    await prisma.propertyUnit.update({ where: { id }, data: { unitType } });
+    revalidatePath("/admin/units");
+    revalidatePath("/properties");
+  } catch {
+    // ignore
+  }
+}
+
 export type RefreshNearbyState = { ok?: boolean; error?: string };
 
 /** Admin action: recompute and re-store a property's nearby data from the APIs. */

@@ -77,6 +77,7 @@ export default async function PropertiesPage({
     priceAed: number | null;
     view: string | null;
     status: string | null;
+    unitType: string | null;
     property: {
       id: string;
       title: string;
@@ -99,6 +100,7 @@ export default async function PropertiesPage({
           priceAed: true,
           view: true,
           status: true,
+          unitType: true,
           property: {
             select: {
               id: true,
@@ -204,6 +206,9 @@ export default async function PropertiesPage({
                     {u.property.title}
                   </h2>
                   <p className="mt-1 text-sm text-muted">
+                    {u.unitType && u.unitType !== "APARTMENT" && u.unitType !== "UNIT"
+                      ? `${u.unitType.charAt(0)}${u.unitType.slice(1).toLowerCase()} · `
+                      : ""}
                     {bedLabel(u.bedrooms)}
                     {u.bathrooms != null ? ` · ${u.bathrooms} bath` : ""}
                     {u.areaSqft

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { assertPermission } from "@/lib/rbac/guards";
 import { prisma } from "@/lib/db/prisma";
 import { setUnitHidden } from "@/app/admin/properties/actions";
+import { UnitTypeSelect } from "@/components/admin/unit-type-select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Units" };
@@ -23,7 +24,8 @@ export default async function AdminUnitsPage() {
     priceAed: number | null;
     status: string | null;
     hidden: boolean;
-    property: { id: string; title: string };
+    unitType: string | null;
+    property: { id: string; title: string; type: string };
   }> = [];
   let total = 0;
   try {
@@ -41,7 +43,8 @@ export default async function AdminUnitsPage() {
           priceAed: true,
           status: true,
           hidden: true,
-          property: { select: { id: true, title: true } },
+          unitType: true,
+          property: { select: { id: true, title: true, type: true } },
         },
       }),
       prisma.propertyUnit.count({ where: { property: { deletedAt: null } } }),
@@ -64,11 +67,12 @@ export default async function AdminUnitsPage() {
       </p>
 
       <div className="mt-8 overflow-x-auto rounded-sm border border-border bg-card">
-        <table className="w-full min-w-[820px] text-left text-sm">
+        <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="text-xs uppercase tracking-wider text-muted">
             <tr>
               <th className="px-4 py-3">Unit #</th>
               <th>Project</th>
+              <th>Type</th>
               <th>Beds</th>
               <th>Bath</th>
               <th>Area (sqft)</th>
@@ -88,6 +92,13 @@ export default async function AdminUnitsPage() {
                   {u.unitNumber}
                 </td>
                 <td className="max-w-[240px] truncate">{u.property.title}</td>
+                <td>
+                  <UnitTypeSelect
+                    id={u.id}
+                    value={u.unitType}
+                    projectType={u.property.type}
+                  />
+                </td>
                 <td>{u.bedrooms ?? "—"}</td>
                 <td>{u.bathrooms ?? "—"}</td>
                 <td>
@@ -136,7 +147,7 @@ export default async function AdminUnitsPage() {
             ))}
             {units.length === 0 ? (
               <tr className="border-t border-border">
-                <td colSpan={9} className="px-4 py-6 text-muted">
+                <td colSpan={10} className="px-4 py-6 text-muted">
                   No units yet.
                 </td>
               </tr>
