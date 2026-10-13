@@ -35,6 +35,15 @@ const SCHOOLS: { name: string; lat: number; lng: number }[] = [
   { name: "Nord Anglia International School Dubai", lat: 25.064, lng: 55.236 },
   { name: "Repton School Dubai (Nad Al Sheba)", lat: 25.16, lng: 55.32 },
   { name: "GEMS Modern Academy (Nad Al Sheba)", lat: 25.166, lng: 55.328 },
+  // Ajman
+  { name: "Ajman Academy", lat: 25.407, lng: 55.515 },
+  { name: "GEMS Our Own English High School Ajman", lat: 25.389, lng: 55.468 },
+  { name: "GEMS Winchester School Ajman", lat: 25.399, lng: 55.492 },
+  { name: "Habitat School Ajman", lat: 25.412, lng: 55.505 },
+  { name: "The City School International Ajman", lat: 25.395, lng: 55.478 },
+  // Sharjah (between Ajman and Dubai)
+  { name: "Victoria International School of Sharjah", lat: 25.309, lng: 55.47 },
+  { name: "Delhi Private School Sharjah", lat: 25.292, lng: 55.47 },
 ];
 
 /** Major Dubai hospitals, for the "Nearby Hospitals" section (approximate
