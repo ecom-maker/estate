@@ -21,6 +21,26 @@ type Viewing = {
   property: { title: string; slug: string; offPlan: boolean } | null;
 };
 
+function NavBtn({
+  to,
+  label,
+  children,
+}: {
+  to: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={to}
+      aria-label={label}
+      className="inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-sm border border-border bg-card px-2.5 text-sm text-primary transition hover:border-accent"
+    >
+      {children}
+    </Link>
+  );
+}
+
 export default async function AdminCalendarPage({
   searchParams,
 }: {
@@ -95,24 +115,6 @@ export default async function AdminCalendarPage({
   const prevM = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
   const nextM = month === 12 ? { y: year + 1, m: 1 } : { y: year, m: month + 1 };
   const href = (y: number, m: number) => `/admin/calendar?y=${y}&m=${m}`;
-
-  const NavBtn = ({
-    to,
-    label,
-    children,
-  }: {
-    to: string;
-    label: string;
-    children: React.ReactNode;
-  }) => (
-    <Link
-      href={to}
-      aria-label={label}
-      className="inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-sm border border-border bg-card px-2.5 text-sm text-primary transition hover:border-accent"
-    >
-      {children}
-    </Link>
-  );
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-28 md:px-10">
