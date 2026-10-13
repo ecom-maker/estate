@@ -37,12 +37,23 @@ const fromLabel = (price: number | null) =>
  */
 export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
   const floorplanByUnit = new Map<string, { url: string; title: string }>();
+  // Also index floor plans by bedroom count (parsed from "2BR" / "Studio"),
+  // so individual units can still show the right layout even when their unit
+  // number doesn't match a plan's ref. Nothing is deleted — unmatched plans
+  // simply aren't shown.
+  const floorplanByBeds = new Map<number, { url: string; title: string }>();
   for (const fp of property.floorplans) {
     if (fp.unitRef) floorplanByUnit.set(fp.unitRef, { url: fp.url, title: fp.title });
+    const ref = `${fp.unitRef ?? ""} ${fp.title ?? ""}`;
+    let beds: number | null = /studio/i.test(ref) ? 0 : null;
+    if (beds == null) {
+      const m = ref.match(/(\d+)\s*BR/i) ?? ref.match(/(\d+)\s*bed/i);
+      if (m) beds = Number(m[1]);
+    }
+    if (beds != null && !floorplanByBeds.has(beds)) {
+      floorplanByBeds.set(beds, { url: fp.url, title: fp.title });
+    }
   }
-  const anyFloorplan = property.floorplans[0]
-    ? { url: property.floorplans[0].url, title: property.floorplans[0].title }
-    : null;
 
   const unitSource: UnitLike[] = property.units.length
     ? property.units
@@ -80,18 +91,18 @@ export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
     const letter = String.fromCharCode(65 + Math.min(grp.units.length, 25));
     const label =
       grp.label === "Other" ? `Layout ${letter}` : `${grp.label} · Layout ${letter}`;
+    // Real match by unit, else by bedroom count; otherwise no plan is shown
+    // (never a placeholder or a mismatched one).
     const fp =
       floorplanByUnit.get(u.unitNumber) ??
-      anyFloorplan ?? {
-        url: PLACEHOLDER_PLAN,
-        title: `${label} floor plan`,
-      };
+      (u.bedrooms != null ? floorplanByBeds.get(u.bedrooms) : undefined) ??
+      null;
     grp.units.push({
       id: u.id,
       layoutType: label,
       bathrooms: u.bathrooms ?? property.bathrooms,
       areaSqft: u.areaSqft ?? property.areaSqft,
-      floorplanUrl: fp.url,
+      floorplanUrl: fp?.url ?? "",
       floorplanTitle: `${label} floor plan`,
     });
   }

@@ -103,24 +103,28 @@ export function UnitsSection({
                           </td>
                           <td className="pr-3 text-muted">{u.bathrooms ?? "—"}</td>
                           <td className="px-4 py-2 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPlan({
-                                  url: u.floorplanUrl,
-                                  title: u.floorplanTitle,
-                                })
-                              }
-                              className="inline-block overflow-hidden rounded-sm border border-border transition hover:border-accent"
-                              aria-label={`Open floor plan for ${u.layoutType}`}
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={u.floorplanUrl}
-                                alt={u.floorplanTitle}
-                                className="h-16 w-20 bg-background object-cover"
-                              />
-                            </button>
+                            {u.floorplanUrl ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPlan({
+                                    url: u.floorplanUrl,
+                                    title: u.floorplanTitle,
+                                  })
+                                }
+                                className="inline-block overflow-hidden rounded-sm border border-border transition hover:border-accent"
+                                aria-label={`Open floor plan for ${u.layoutType}`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={u.floorplanUrl}
+                                  alt={u.floorplanTitle}
+                                  className="h-16 w-20 bg-background object-cover"
+                                />
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted">—</span>
+                            )}
                           </td>
                         </tr>
                       ))}
