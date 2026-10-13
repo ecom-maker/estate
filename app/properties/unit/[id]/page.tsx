@@ -2,6 +2,7 @@ import {
   PaymentPlanSection,
   ProjectTimelineSection,
 } from "@/components/property/payment-timeline";
+import { floorplanMatcher } from "@/lib/property/unit-groups";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -27,6 +28,7 @@ const unitInclude = {
       community: true,
       developer: true,
       amenities: { include: { amenity: true } },
+      floorplans: true,
     },
   },
 };
@@ -93,6 +95,8 @@ export default async function UnitDetailPage({
   if (id !== canonical) permanentRedirect(`/properties/unit/${canonical}`);
 
   const p = unit.property;
+  // Same match as the project page's Units section (unit number, then beds).
+  const floorplan = floorplanMatcher(p.floorplans)(unit);
 
   // Unit numbers are admin-only — shown here only to signed-in admins.
   const session = await auth();
@@ -263,6 +267,28 @@ export default async function UnitDetailPage({
 
         {/* Same as the project page. */}
         <PaymentPlanSection project={p} />
+        {floorplan ? (
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl text-primary">Floor plan</h2>
+            <a
+              href={floorplan.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 block overflow-hidden rounded-sm border border-border bg-card p-4 transition hover:border-accent"
+              aria-label="Open the floor plan full size"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={floorplan.url}
+                alt={`${bedLabel(unit.bedrooms)} floor plan at ${p.title}`}
+                className="mx-auto max-h-[560px] w-full object-contain"
+              />
+              <span className="mt-3 block text-center text-xs text-muted">
+                Tap to open full size
+              </span>
+            </a>
+          </section>
+        ) : null}
         <ProjectTimelineSection project={p} />
       </div>
 

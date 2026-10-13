@@ -36,14 +36,15 @@ const fromLabel = (price: number | null) =>
  * Group a property's units by bedroom type for the developer-style Units view.
  * Falls back to a property-derived unit and a seed floor-plan when data is missing.
  */
-export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
+/**
+ * Finds the floor plan for a unit: by its unit number, else by bedroom count
+ * (parsed from "2BR" / "Studio" in the plan's ref or title). No match gives
+ * null; never a placeholder or a mismatched plan.
+ */
+export function floorplanMatcher(floorplans: FloorplanLike[]) {
   const floorplanByUnit = new Map<string, { url: string; title: string }>();
-  // Also index floor plans by bedroom count (parsed from "2BR" / "Studio"),
-  // so individual units can still show the right layout even when their unit
-  // number doesn't match a plan's ref. Nothing is deleted — unmatched plans
-  // simply aren't shown.
   const floorplanByBeds = new Map<number, { url: string; title: string }>();
-  for (const fp of property.floorplans) {
+  for (const fp of floorplans) {
     if (fp.unitRef) floorplanByUnit.set(fp.unitRef, { url: fp.url, title: fp.title });
     const ref = `${fp.unitRef ?? ""} ${fp.title ?? ""}`;
     let beds: number | null = /studio/i.test(ref) ? 0 : null;
@@ -55,6 +56,14 @@ export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
       floorplanByBeds.set(beds, { url: fp.url, title: fp.title });
     }
   }
+  return (unit: { unitNumber: string; bedrooms: number | null }) =>
+    floorplanByUnit.get(unit.unitNumber) ??
+    (unit.bedrooms != null ? floorplanByBeds.get(unit.bedrooms) : undefined) ??
+    null;
+}
+
+export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
+  const floorplanFor = floorplanMatcher(property.floorplans);
 
   // Hidden units are kept in the DB but never shown publicly.
   const visibleUnits = property.units.filter((u) => !u.hidden);
@@ -96,10 +105,7 @@ export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
       grp.label === "Other" ? `Layout ${letter}` : `${grp.label} · Layout ${letter}`;
     // Real match by unit, else by bedroom count; otherwise no plan is shown
     // (never a placeholder or a mismatched one).
-    const fp =
-      floorplanByUnit.get(u.unitNumber) ??
-      (u.bedrooms != null ? floorplanByBeds.get(u.bedrooms) : undefined) ??
-      null;
+    const fp = floorplanFor(u);
     grp.units.push({
       id: u.id,
       layoutType: label,
