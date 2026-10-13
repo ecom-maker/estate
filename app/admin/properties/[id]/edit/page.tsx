@@ -66,24 +66,27 @@ export default async function EditPropertyPage({
     dealType?: string;
   };
 
+  // Projects (off-plan) and ready properties share this edit route; label it
+  // to match the record so a project doesn't read as "Edit property".
+  const isProject = property.offPlan;
+  const kind = isProject ? "project" : "property";
+  const detailHref = `/${isProject ? "projects" : "properties"}/${property.slug}`;
+  const backHref = `/admin/properties?filter=${isProject ? "offplan" : "ready"}`;
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-28 md:px-10">
-      <Link
-        href="/admin/properties"
-        className="text-xs text-muted hover:text-primary"
-      >
-        ← Back to properties
+      <Link href={backHref} className="text-xs text-muted hover:text-primary">
+        ← Back to {isProject ? "projects" : "properties"}
       </Link>
       <p className="mt-4 text-xs font-medium uppercase tracking-[0.25em] text-accent">
-        Admin · Properties
+        Admin · {isProject ? "Projects" : "Properties"}
       </p>
-      <h1 className="mt-3 font-serif text-4xl text-primary">Edit property</h1>
+      <h1 className="mt-3 font-serif text-4xl text-primary capitalize">
+        Edit {kind}
+      </h1>
       <p className="mt-2 text-sm text-muted">
         Updating{" "}
-        <Link
-          href={`/properties/${property.slug}`}
-          className="text-accent hover:underline"
-        >
+        <Link href={detailHref} className="text-accent hover:underline">
           {property.title}
         </Link>
         .
