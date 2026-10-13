@@ -202,8 +202,13 @@ export default async function PropertiesPage({
   );
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="mx-auto max-w-7xl px-6 pb-28 pt-6 md:px-10">
+      {/* Stays under the site header while the list scrolls. */}
+      <div className="sticky top-[69px] z-30 -mx-2 bg-background px-2 py-3 md:top-[73px]">
+        <UnitAiSearchBar key={query} initialQuery={query} understood={understood} />
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
             Properties
@@ -218,10 +223,6 @@ export default async function PropertiesPage({
         </div>
       </div>
 
-      {/* Stays under the site header while the list scrolls. */}
-      <div className="sticky top-[69px] z-30 -mx-2 mt-6 bg-background px-2 py-3 md:top-[73px]">
-        <UnitAiSearchBar key={query} initialQuery={query} understood={understood} />
-      </div>
 
       {units.length === 0 ? (
         offering.length ? (
