@@ -131,7 +131,7 @@ export function agentCard() {
     ],
     provider: { organization: "DM Global", url: SITE_URL },
     version: "1.0.0",
-    iconUrl: `${SITE_URL}/icon.svg`,
+    iconUrl: `${SITE_URL}/icon.png`,
     documentationUrl: `${SITE_URL}/api-docs`,
     capabilities: {
       streaming: false,
