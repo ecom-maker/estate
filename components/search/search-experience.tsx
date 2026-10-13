@@ -143,19 +143,22 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                 per project), preserving the assistant's ranking. */}
             {properties
               .flatMap((p) => {
-                const image = p.images?.[0] ?? null;
+                const imgs = p.images ?? [];
                 const base = {
                   projectSlug: p.slug,
                   projectTitle: p.title,
                   community: p.community?.name ?? "Dubai",
-                  image,
+                  image: imgs[0] ?? null,
                   offPlan: p.offPlan ?? false,
                 };
                 if (p.units && p.units.length) {
-                  return p.units.slice(0, 6).map((u) => ({
+                  // Cycle through the project's photos so consecutive units of
+                  // the same project don't all show the same image.
+                  return p.units.slice(0, 6).map((u, i) => ({
                     key: `u-${u.id}`,
                     href: `/properties/unit/${u.id}`,
                     ...base,
+                    image: imgs.length ? imgs[i % imgs.length] : null,
                     bedrooms: u.bedrooms,
                     bathrooms: u.bathrooms,
                     areaSqft: u.areaSqft,
