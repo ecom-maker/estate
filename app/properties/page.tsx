@@ -3,6 +3,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
+import { PropertyFilterBar } from "@/components/search/property-filter-bar";
+import {
+  parseUnitFilters,
+  unitFiltersToSearch,
+  unitFiltersWhere,
+} from "@/lib/search/unit-filters";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Properties" };
@@ -36,14 +42,6 @@ function pickPhotos(
 }
 
 // A property = an individual unit inside a project.
-const BED_FILTERS = [
-  { key: "any", label: "Any beds" },
-  { key: "0", label: "Studio" },
-  { key: "1", label: "1 Bed" },
-  { key: "2", label: "2 Bed" },
-  { key: "3", label: "3 Bed" },
-  { key: "4", label: "4+ Bed" },
-];
 
 function bedLabel(beds: number | null): string {
   if (beds == null) return "—";
@@ -60,19 +58,15 @@ function statusStyle(status: string | null): string {
 export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ beds?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { beds } = await searchParams;
-  const bedFilter = BED_FILTERS.some((b) => b.key === beds) ? beds : "any";
+  // Plain database filters from the filter bar (no AI).
+  const filters = parseUnitFilters(await searchParams);
 
   const where: Prisma.PropertyUnitWhereInput = {
     hidden: false,
     property: { deletedAt: null, status: "ACTIVE" },
-    ...(bedFilter && bedFilter !== "any"
-      ? bedFilter === "4"
-        ? { bedrooms: { gte: 4 } }
-        : { bedrooms: Number(bedFilter) }
-      : {}),
+    AND: unitFiltersWhere(filters),
   };
 
   let units: Array<{
@@ -165,20 +159,13 @@ export default async function PropertiesPage({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        {BED_FILTERS.map((b) => (
-          <Link
-            key={b.key}
-            href={b.key === "any" ? "/properties" : `/properties?beds=${b.key}`}
-            className={`rounded-full border px-4 py-1.5 text-xs font-medium transition ${
-              bedFilter === b.key
-                ? "border-accent bg-accent/10 text-accent"
-                : "border-border text-muted hover:border-accent hover:text-primary"
-            }`}
-          >
-            {b.label}
-          </Link>
-        ))}
+      {/* Stays under the site header while the list scrolls. */}
+      <div className="sticky top-[69px] z-30 -mx-2 mt-6 bg-background px-2 py-3 md:top-[73px]">
+        <PropertyFilterBar
+          key={unitFiltersToSearch(filters)}
+          mode="listing"
+          initial={filters}
+        />
       </div>
 
       {units.length === 0 ? (
