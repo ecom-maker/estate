@@ -304,23 +304,27 @@ model Property {
 }
 
 model PropertyUnit {
-  id         String   @id @default(cuid())
-  propertyId String   @map("property_id")
-  unitNumber String   @map("unit_number")
+  id         String        @id @default(cuid())
+  propertyId String        @map("property_id")
+  unitNumber String        @map("unit_number")
   /// Hidden from the public (frontend, API, AI) but kept in the DB — e.g. a
   /// sold/placeholder unit retained for future secondary-sale listings.
-  hidden     Boolean  @default(false)
+  hidden     Boolean       @default(false)
   floor      Int?
+  /// The unit's own type (a penthouse inside an apartment tower). Null =
+  /// unknown, and the project's type applies. Filled from the feed by
+  /// scripts/backfill-unit-types.ts, or set in Admin.
+  unitType   PropertyType? @map("unit_type")
   bedrooms   Int?
   bathrooms  Int?
-  areaSqft   Float?   @map("area_sqft")
-  priceAed   Float?   @map("price_aed")
+  areaSqft   Float?        @map("area_sqft")
+  priceAed   Float?        @map("price_aed")
   view       String?
   status     String?
-  metadata   Json?    @map("metadata_json")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  metadata   Json?         @map("metadata_json")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  property   Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([propertyId, unitNumber])
   @@map("property_units")

@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PropertyType } from "@prisma/client";
 
 /**
  * Plain (non-AI) filters for the /properties unit listing. The filter bar
@@ -132,8 +132,14 @@ export function unitFiltersWhere(f: UnitFilters): Prisma.PropertyUnitWhereInput[
     ),
   ];
   if (types.length) {
+    const wanted = types.map((t) => t.toUpperCase()) as PropertyType[];
+    // The unit's own type when known (a penthouse in an apartment tower),
+    // otherwise the project's type.
     and.push({
-      property: { type: { in: types.map((t) => t.toUpperCase()) as Prisma.EnumPropertyTypeFilter["in"] } },
+      OR: [
+        { unitType: { in: wanted } },
+        { unitType: null, property: { type: { in: wanted } } },
+      ],
     });
   }
   if (f.beds.length) and.push({ OR: countMatch("bedrooms", f.beds) });
