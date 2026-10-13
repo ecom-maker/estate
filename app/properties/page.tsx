@@ -3,17 +3,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
-import { UnitAiSearchBar } from "@/components/search/unit-ai-search-bar";
-import { extractSearchIntent } from "@/lib/ai/intent";
-import { projectListsType } from "@/lib/property/unit-type";
+import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import {
-  describeIntent,
-  intentToUnitWhere,
-  intentTypes,
-  mentionedProjects,
-} from "@/lib/search/intent-units";
-import {
+  hasUnitFilters,
   parseUnitFilters,
+  unitFiltersToSearch,
   unitFiltersWhere,
 } from "@/lib/search/unit-filters";
 
@@ -68,62 +62,15 @@ export default async function PropertiesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  // `q` is the AI query; the other params are plain filters (shared links).
-  const filters = { ...parseUnitFilters(params), q: "" };
-  const query = parseUnitFilters(params).q;
+  // Plain database filters from the filter bar (no AI).
+  const filters = parseUnitFilters(params);
+  const filtered = hasUnitFilters(filters);
 
   const live = { deletedAt: null, status: "ACTIVE" as const };
-  let aiWhere: Prisma.PropertyUnitWhereInput[] = [];
-  let understood: string[] = [];
-  // When no unit is marked with a requested type yet, offer the projects whose
-  // feed lists it (what the Projects AI matches on).
-  let offering: { slug: string; title: string; community: string | null }[] = [];
-  let offeringLabel = "";
-  let findOffering = () => {};
-  if (query) {
-    try {
-      const [intent, projects] = await Promise.all([
-        extractSearchIntent(query),
-        prisma.property.findMany({
-          where: live,
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            type: true,
-            metadata: true,
-            community: { select: { name: true } },
-          },
-        }),
-      ]);
-      const wanted = intentTypes(intent);
-      if (wanted.length) {
-        findOffering = () => {
-          const place = (intent.community ?? intent.location)?.toLowerCase();
-          offering = projects
-            .filter((p) => wanted.some((t) => p.type === t || projectListsType(p.metadata, t)))
-            .filter((p) => !place || (p.community?.name ?? "").toLowerCase().includes(place))
-            .map((p) => ({ slug: p.slug, title: p.title, community: p.community?.name ?? null }));
-          offeringLabel = wanted.map((t) => t.toLowerCase() + "s").join(" or ");
-        };
-      }
-      const named = mentionedProjects(query, projects);
-      aiWhere = intentToUnitWhere(intent, named.map((p) => p.id));
-      understood = describeIntent(intent, named.map((p) => p.title));
-      // Nothing recognised: fall back to a plain text match.
-      if (!aiWhere.length) {
-        aiWhere = unitFiltersWhere({ ...filters, q: query });
-        understood = [`“${query}”`];
-      }
-    } catch {
-      aiWhere = unitFiltersWhere({ ...filters, q: query });
-    }
-  }
-
   const where: Prisma.PropertyUnitWhereInput = {
     hidden: false,
     property: live,
-    AND: [...unitFiltersWhere(filters), ...aiWhere],
+    AND: unitFiltersWhere(filters),
   };
 
   let units: Array<{
@@ -175,8 +122,6 @@ export default async function PropertiesPage({
     total = 0;
   }
 
-  if (!units.length) findOffering();
-
   // Each project's photos, loaded once in a fixed order (id breaks sortOrder
   // ties) with duplicate URLs removed, so cards can rotate through them.
   const photos = new Map<string, Photo[]>();
@@ -205,7 +150,11 @@ export default async function PropertiesPage({
     <div className="mx-auto max-w-7xl px-6 pb-28 pt-6 md:px-10">
       {/* Stays under the site header while the list scrolls. */}
       <div className="sticky top-[69px] z-30 -mx-2 bg-background px-2 py-3 md:top-[73px]">
-        <UnitAiSearchBar key={query} initialQuery={query} understood={understood} />
+        <PropertyFilterBar
+          key={unitFiltersToSearch(filters)}
+          mode="listing"
+          initial={filters}
+        />
       </div>
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
@@ -218,39 +167,14 @@ export default async function PropertiesPage({
           </h1>
           <p className="mt-2 text-sm text-muted">
             {total} {total === 1 ? "unit" : "units"}{" "}
-            {query ? "match your search" : "across our projects"}
+            {filtered ? "match your filters" : "across our projects"}
           </p>
         </div>
       </div>
 
 
       {units.length === 0 ? (
-        offering.length ? (
-          <div className="mt-10">
-            <p className="text-sm text-muted">
-              No individual units are marked as {offeringLabel} yet, but these
-              projects offer them. Open a project for its units and availability.
-            </p>
-            <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {offering.map((p) => (
-                <li key={p.slug}>
-                  <Link
-                    href={`/projects/${p.slug}`}
-                    className="block rounded-xl border border-border bg-card p-4 transition hover:border-accent hover:shadow-sm"
-                  >
-                    <p className="text-[11px] uppercase tracking-wider text-accent">
-                      {p.community ?? "Dubai"}
-                    </p>
-                    <p className="mt-1 font-serif text-lg text-primary">{p.title}</p>
-                    <p className="mt-1 text-sm text-accent">View project →</p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="mt-10 text-sm text-muted">No units match these filters.</p>
-        )
+        <p className="mt-10 text-sm text-muted">No units match these filters.</p>
       ) : (
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {units.map((u, i) => {
