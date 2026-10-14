@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useSession } from "next-auth/react";
 
 type AccountInitial = {
   name: string;
@@ -10,6 +11,7 @@ type AccountInitial = {
 };
 
 export function AccountForm({ initial }: { initial: AccountInitial }) {
+  const { update } = useSession();
   const [name, setName] = useState(initial.name);
   const [email, setEmail] = useState(initial.email);
   const [phone, setPhone] = useState(initial.phone);
@@ -55,6 +57,8 @@ export function AccountForm({ initial }: { initial: AccountInitial }) {
       setNewPassword("");
       setConfirm("");
       setMessage({ ok: true, text: "Profile updated." });
+      // Refresh the session so the header shows the new name straight away.
+      await update().catch(() => null);
     } catch (error) {
       setMessage({
         ok: false,

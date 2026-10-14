@@ -94,10 +94,13 @@ providers.push(
     credentials: {
       phone: { label: "Phone", type: "text" },
       code: { label: "Code", type: "text" },
+      name: { label: "Name", type: "text" },
     },
     async authorize(credentials) {
       const phone = normalizePhone(String(credentials?.phone ?? ""));
       const code = String(credentials?.code ?? "").trim();
+      // Given on sign-up; on login a new number is asked for it afterwards.
+      const name = String(credentials?.name ?? "").trim().slice(0, 120);
       if (!phone || !code) return null;
 
       try {
@@ -108,14 +111,12 @@ providers.push(
       }
 
       try {
+        // A known number keeps its name; the sign-up name only fills a blank one.
+        const existing = await prisma.user.findUnique({ where: { phone }, select: { name: true } });
         const user = await prisma.user.upsert({
           where: { phone },
-          update: { phoneVerified: new Date() },
-          create: {
-            phone,
-            phoneVerified: new Date(),
-            name: `Guest ${phone.slice(-4)}`,
-          },
+          update: { phoneVerified: new Date(), ...(name && !existing?.name ? { name } : {}) },
+          create: { phone, phoneVerified: new Date(), name: name || null },
         });
 
         return {

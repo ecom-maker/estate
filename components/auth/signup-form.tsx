@@ -5,12 +5,21 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { authHref, safeReturnTo } from "@/lib/auth/return-to";
+import { PhoneCodeForm, type OtpChannel } from "@/components/auth/phone-code-form";
 
 type SignupFormProps = {
   googleEnabled?: boolean;
+  /** Code channels that are set up; the phone option is hidden when empty. */
+  otpChannels?: OtpChannel[];
+  /** Visitor's country from their IP (ISO code), used for the phone picker. */
+  defaultCountry?: string | null;
 };
 
-export function SignupForm({ googleEnabled = false }: SignupFormProps) {
+export function SignupForm({
+  googleEnabled = false,
+  otpChannels = [],
+  defaultCountry = null,
+}: SignupFormProps) {
   // Page the visitor came from (set by Sign up links).
   const next = safeReturnTo(useSearchParams().get("next"));
   const [name, setName] = useState("");
@@ -156,6 +165,21 @@ export function SignupForm({ googleEnabled = false }: SignupFormProps) {
           {loading ? "Creating account…" : "Create account"}
         </button>
       </form>
+
+      {otpChannels.length ? (
+        <div className="space-y-3 border-t border-border pt-6">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+            Or sign up with your phone number
+          </p>
+          <PhoneCodeForm
+            mode="signup"
+            otpChannels={otpChannels}
+            defaultCountry={defaultCountry}
+            next={next}
+            onMessage={setMessage}
+          />
+        </div>
+      ) : null}
 
       <p className="text-xs text-muted">
         Already have an account?{" "}
