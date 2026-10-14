@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 import { normalizePhone, verifyOtp } from "@/lib/auth/otp-store";
 import { signInWithGoogleIdToken } from "@/lib/auth/google-one-tap";
+import { grantDefaultRole } from "@/lib/auth/register";
 import type { NextAuthConfig } from "next-auth";
 
 const providers: NextAuthConfig["providers"] = [];
@@ -150,6 +151,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             include: { roles: { include: { role: true } } },
           });
           token.roles = dbUser?.roles.map((r) => r.role.name) ?? [];
+          // Anyone signing in without a role (Google, One Tap, phone code)
+          // is a customer, same as an email sign-up. Staff already have roles.
+          if (user && dbUser && !dbUser.roles.length && (await grantDefaultRole(dbUser.id))) {
+            token.roles = ["CUSTOMER"];
+          }
           // Keep name/image fresh from the DB — the PrismaAdapter stores the
           // Google profile picture here on OAuth sign-in, so the avatar can use it.
           if (dbUser) {

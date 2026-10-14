@@ -15,6 +15,23 @@ export type RegisterResult =
 const DEFAULT_ROLE = "CUSTOMER";
 
 /**
+ * Grant the default customer role. Best-effort: sign-in still works without
+ * it. Returns whether the user now has it.
+ */
+export async function grantDefaultRole(userId: string): Promise<boolean> {
+  const role = await prisma.role.findUnique({
+    where: { name: DEFAULT_ROLE },
+  });
+  if (!role) return false;
+  await prisma.userRole.upsert({
+    where: { userId_roleId: { userId, roleId: role.id } },
+    update: {},
+    create: { userId, roleId: role.id },
+  });
+  return true;
+}
+
+/**
  * Create an email/password account for a self-service signup and grant the
  * default customer role. Idempotency is left to the caller — this treats an
  * existing verified/credentialled email as a conflict rather than overwriting
@@ -49,17 +66,7 @@ export async function registerUser(
           data: { email, name, passwordHash },
         });
 
-    // Grant the default role (best-effort; sign-in still works without it).
-    const role = await prisma.role.findUnique({
-      where: { name: DEFAULT_ROLE },
-    });
-    if (role) {
-      await prisma.userRole.upsert({
-        where: { userId_roleId: { userId: user.id, roleId: role.id } },
-        update: {},
-        create: { userId: user.id, roleId: role.id },
-      });
-    }
+    await grantDefaultRole(user.id);
 
     return { ok: true, userId: user.id };
   } catch (error) {

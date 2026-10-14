@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -11,6 +11,9 @@ import { toE164, type Country } from "@/lib/phone/countries";
 import { cn } from "@/lib/utils";
 
 type OtpChannel = "whatsapp" | "sms";
+
+/** Matches the server's wait between codes to the same number (otp-store). */
+const RESEND_AFTER_S = 30;
 
 type LoginFormProps = {
   googleEnabled?: boolean;
@@ -42,6 +45,14 @@ export function LoginForm({
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Seconds until "Resend code" unlocks. */
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
 
   const configError =
     authError === "Configuration"
@@ -77,6 +88,10 @@ export function LoginForm({
 
   async function requestOtp(e: FormEvent) {
     e.preventDefault();
+    await sendCode(false);
+  }
+
+  async function sendCode(resend: boolean) {
     setLoading(true);
     setMessage(null);
     try {
@@ -86,14 +101,20 @@ export function LoginForm({
         body: JSON.stringify({ phone: fullPhone, channel }),
       });
       const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message ?? "Failed");
+      if (!json.success) {
+        // A failed send leaves no code behind, so the next try can go straight away.
+        if (json.error?.code !== "TOO_SOON") setResendIn(0);
+        throw new Error(json.error?.message ?? "Failed");
+      }
       setStep("code");
+      setCode("");
+      setResendIn(RESEND_AFTER_S);
       setMessage(
         json.data?.mock
           ? "Development mode: no message sent. Use code 000000."
-          : channel === "whatsapp"
-            ? `We sent a 6-digit code to ${fullPhone} on WhatsApp.`
-            : `We sent a 6-digit code to ${fullPhone} by SMS.`,
+          : `We sent ${resend ? "a new" : "a"} 6-digit code to ${fullPhone} ${
+              channel === "whatsapp" ? "on WhatsApp" : "by SMS"
+            }.${resend ? " Only the newest code works." : ""}`,
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Request failed");
@@ -113,7 +134,7 @@ export function LoginForm({
         redirect: false,
       });
       if (result?.error) {
-        throw new Error("That code didn't work. Check it, or ask for a new one.");
+        throw new Error("That code didn't work or has expired. Check it, or tap Resend code.");
       }
       // Hard navigation so SessionProvider + header re-read the session.
       window.location.assign(next ?? "/");
@@ -270,6 +291,14 @@ export function LoginForm({
                   className="w-full rounded-sm bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
                   Verify & sign in
+                </button>
+                <button
+                  type="button"
+                  disabled={loading || resendIn > 0}
+                  onClick={() => sendCode(true)}
+                  className="w-full text-sm font-medium text-accent hover:underline disabled:text-muted disabled:no-underline"
+                >
+                  {resendIn > 0 ? `Resend code in ${resendIn}s` : "Didn't get it? Resend code"}
                 </button>
                 <button
                   type="button"
