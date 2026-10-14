@@ -51,6 +51,7 @@ export default async function AdminPage() {
     ["Contacts", "/admin/contacts"],
     ["Admin contacts", "/admin/users"],
     ["Leads", "/admin/leads"],
+    ["Sell leads", "/admin/sell-leads"],
     ["AI agents (CRM)", "/admin/agents"],
     ["AI", "/admin/ai"],
     ["Knowledge Base", "/admin/knowledge-base"],
