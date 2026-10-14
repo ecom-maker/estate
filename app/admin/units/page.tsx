@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { assertPermission } from "@/lib/rbac/guards";
 import { prisma } from "@/lib/db/prisma";
 import { setUnitHidden } from "@/app/admin/properties/actions";
@@ -8,12 +9,34 @@ import { UnitTypeSelect } from "@/components/admin/unit-type-select";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Units" };
 
-export default async function AdminUnitsPage() {
+export default async function AdminUnitsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   try {
     await assertPermission("properties.view");
   } catch {
     redirect("/login?next=/admin/units");
   }
+
+  const qRaw = (await searchParams).q;
+  const q = (Array.isArray(qRaw) ? qRaw[0] : qRaw)?.trim() ?? "";
+  const where: Prisma.PropertyUnitWhereInput = {
+    property: { deletedAt: null },
+    ...(q
+      ? {
+          OR: [
+            { unitNumber: { contains: q, mode: "insensitive" as const } },
+            {
+              property: { title: { contains: q, mode: "insensitive" as const } },
+            },
+            { status: { contains: q, mode: "insensitive" as const } },
+            { view: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
 
   let units: Array<{
     id: string;
@@ -31,7 +54,7 @@ export default async function AdminUnitsPage() {
   try {
     [units, total] = await Promise.all([
       prisma.propertyUnit.findMany({
-        where: { property: { deletedAt: null } },
+        where,
         orderBy: [{ property: { title: "asc" } }, { unitNumber: "asc" }],
         take: 500,
         select: {
@@ -47,7 +70,7 @@ export default async function AdminUnitsPage() {
           property: { select: { id: true, title: true, type: true } },
         },
       }),
-      prisma.propertyUnit.count({ where: { property: { deletedAt: null } } }),
+      prisma.propertyUnit.count({ where }),
     ]);
   } catch {
     units = [];
@@ -61,12 +84,40 @@ export default async function AdminUnitsPage() {
       </p>
       <h1 className="mt-3 font-serif text-4xl text-primary">Units</h1>
       <p className="mt-2 text-sm text-muted">
-        {total} individual units across all projects. Unit numbers are
-        admin-only — never shown to the public or the AI assistant. Edit a
-        unit&apos;s project to manage it.
+        {q ? (
+          <>
+            {total} unit{total === 1 ? "" : "s"} matching “{q}”.{" "}
+            <Link href="/admin/units" className="text-accent hover:underline">
+              Clear
+            </Link>
+          </>
+        ) : (
+          <>
+            {total} individual units across all projects. Unit numbers are
+            admin-only — never shown to the public or the AI assistant. Edit a
+            unit&apos;s project to manage it.
+          </>
+        )}
       </p>
 
-      <div className="mt-8 overflow-x-auto rounded-sm border border-border bg-card">
+      <form method="get" className="mt-6 flex max-w-md items-center gap-2">
+        <input
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder="Search by unit number, project, status…"
+          aria-label="Search units"
+          className="w-full rounded-sm border border-border bg-card px-4 py-2.5 text-sm text-primary outline-none ring-accent focus:ring-2"
+        />
+        <button
+          type="submit"
+          className="shrink-0 rounded-sm bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+        >
+          Search
+        </button>
+      </form>
+
+      <div className="mt-6 overflow-x-auto rounded-sm border border-border bg-card">
         <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="text-xs uppercase tracking-wider text-muted">
             <tr>
@@ -148,7 +199,7 @@ export default async function AdminUnitsPage() {
             {units.length === 0 ? (
               <tr className="border-t border-border">
                 <td colSpan={10} className="px-4 py-6 text-muted">
-                  No units yet.
+                  {q ? `No units match “${q}”.` : "No units yet."}
                 </td>
               </tr>
             ) : null}

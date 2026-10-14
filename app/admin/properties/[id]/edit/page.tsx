@@ -104,6 +104,7 @@ export default async function EditPropertyPage({
   const meta = (property.metadata ?? {}) as {
     handoverDate?: string;
     dealType?: string;
+    forRent?: boolean;
   };
 
   // Projects (off-plan) and ready properties share this edit route; label it
@@ -140,6 +141,7 @@ export default async function EditPropertyPage({
             ...property,
             handoverDate: meta.handoverDate ?? null,
             dealType: meta.dealType ?? "sale",
+            forRent: meta.forRent ?? false,
           }}
           submitLabel="Save changes"
           typePerUnit={units.length > 0}

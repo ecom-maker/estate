@@ -80,6 +80,8 @@ function parseForm(formData: FormData) {
     handoverDate: String(formData.get("handoverDate") ?? "").trim() || null,
     dealType:
       String(formData.get("dealType") ?? "sale") === "rent" ? "rent" : "sale",
+    // Completed properties can be offered for rent alongside sale (admin-set).
+    forRent: formData.get("forRent") === "on",
     slugInput: String(formData.get("slug") ?? "").trim(),
   };
 }
@@ -470,6 +472,7 @@ export async function createProperty(
         furnished: input.furnished,
         metadata: {
           dealType: input.dealType,
+          forRent: !input.offPlan && input.forRent,
           ...(input.handoverDate ? { handoverDate: input.handoverDate } : {}),
         },
         ...(input.communityId
@@ -553,6 +556,7 @@ export async function updateProperty(
     if (input.handoverDate) metadata.handoverDate = input.handoverDate;
     else delete metadata.handoverDate;
     metadata.dealType = input.dealType;
+    metadata.forRent = !input.offPlan && input.forRent;
     await prisma.property.update({
       where: { id },
       data: {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { PropertyFormState } from "@/app/admin/properties/actions";
 
 type Community = { id: string; name: string };
@@ -13,6 +13,7 @@ type PropertyDefaults = {
   status?: string | null;
   communityId?: string | null;
   dealType?: string | null;
+  forRent?: boolean | null;
   priceAed?: number | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
@@ -54,6 +55,9 @@ export function PropertyForm({
     PropertyFormState,
     FormData
   >(action, {});
+
+  // "For rent" is only offered on completed (non-off-plan) properties.
+  const [offPlan, setOffPlan] = useState(Boolean(property?.offPlan));
 
   return (
     <form action={formAction} className="mt-8 space-y-6">
@@ -175,6 +179,22 @@ export function PropertyForm({
             <option value="rent">For rent</option>
           </select>
         </div>
+        {!offPlan ? (
+          <div className="flex flex-col justify-end">
+            <label className="flex items-center gap-2 pb-2.5 text-sm text-primary">
+              <input
+                type="checkbox"
+                name="forRent"
+                defaultChecked={Boolean(property?.forRent)}
+                className="h-4 w-4 rounded border-border accent-accent"
+              />
+              Also for rent
+            </label>
+            <p className="text-xs text-muted">
+              List this completed property for both sale and rent.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-6 sm:grid-cols-4">
@@ -280,6 +300,11 @@ export function PropertyForm({
               type="checkbox"
               name={name}
               defaultChecked={Boolean(checked)}
+              onChange={
+                name === "offPlan"
+                  ? (e) => setOffPlan(e.target.checked)
+                  : undefined
+              }
               className="h-4 w-4 rounded border-border accent-accent"
             />
             {label}
