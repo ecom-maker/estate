@@ -8,6 +8,7 @@ import { formatAED } from "@/lib/utils";
 import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { getAppUrl } from "@/lib/app-url";
 import { unitPath } from "@/lib/property/unit-url";
+import { unitMatchesDeal, developmentMatchesDeal } from "@/lib/property/deal";
 import {
   parseListingSlug,
   buildListingSlug,
@@ -27,7 +28,7 @@ type ListingProperty = Prisma.PropertyGetPayload<{
   include: {
     images: true;
     community: true;
-    units: { select: { bedrooms: true } };
+    units: { select: { bedrooms: true; hidden: true; metadata: true } };
   };
 }>;
 
@@ -41,6 +42,7 @@ type ListingUnit = Prisma.PropertyUnitGetPayload<{
     view: true;
     status: true;
     unitType: true;
+    metadata: true;
     property: {
       select: {
         slug: true;
@@ -95,16 +97,16 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
       ];
     }
 
-    const [properties, units, nearby] = await Promise.all([
+    const [propertiesRaw, unitsRaw, nearby] = await Promise.all([
       prisma.property.findMany({
         where,
         include: {
           images: { orderBy: { sortOrder: "asc" }, take: 1 },
           community: true,
-          units: { select: { bedrooms: true } },
+          units: { select: { bedrooms: true, hidden: true, metadata: true } },
         },
         orderBy: { createdAt: "desc" },
-        take: 24,
+        take: 60,
       }),
       // Individual units in matching projects — the actual listings.
       prisma.propertyUnit.findMany({
@@ -118,6 +120,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
           view: true,
           status: true,
           unitType: true,
+          metadata: true,
           property: {
             select: {
               slug: true,
@@ -133,7 +136,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
           },
         },
         orderBy: { priceAed: "asc" },
-        take: 24,
+        take: 200,
       }),
       prisma.community.findMany({
         where: community ? { id: { not: community.id } } : {},
@@ -142,6 +145,14 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
         take: 6,
       }),
     ]);
+
+    // Keep only inventory offered for this page's deal (sale or rent).
+    const units = unitsRaw
+      .filter((u) => unitMatchesDeal(u.metadata, parsed.deal))
+      .slice(0, 24);
+    const properties = propertiesRaw
+      .filter((p) => developmentMatchesDeal(p, parsed.deal))
+      .slice(0, 24);
 
     return { parsed, localityName, localityCity, properties, units, nearby };
   } catch {
@@ -214,6 +225,8 @@ export default async function ListingLandingPage({ params }: Props) {
   const heading = listingTitle(parsed, localityName);
   const dealLower = DEAL_LABELS[parsed.deal].toLowerCase();
   const typeLower = parsed.typeDef.label.toLowerCase();
+  // priceAed is the sale price; rent asking prices aren't captured yet.
+  const isRent = parsed.deal === "rent";
   const faqs = faqFor(parsed, localityName);
   const canonical = `${BASE}/${listing}`;
 
@@ -342,7 +355,11 @@ export default async function ListingLandingPage({ params }: Props) {
                       {u.property.title}
                     </h3>
                     <p className="mt-1 text-sm text-muted">
-                      {u.priceAed ? formatAED(u.priceAed) : "Price on request"}
+                      {isRent
+                        ? "Rent price on request"
+                        : u.priceAed
+                          ? formatAED(u.priceAed)
+                          : "Price on request"}
                     </p>
                     <p className="mt-2 text-xs text-muted">
                       {[
@@ -405,8 +422,9 @@ export default async function ListingLandingPage({ params }: Props) {
                   </p>
                   <h2 className="mt-2 font-serif text-lg text-primary">{property.title}</h2>
                   <p className="mt-1 text-sm text-muted">
-                    {isStartingFigure(property) ? "from " : ""}
-                    {formatAED(property.priceAed)}
+                    {isRent
+                      ? "Rent price on request"
+                      : `${isStartingFigure(property) ? "from " : ""}${formatAED(property.priceAed)}`}
                   </p>
                   <p className="mt-2 text-xs text-muted">
                     {[

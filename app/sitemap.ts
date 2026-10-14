@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getRequestSiteUrl } from "@/lib/site-url";
 import { unitSlug } from "@/lib/property/unit-url";
 import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
+import { unitMatchesDeal } from "@/lib/property/deal";
 
 export const dynamic = "force-dynamic";
 
@@ -42,13 +43,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           id: true,
           bedrooms: true,
           unitType: true,
+          metadata: true,
           updatedAt: true,
           property: {
             select: {
               slug: true,
               title: true,
               type: true,
-              community: { select: { name: true, emirate: true } },
+              community: { select: { name: true, emirate: true, slug: true } },
             },
           },
         },
@@ -99,7 +101,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
-    return [...staticPages, ...projectPages, ...unitPages, ...listingPages];
+    // For-rent landing pages, only where units are actually offered for rent.
+    const rentByLocality = new Map<
+      string,
+      { tokens: Set<string>; lastModified: Date }
+    >();
+    for (const u of units) {
+      if (!unitMatchesDeal(u.metadata, "rent")) continue;
+      const slug = u.property.community?.slug;
+      if (!slug) continue;
+      const entry = rentByLocality.get(slug) ?? {
+        tokens: new Set<string>(["properties"]),
+        lastModified: u.updatedAt,
+      };
+      entry.tokens.add(typeDefForType(u.property.type).token);
+      if (u.updatedAt > entry.lastModified) entry.lastModified = u.updatedAt;
+      rentByLocality.set(slug, entry);
+    }
+    const rentListingPages: MetadataRoute.Sitemap = [];
+    for (const [localitySlug, { tokens, lastModified }] of rentByLocality) {
+      for (const token of tokens) {
+        rentListingPages.push({
+          url: `${SITE_URL}/${buildListingSlug(token, "rent", localitySlug)}`,
+          lastModified,
+          changeFrequency: "weekly",
+          priority: 0.5,
+        });
+      }
+    }
+
+    return [
+      ...staticPages,
+      ...projectPages,
+      ...unitPages,
+      ...listingPages,
+      ...rentListingPages,
+    ];
   } catch {
     return staticPages;
   }

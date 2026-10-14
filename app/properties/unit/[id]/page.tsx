@@ -13,6 +13,7 @@ import { cn, formatAED } from "@/lib/utils";
 import { handoverLabel } from "@/lib/property/handover";
 import { unitIdFromParam, unitSlug } from "@/lib/property/unit-url";
 import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
+import { unitListing } from "@/lib/property/deal";
 import { SITE_URL } from "@/lib/data-layer/canonical";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { AIChat } from "@/components/ai/ai-chat";
@@ -168,14 +169,14 @@ export default async function UnitDetailPage({
             <>
               <span aria-hidden>/</span>
               <Link
-                href={`/${buildListingSlug("properties", "sale", p.community.slug)}`}
+                href={`/${buildListingSlug("properties", unitListing(unit.metadata) === "rent" ? "rent" : "sale", p.community.slug)}`}
                 className="hover:text-accent"
               >
                 {p.community.name}
               </Link>
               <span aria-hidden>/</span>
               <Link
-                href={`/${buildListingSlug(typeDefForType(unit.unitType ?? p.type).token, "sale", p.community.slug)}`}
+                href={`/${buildListingSlug(typeDefForType(unit.unitType ?? p.type).token, unitListing(unit.metadata) === "rent" ? "rent" : "sale", p.community.slug)}`}
                 className="hover:text-accent"
               >
                 {typeDefForType(unit.unitType ?? p.type).label}
