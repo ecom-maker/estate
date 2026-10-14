@@ -36,11 +36,15 @@ function deliveryLabel(offPlan: boolean, handoverDate?: string): string {
 export async function MarketInsightsSection({
   property,
   bedroomsLabel,
+  showProjectInfo = true,
 }: {
   property: PropertyInput;
   /** Project-wide bedroom range (e.g. "1 Bed – 2 Bed"); falls back to this
    *  listing's own bedroom count. */
   bedroomsLabel?: string;
+  /** The project-info card is redundant on the unit page; hide it there and
+   *  show only the (bedroom-scoped) transactions and price trend. */
+  showProjectInfo?: boolean;
 }) {
   // Real DLD transactions for comparable units, or null when there are too few
   // to say anything. Nothing here is estimated — if the data is thin, the
@@ -51,9 +55,13 @@ export async function MarketInsightsSection({
   const meta = (property.metadata ?? {}) as { handoverDate?: string };
   const communityName = property.community?.name ?? "Dubai";
 
+  // Nothing to show on a unit page when there are no comparable transactions.
+  if (!showProjectInfo && !insights) return null;
+
   return (
     <div className="mt-16 space-y-14">
       {/* Project Information */}
+      {showProjectInfo ? (
       <section>
         <h2 className="font-serif text-2xl text-primary">Project Information</h2>
         <div className="mt-5 overflow-hidden rounded-sm border border-border bg-card">
@@ -138,6 +146,7 @@ export async function MarketInsightsSection({
           </div>
         </div>
       </section>
+      ) : null}
 
       {insights ? (
         <>

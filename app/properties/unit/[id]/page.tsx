@@ -17,6 +17,7 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { AIChat } from "@/components/ai/ai-chat";
 import { formatKm } from "@/lib/property/nearby";
 import { getNearbyBundle } from "@/lib/property/nearby-bundle";
+import { MarketInsightsSection } from "@/components/property/market-insights-section";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
@@ -337,6 +338,27 @@ export default async function UnitDetailPage({
           </section>
         ) : null}
         <ProjectTimelineSection project={p} />
+
+        {/* Recorded DLD transactions + price trend, scoped to this unit's
+            bedroom count (unit-wise comparables in the community). */}
+        <MarketInsightsSection
+          showProjectInfo={false}
+          property={{
+            id: p.id,
+            slug: p.slug,
+            title: p.title,
+            type: unit.unitType ?? p.type,
+            bedrooms: unit.bedrooms,
+            priceAed: unit.priceAed,
+            areaSqft: unit.areaSqft,
+            offPlan: p.offPlan,
+            images: p.images,
+            community: p.community,
+            developer: p.developer,
+            paymentPlan: p.paymentPlan,
+            metadata: p.metadata,
+          }}
+        />
       </div>
 
       <aside className="h-fit rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
