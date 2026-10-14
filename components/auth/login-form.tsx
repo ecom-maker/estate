@@ -72,7 +72,35 @@ export function LoginForm({
         </p>
       )}
 
-      <form onSubmit={loginWithPassword} className="space-y-3">
+      <div className="space-y-3">
+        {googleEnabled ? (
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl: next ?? "/" })}
+            className="flex w-full items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary"
+          >
+            Continue with Google
+          </button>
+        ) : null}
+
+        {otpChannels.length ? (
+          <>
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+              Or sign in with a code
+            </p>
+
+            <PhoneCodeForm
+              mode="login"
+              otpChannels={otpChannels}
+              defaultCountry={defaultCountry}
+              next={next}
+              onMessage={setMessage}
+            />
+          </>
+        ) : null}
+      </div>
+
+      <form onSubmit={loginWithPassword} className="space-y-3 border-t border-border pt-6">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
           Admin email login
         </p>
@@ -116,45 +144,10 @@ export function LoginForm({
         </p>
       </form>
 
-      <div className="border-t border-border pt-6 space-y-3">
-        {googleEnabled ? (
-          <button
-            type="button"
-            onClick={() => signIn("google", { callbackUrl: next ?? "/" })}
-            className="flex w-full items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary"
-          >
-            Continue with Google
-          </button>
-        ) : null}
-
-        {otpChannels.length ? (
-          <>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
-              Or sign in with a code
-            </p>
-
-            <PhoneCodeForm
-              mode="login"
-              otpChannels={otpChannels}
-              defaultCountry={defaultCountry}
-              next={next}
-              onMessage={setMessage}
-            />
-          </>
-        ) : null}
-      </div>
-
       <p className="text-sm text-muted">
         Don&apos;t have an account?{" "}
         <Link href={authHref("/signup", next)} className="font-medium text-accent hover:underline">
           Create one
-        </Link>
-      </p>
-
-      <p className="text-xs text-muted">
-        Prefer browsing first?{" "}
-        <Link href="/search" className="text-accent hover:underline">
-          Start a search
         </Link>
       </p>
     </div>
