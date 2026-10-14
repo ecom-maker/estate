@@ -2,6 +2,7 @@ import { descriptionSections, highlightList } from "@/lib/property/description";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { SITE_URL } from "@/lib/data-layer/canonical";
+import { unitListing } from "@/lib/property/deal";
 
 /**
  * Inventory reads for the AI sales agent. Every fact the agent may state comes
@@ -328,7 +329,20 @@ function evaluate(p: AgentProperty, c: SearchCriteria): Scored | null {
   const reasons: string[] = [];
   let soft = 0;
 
-  if ((m.dealType ?? "sale") !== (c.dealType ?? "sale")) return null;
+  // Deal is per-unit (metadata.listing: sale/rent/both); fall back to the
+  // project-level dealType/forRent when a property has no units.
+  {
+    const want = c.dealType ?? "sale";
+    const visible = p.units.filter((u) => !u.hidden);
+    const deals = visible.map((u) => unitListing(u.metadata));
+    const offersRent = visible.length
+      ? deals.some((l) => l === "rent" || l === "both")
+      : m.dealType === "rent" || (m as { forRent?: boolean }).forRent === true;
+    const offersSale = visible.length
+      ? deals.some((l) => l === "sale" || l === "both")
+      : m.dealType !== "rent";
+    if (want === "rent" ? !offersRent : !offersSale) return null;
+  }
 
   if (c.locations?.length) {
     const hit = c.locations.find((l) => matchesLocation(p, l));
@@ -586,11 +600,36 @@ function nearbyFacts(metadata: unknown) {
   return { landmarks, schools, hospitals, metro };
 }
 
+/** Rental availability from per-unit listing + rent price (metadata). */
+function rentalInfo(p: AgentProperty) {
+  const m = meta(p);
+  const visible = p.units.filter((u) => !u.hidden);
+  const rentUnits = visible.filter((u) => {
+    const l = unitListing(u.metadata);
+    return l === "rent" || l === "both";
+  });
+  if (!rentUnits.length) {
+    const byProject =
+      m.dealType === "rent" || (m as { forRent?: boolean }).forRent === true;
+    return { availableForRent: byProject };
+  }
+  const rents = rentUnits
+    .map((u) => (u.metadata as { rentPriceAed?: number } | null)?.rentPriceAed)
+    .filter((n): n is number => typeof n === "number" && n > 0);
+  return {
+    availableForRent: true,
+    rentableUnits: rentUnits.length,
+    rentFromAedPerYear: rents.length ? aed(Math.min(...rents)) : null,
+    rentToAedPerYear: rents.length ? aed(Math.max(...rents)) : null,
+  };
+}
+
 export function propertyDetails(p: AgentProperty) {
   const m = meta(p);
   const done = completion(p);
   return {
     ...summarize({ p }),
+    rental: rentalInfo(p),
     nearby: nearbyFacts(p.metadata),
     listingStatus: p.status,
     summary: p.summary || null,
@@ -627,6 +666,7 @@ export function availability(p: AgentProperty, opts: { bedrooms?: number; unit?:
     property: p.title,
     url: projectUrl(p),
     listingStatus: p.status,
+    rental: rentalInfo(p),
     saleStatus: p.availability ?? meta(p).saleStatus ?? null,
     units: opts.unit ? units.map(describeUnit) : groupByBedrooms(units).map(describeGroup),
     asOf: p.updatedAt.toISOString().slice(0, 10),
