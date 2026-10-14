@@ -31,6 +31,8 @@ export function LoginForm({
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // While the code flow asks a new user for their name, hide everything else.
+  const [collectingName, setCollectingName] = useState(false);
 
   const configError =
     authError === "Configuration"
@@ -73,7 +75,7 @@ export function LoginForm({
       )}
 
       <div className="space-y-3">
-        {googleEnabled ? (
+        {!collectingName && googleEnabled ? (
           <button
             type="button"
             onClick={() => signIn("google", { callbackUrl: next ?? "/" })}
@@ -85,9 +87,11 @@ export function LoginForm({
 
         {otpChannels.length ? (
           <>
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
-              Or sign in with a code
-            </p>
+            {!collectingName ? (
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+                Or sign in with a code
+              </p>
+            ) : null}
 
             <PhoneCodeForm
               mode="login"
@@ -95,11 +99,13 @@ export function LoginForm({
               defaultCountry={defaultCountry}
               next={next}
               onMessage={setMessage}
+              onCollectingName={setCollectingName}
             />
           </>
         ) : null}
       </div>
 
+      {!collectingName ? (
       <form onSubmit={loginWithPassword} className="space-y-3 border-t border-border pt-6">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
           Admin email login
@@ -143,13 +149,16 @@ export function LoginForm({
           </Link>
         </p>
       </form>
+      ) : null}
 
-      <p className="text-sm text-muted">
-        Don&apos;t have an account?{" "}
-        <Link href={authHref("/signup", next)} className="font-medium text-accent hover:underline">
-          Create one
-        </Link>
-      </p>
+      {!collectingName ? (
+        <p className="text-sm text-muted">
+          Don&apos;t have an account?{" "}
+          <Link href={authHref("/signup", next)} className="font-medium text-accent hover:underline">
+            Create one
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -25,6 +25,9 @@ type PhoneCodeFormProps = {
   next?: string | null;
   /** Status and errors are shown in the parent's message box. */
   onMessage: (message: string | null) => void;
+  /** True while the post-sign-in "what's your name?" step is showing, so the
+   *  parent can hide the other sign-in options. */
+  onCollectingName?: (collecting: boolean) => void;
 };
 
 /**
@@ -38,6 +41,7 @@ export function PhoneCodeForm({
   defaultCountry = null,
   next = null,
   onMessage,
+  onCollectingName,
 }: PhoneCodeFormProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -55,6 +59,11 @@ export function PhoneCodeForm({
     const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [resendIn]);
+
+  // Let the parent collapse the other sign-in options during the name step.
+  useEffect(() => {
+    onCollectingName?.(step === "name");
+  }, [step, onCollectingName]);
 
   // Hard navigation so SessionProvider + header re-read the session.
   const finish = () => window.location.assign(next ?? "/");
