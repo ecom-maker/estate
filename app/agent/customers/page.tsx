@@ -6,8 +6,8 @@ import { AgentShell, EmptyState } from "@/components/agent/agent-shell";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Customers" };
 
-// Roles permitted to view the customer list (it contains other users' PII).
-const ALLOWED = ["AGENT", "COMPANY_ADMIN", "SUPER_ADMIN"];
+// The customer list contains other users' PII — super-admins only.
+const ALLOWED = ["SUPER_ADMIN"];
 
 function fmtDate(d: Date) {
   return d.toLocaleDateString("en-GB", {

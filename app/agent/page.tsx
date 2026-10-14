@@ -7,6 +7,7 @@ import {
   CalendarClock,
   MessagesSquare,
 } from "lucide-react";
+import { auth } from "@/lib/auth";
 
 export const metadata = { title: "Agent" };
 
@@ -34,6 +35,7 @@ const cards = [
     href: "/agent/customers",
     desc: "Registered customers.",
     Icon: Users,
+    superAdminOnly: true,
   },
   {
     title: "Appointments",
@@ -49,7 +51,13 @@ const cards = [
   },
 ];
 
-export default function AgentPage() {
+export default async function AgentPage() {
+  const session = await auth();
+  const roles = (session?.user as { roles?: string[] } | undefined)?.roles ?? [];
+  // Customers is super-admin only; everyone else never sees the card.
+  const isSuperAdmin = roles.includes("SUPER_ADMIN");
+  const visibleCards = cards.filter((c) => !c.superAdminOnly || isSuperAdmin);
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
       <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
@@ -57,10 +65,11 @@ export default function AgentPage() {
       </p>
       <h1 className="mt-3 font-serif text-4xl text-primary">Dashboard</h1>
       <p className="mt-2 text-sm text-muted">
-        AI search, favorites, saved searches, customers, and chat history.
+        AI search, favorites, saved searches{isSuperAdmin ? ", customers" : ""},
+        and chat history.
       </p>
       <div className="mt-10 grid gap-4 md:grid-cols-3">
-        {cards.map(({ title, href, desc, Icon }) => (
+        {visibleCards.map(({ title, href, desc, Icon }) => (
           <Link
             key={title}
             href={href}
