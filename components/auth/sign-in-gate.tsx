@@ -187,6 +187,18 @@ function SignInGateDialog({
   const [state, setState] = useState<"idle" | "signing-in" | "error">("idle");
   // Google's script can be blocked (ad blockers, strict privacy settings).
   const [gisFailed, setGisFailed] = useState(false);
+  // On phones, lead with the code (OTP) sign-in rather than Google.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    try {
+      setIsMobile(
+        window.matchMedia("(max-width: 640px)").matches ||
+          /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent),
+      );
+    } catch {
+      // Leave desktop default.
+    }
+  }, []);
   // Latest callback without re-initialising Google on every render.
   const onSignedInRef = useRef(onSignedIn);
   useEffect(() => {
@@ -274,8 +286,21 @@ function SignInGateDialog({
           {pending.title ?? "Sign in to see results"}
         </h2>
         <p className="mt-2 text-sm text-muted">
-          {pending.message ?? "It takes one tap with Google. We’ll take you straight to your search."}
+          {pending.message ??
+            (isMobile
+              ? "Sign in with a code sent to your phone — or continue with Google."
+              : "It takes one tap with Google. We’ll take you straight to your search.")}
         </p>
+
+        {isMobile ? (
+          <Link
+            href={authHref("/login", next)}
+            onClick={rememberAsk}
+            className="mt-5 flex w-full items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+          >
+            Continue with phone →
+          </Link>
+        ) : null}
 
         <div className="mt-5 flex min-h-[44px] justify-center">
           {googleClientId && gisFailed ? (
