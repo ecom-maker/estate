@@ -79,7 +79,7 @@ export function LoginForm({
           <>
             {!collectingName ? (
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
-                Or sign in with a code
+                Sign in with code
               </p>
             ) : null}
 
