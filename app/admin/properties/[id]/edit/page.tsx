@@ -9,6 +9,7 @@ import { updateProperty, setUnitHidden, createUnit } from "../../actions";
 import { AddUnitForm } from "@/components/admin/add-unit-form";
 import { UnitFloorplanCell } from "@/components/admin/unit-floorplan-cell";
 import { UnitTypeSelect } from "@/components/admin/unit-type-select";
+import { UnitListingSelect } from "@/components/admin/unit-listing-select";
 import { UnitSaveButton } from "@/components/admin/unit-save-button";
 
 const UNIT_STATUSES = ["available", "reserved", "sold"];
@@ -73,6 +74,7 @@ export default async function EditPropertyPage({
       status: true,
       hidden: true,
       unitType: true,
+      metadata: true,
     },
   });
 
@@ -168,6 +170,7 @@ export default async function EditPropertyPage({
                 <tr>
                   <th className="px-4 py-3">Unit #</th>
                   <th>Type</th>
+                  <th>Deal</th>
                   {showFloor ? <th>Floor</th> : null}
                   <th>Beds</th>
                   <th>Bath</th>
@@ -199,6 +202,27 @@ export default async function EditPropertyPage({
                       ) : (
                         <span className="capitalize">
                           {(u.unitType ?? property.type).toLowerCase()}
+                        </span>
+                      )}
+                    </td>
+                    <td className="pr-3">
+                      {editable ? (
+                        <UnitListingSelect
+                          id={u.id}
+                          value={
+                            (u.metadata as { listing?: string } | null)
+                              ?.listing ?? "sale"
+                          }
+                        />
+                      ) : (
+                        <span className="capitalize">
+                          {((u.metadata as { listing?: string } | null)
+                            ?.listing ?? "sale") === "both"
+                            ? "Sale & rent"
+                            : (u.metadata as { listing?: string } | null)
+                                  ?.listing === "rent"
+                              ? "For rent"
+                              : "For sale"}
                         </span>
                       )}
                     </td>

@@ -5,6 +5,7 @@ import { assertPermission } from "@/lib/rbac/guards";
 import { prisma } from "@/lib/db/prisma";
 import { setUnitHidden } from "@/app/admin/properties/actions";
 import { UnitTypeSelect } from "@/components/admin/unit-type-select";
+import { UnitListingSelect } from "@/components/admin/unit-listing-select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Units" };
@@ -48,6 +49,7 @@ export default async function AdminUnitsPage({
     status: string | null;
     hidden: boolean;
     unitType: string | null;
+    metadata: Prisma.JsonValue;
     property: { id: string; title: string; type: string };
   }> = [];
   let total = 0;
@@ -67,6 +69,7 @@ export default async function AdminUnitsPage({
           status: true,
           hidden: true,
           unitType: true,
+          metadata: true,
           property: { select: { id: true, title: true, type: true } },
         },
       }),
@@ -124,6 +127,7 @@ export default async function AdminUnitsPage({
               <th className="px-4 py-3">Unit #</th>
               <th>Project</th>
               <th>Type</th>
+              <th>Deal</th>
               <th>Beds</th>
               <th>Bath</th>
               <th>Area (sqft)</th>
@@ -148,6 +152,15 @@ export default async function AdminUnitsPage({
                     id={u.id}
                     value={u.unitType}
                     projectType={u.property.type}
+                  />
+                </td>
+                <td>
+                  <UnitListingSelect
+                    id={u.id}
+                    value={
+                      (u.metadata as { listing?: string } | null)?.listing ??
+                      "sale"
+                    }
                   />
                 </td>
                 <td>{u.bedrooms ?? "—"}</td>
@@ -198,7 +211,7 @@ export default async function AdminUnitsPage({
             ))}
             {units.length === 0 ? (
               <tr className="border-t border-border">
-                <td colSpan={10} className="px-4 py-6 text-muted">
+                <td colSpan={11} className="px-4 py-6 text-muted">
                   {q ? `No units match “${q}”.` : "No units yet."}
                 </td>
               </tr>

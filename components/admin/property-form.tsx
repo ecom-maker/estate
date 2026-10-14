@@ -179,7 +179,13 @@ export function PropertyForm({
             <option value="rent">For rent</option>
           </select>
         </div>
-        {!offPlan ? (
+        {!offPlan && typePerUnit ? (
+          <div className="flex flex-col justify-end pb-1">
+            <p className="text-xs text-muted">
+              Sale / rent is set per unit in the Units table below.
+            </p>
+          </div>
+        ) : !offPlan ? (
           <div className="flex flex-col justify-end">
             <label className="flex items-center gap-2 pb-2.5 text-sm text-primary">
               <input

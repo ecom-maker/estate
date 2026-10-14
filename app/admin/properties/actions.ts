@@ -155,6 +155,44 @@ export async function setUnitType(formData: FormData): Promise<void> {
   }
 }
 
+const UNIT_LISTINGS = ["sale", "rent", "both"] as const;
+
+/** Set whether a unit is offered for sale, for rent, or both. Saved in the
+ *  unit's metadata.listing; "both" lists it in sale and rent surfaces. */
+export async function setUnitListing(formData: FormData): Promise<void> {
+  try {
+    await assertPermission("properties.update");
+  } catch {
+    return;
+  }
+  const id = String(formData.get("id") ?? "");
+  const raw = String(formData.get("listing") ?? "");
+  if (!id) return;
+  const listing = (UNIT_LISTINGS as readonly string[]).includes(raw)
+    ? raw
+    : "sale";
+  try {
+    const existing = await prisma.propertyUnit.findUnique({
+      where: { id },
+      select: { metadata: true, propertyId: true },
+    });
+    if (!existing) return;
+    const metadata = {
+      ...((existing.metadata as Record<string, unknown> | null) ?? {}),
+      listing,
+    };
+    await prisma.propertyUnit.update({
+      where: { id },
+      data: { metadata: metadata as Prisma.InputJsonValue },
+    });
+    revalidatePath(`/admin/properties/${existing.propertyId}/edit`);
+    revalidatePath("/admin/units");
+    revalidatePath("/properties");
+  } catch {
+    // ignore
+  }
+}
+
 export type UnitDetailsState = { ok?: boolean; error?: string };
 
 const UNIT_STATUSES = ["available", "reserved", "sold"] as const;
