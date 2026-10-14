@@ -254,6 +254,30 @@ export default async function ListingLandingPage({ params }: Props) {
   // priceAed is the sale price; rent asking prices aren't captured yet.
   const isRent = parsed.deal === "rent";
   const unitPhotos = pickUnitPhotos(units);
+
+  // Unique, data-driven intro copy (not boilerplate): names + real "from" price.
+  const projectNames = [...new Set(properties.map((p) => p.title))].slice(0, 3);
+  const saleMin = units.reduce<number | null>(
+    (m, u) => (u.priceAed && (m == null || u.priceAed < m) ? u.priceAed : m),
+    null,
+  );
+  const rentValues = units
+    .map((u) => (u.metadata as { rentPriceAed?: number } | null)?.rentPriceAed)
+    .filter((n): n is number => typeof n === "number" && n > 0);
+  const priceBit = isRent
+    ? rentValues.length
+      ? ` from ${formatAED(Math.min(...rentValues))}/yr`
+      : ""
+    : saleMin != null
+      ? ` from ${formatAED(saleMin)}`
+      : "";
+  const intro =
+    `Browse ${typeLower} ${dealLower} in ${localityName}` +
+    (projectNames.length
+      ? `, including ${projectNames.join(", ")}`
+      : "") +
+    (priceBit ? `, with prices${priceBit}` : "") +
+    `. Compare live listings, price trends and FAQs below.`;
   const faqs = faqFor(parsed, localityName);
   const canonical = `${BASE}/${listing}`;
 
@@ -329,13 +353,7 @@ export default async function ListingLandingPage({ params }: Props) {
       </p>
       <h1 className="mt-3 font-serif text-4xl text-primary md:text-5xl">{heading}</h1>
 
-      {/* Intro / SEO copy */}
-      <div className="mt-6 rounded-sm border border-border bg-card p-6 text-sm leading-relaxed text-muted">
-        {properties.length > 0 ? `${properties.length}+ listings for ` : "Listings for "}
-        {typeLower} {dealLower} in {localityName} from trusted builders and owners. This page
-        includes the latest price trends, locality insights, and FAQs to help homebuyers compare
-        options in {localityName}.
-      </div>
+      <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted">{intro}</p>
 
       {/* Individual unit listings */}
       {units.length > 0 ? (
