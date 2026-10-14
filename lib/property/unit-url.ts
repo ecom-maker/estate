@@ -72,8 +72,18 @@ export function unitPath(u: UnitUrlInput): string {
   return `/properties/unit/${unitSlug(u)}`;
 }
 
-/** The trailing segment carries the DB id; the rest is SEO sugar. */
+/**
+ * The trailing part of the slug carries the DB id; the rest is SEO sugar.
+ * Unit ids are either a hyphen-free cuid (last segment) or a UUID with its own
+ * hyphens (last 5 segments), so match a trailing UUID first, then fall back to
+ * the final segment.
+ */
+const TRAILING_UUID =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function unitIdFromParam(param: string): string {
+  const uuid = param.match(TRAILING_UUID);
+  if (uuid) return uuid[0];
   const last = param.split("-").pop();
   return last && last.length ? last : param;
 }
