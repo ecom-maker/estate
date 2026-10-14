@@ -14,6 +14,7 @@ import { PropertyDescription } from "@/components/property/property-description"
 import { metaDescription } from "@/lib/property/description";
 import { formatKm } from "@/lib/property/nearby";
 import { getNearbyBundle } from "@/lib/property/nearby-bundle";
+import { MarketInsightsSection } from "@/components/property/market-insights-section";
 import {
   PaymentPlanSection,
   ProjectTimelineSection,
@@ -326,6 +327,26 @@ export default async function ProjectDetailPage({ params }: Props) {
             category={project.type}
             groups={unitGroups}
             fromDeveloper={project.offPlan}
+          />
+
+          {/* Recorded DLD transactions + price trend for comparable units */}
+          <MarketInsightsSection
+            bedroomsLabel={bedSummary}
+            property={{
+              id: project.id,
+              slug: project.slug,
+              title: project.title,
+              type: project.type,
+              bedrooms: project.bedrooms,
+              priceAed: project.priceAed,
+              areaSqft: project.areaSqft,
+              offPlan: project.offPlan,
+              images: project.images,
+              community: project.community,
+              developer: project.developer,
+              paymentPlan: project.paymentPlan,
+              metadata: project.metadata,
+            }}
           />
         </div>
 
