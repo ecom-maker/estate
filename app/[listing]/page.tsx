@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { formatAED } from "@/lib/utils";
 import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { getAppUrl } from "@/lib/app-url";
+import { unitPath } from "@/lib/property/unit-url";
 import {
   parseListingSlug,
   buildListingSlug,
@@ -30,11 +31,34 @@ type ListingProperty = Prisma.PropertyGetPayload<{
   };
 }>;
 
+type ListingUnit = Prisma.PropertyUnitGetPayload<{
+  select: {
+    id: true;
+    bedrooms: true;
+    bathrooms: true;
+    areaSqft: true;
+    priceAed: true;
+    view: true;
+    status: true;
+    unitType: true;
+    property: {
+      select: {
+        slug: true;
+        title: true;
+        type: true;
+        community: { select: { name: true; emirate: true } };
+        images: { select: { url: true; alt: true } };
+      };
+    };
+  };
+}>;
+
 interface ResolvedListing {
   parsed: ParsedListingSlug;
   localityName: string;
   localityCity: string | null;
   properties: ListingProperty[];
+  units: ListingUnit[];
   nearby: { name: string; slug: string }[];
 }
 
@@ -71,7 +95,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
       ];
     }
 
-    const [properties, nearby] = await Promise.all([
+    const [properties, units, nearby] = await Promise.all([
       prisma.property.findMany({
         where,
         include: {
@@ -82,6 +106,35 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
         orderBy: { createdAt: "desc" },
         take: 24,
       }),
+      // Individual units in matching projects — the actual listings.
+      prisma.propertyUnit.findMany({
+        where: { hidden: false, property: where },
+        select: {
+          id: true,
+          bedrooms: true,
+          bathrooms: true,
+          areaSqft: true,
+          priceAed: true,
+          view: true,
+          status: true,
+          unitType: true,
+          property: {
+            select: {
+              slug: true,
+              title: true,
+              type: true,
+              community: { select: { name: true, emirate: true } },
+              images: {
+                orderBy: { sortOrder: "asc" },
+                take: 1,
+                select: { url: true, alt: true },
+              },
+            },
+          },
+        },
+        orderBy: { priceAed: "asc" },
+        take: 24,
+      }),
       prisma.community.findMany({
         where: community ? { id: { not: community.id } } : {},
         select: { name: true, slug: true },
@@ -90,7 +143,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
       }),
     ]);
 
-    return { parsed, localityName, localityCity, properties, nearby };
+    return { parsed, localityName, localityCity, properties, units, nearby };
   } catch {
     // DB unavailable — still render an indexable shell rather than 500.
     return {
@@ -98,6 +151,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
       localityName: humanizeSlug(parsed.localitySlug),
       localityCity: null,
       properties: [],
+      units: [],
       nearby: [],
     };
   }
@@ -155,7 +209,8 @@ export default async function ListingLandingPage({ params }: Props) {
   const resolved = await resolveListing(listing);
   if (!resolved) notFound();
 
-  const { parsed, localityName, localityCity, properties, nearby } = resolved;
+  const { parsed, localityName, localityCity, properties, units, nearby } =
+    resolved;
   const heading = listingTitle(parsed, localityName);
   const dealLower = DEAL_LABELS[parsed.deal].toLowerCase();
   const typeLower = parsed.typeDef.label.toLowerCase();
@@ -175,13 +230,32 @@ export default async function ListingLandingPage({ params }: Props) {
       {
         "@type": "ItemList",
         name: heading,
-        numberOfItems: properties.length,
-        itemListElement: properties.map((p, i) => ({
-          "@type": "ListItem",
-          position: i + 1,
-          url: `${BASE}/properties/${p.slug}`,
-          name: p.title,
-        })),
+        numberOfItems: units.length + properties.length,
+        itemListElement: [
+          ...units.map((u, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            url: `${BASE}${unitPath({
+              id: u.id,
+              bedrooms: u.bedrooms,
+              unitType: u.unitType,
+              property: u.property,
+            })}`,
+            name: `${
+              u.bedrooms == null
+                ? "Unit"
+                : u.bedrooms === 0
+                  ? "Studio"
+                  : `${u.bedrooms}-Bedroom`
+            } at ${u.property.title}`,
+          })),
+          ...properties.map((p, i) => ({
+            "@type": "ListItem",
+            position: units.length + i + 1,
+            url: `${BASE}/properties/${p.slug}`,
+            name: p.title,
+          })),
+        ],
       },
       {
         "@type": "FAQPage",
@@ -223,7 +297,74 @@ export default async function ListingLandingPage({ params }: Props) {
         options in {localityName}.
       </div>
 
-      {/* Listings */}
+      {/* Individual unit listings */}
+      {units.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="font-serif text-2xl text-primary">
+            Available {typeLower} in {localityName}
+          </h2>
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {units.map((u) => {
+              const image = u.property.images[0];
+              const bedText =
+                u.bedrooms == null
+                  ? "—"
+                  : u.bedrooms === 0
+                    ? "Studio"
+                    : `${u.bedrooms} Bed`;
+              return (
+                <Link
+                  key={u.id}
+                  href={unitPath({
+                    id: u.id,
+                    bedrooms: u.bedrooms,
+                    unitType: u.unitType,
+                    property: u.property,
+                  })}
+                  className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-accent"
+                >
+                  <div className="relative aspect-[4/3] bg-primary/10">
+                    {image ? (
+                      <Image
+                        src={image.url}
+                        alt={image.alt ?? u.property.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover transition group-hover:scale-105"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="p-5">
+                    <p className="text-xs uppercase tracking-[0.2em] text-accent">
+                      {u.property.community?.name ?? localityName}
+                    </p>
+                    <h3 className="mt-2 font-serif text-lg text-primary">
+                      {u.property.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted">
+                      {u.priceAed ? formatAED(u.priceAed) : "Price on request"}
+                    </p>
+                    <p className="mt-2 text-xs text-muted">
+                      {[
+                        bedText,
+                        u.bathrooms != null ? `${u.bathrooms} bath` : null,
+                        u.areaSqft != null
+                          ? `${Math.round(u.areaSqft).toLocaleString()} sqft`
+                          : null,
+                        u.view ? `${u.view} view` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Developments */}
       {properties.length === 0 ? (
         <div className="mt-10 rounded-sm border border-border bg-card p-8 text-sm text-muted">
           No {typeLower} {dealLower} in {localityName} are listed right now. Explore nearby
@@ -234,7 +375,11 @@ export default async function ListingLandingPage({ params }: Props) {
           .
         </div>
       ) : (
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="mt-16">
+          <h2 className="font-serif text-2xl text-primary">
+            Developments in {localityName}
+          </h2>
+          <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {properties.map((property) => {
             const image = property.images[0];
             return (
@@ -278,7 +423,8 @@ export default async function ListingLandingPage({ params }: Props) {
               </Link>
             );
           })}
-        </div>
+          </div>
+        </section>
       )}
 
       {/* Nearby localities — internal linking for SEO */}
