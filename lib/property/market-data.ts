@@ -85,11 +85,16 @@ function monthlyPerSqft(rows: Row[]): Map<string, number> {
  * across gaps so a quiet month doesn't draw a hole in the line. Returns null
  * if the data spans too few months to be a trend.
  */
-function series(
-  comparable: Map<string, number>,
-  wider: Map<string, number>,
+function buildSeries(
+  primaryM: Map<string, number>,
+  secondaryM: Map<string, number> | null,
 ): { months: string[]; primary: number[]; secondary: number[] } | null {
-  const keys = [...new Set([...comparable.keys(), ...wider.keys()])].sort();
+  const keys = [
+    ...new Set([
+      ...primaryM.keys(),
+      ...(secondaryM ? [...secondaryM.keys()] : []),
+    ]),
+  ].sort();
   if (keys.length < MIN_TREND_MONTHS) return null;
 
   const months: string[] = [];
@@ -100,12 +105,13 @@ function series(
 
   for (const key of keys) {
     const [y, m] = key.split("-");
-    lastP = comparable.get(key) ?? lastP;
-    lastS = wider.get(key) ?? lastS;
-    if (lastP === null || lastS === null) continue; // nothing to draw yet
+    lastP = primaryM.get(key) ?? lastP;
+    if (secondaryM) lastS = secondaryM.get(key) ?? lastS;
+    if (lastP === null) continue; // nothing to draw yet
+    if (secondaryM && lastS === null) continue;
     months.push(`${MONTHS[Number(m) - 1]} ${y.slice(2)}`);
     primary.push(lastP);
-    secondary.push(lastS);
+    if (secondaryM) secondary.push(lastS as number);
   }
   return months.length >= MIN_TREND_MONTHS ? { months, primary, secondary } : null;
 }
@@ -214,15 +220,6 @@ export async function getMarketInsights(property: {
 
   if (sold.length < MIN_TXNS) return null;
 
-  // Baseline (secondary trend line): the same-bedroom community when the
-  // headline is the building; otherwise the whole community.
-  const baseSales = useBuilding && sameBedOk ? compSales : sales;
-  const baseRentals =
-    useBuilding && compRentals.length >= MIN_TXNS ? compRentals : rentals;
-
-  const saleTrend = series(monthlyPerSqft(salesScope), monthlyPerSqft(baseSales));
-  const rentTrend = series(monthlyPerSqft(rentalScope), monthlyPerSqft(baseRentals));
-
   const bedWord =
     beds === null
       ? "Similar properties"
@@ -230,34 +227,61 @@ export async function getMarketInsights(property: {
         ? "Studios"
         : `${beds} bedroom`;
 
-  let primaryLabel: string;
-  let secondaryLabel: string;
-  if (useBuilding) {
-    primaryLabel = `${bedWord} at ${building}`;
-    secondaryLabel = sameBedOk ? `${bedWord} in ${community}` : `All ${community}`;
-  } else if (sameBedOk) {
-    primaryLabel = `${bedWord} in ${community}`;
-    secondaryLabel = `All ${community}`;
-  } else {
-    primaryLabel = `Similar properties in ${community}`;
-    secondaryLabel = `All ${community}`;
+  // Label for the transactions table (the headline scope used for the rows).
+  const comparablesLabel = useBuilding
+    ? `${bedWord} at ${building}`
+    : sameBedOk
+      ? `${bedWord} in ${community}`
+      : `Similar properties in ${community}`;
+
+  // Trend: pick the most specific scope that spans enough months, so a chart
+  // appears wherever the data honestly supports one. When only the whole
+  // community has enough months, it draws as a single line (no narrower
+  // baseline to compare against); when even that is too thin, no chart.
+  type Scope = { sales: Row[]; rentals: Row[]; label: string; kind: string };
+  const scopes: Scope[] = [];
+  if (useBuilding)
+    scopes.push({
+      sales: buildingSales,
+      rentals: buildingRentals,
+      label: `${bedWord} at ${building}`,
+      kind: "building",
+    });
+  if (sameBedOk)
+    scopes.push({
+      sales: compSales,
+      rentals: compRentals,
+      label: `${bedWord} in ${community}`,
+      kind: "sameBed",
+    });
+  scopes.push({ sales, rentals, label: `All ${community}`, kind: "all" });
+
+  const mAllSales = monthlyPerSqft(sales);
+  const mAllRentals = monthlyPerSqft(rentals);
+
+  let trend: MarketInsights["trend"] = null;
+  for (const scope of scopes) {
+    const primaryM = monthlyPerSqft(scope.sales);
+    const secondaryM = scope.kind === "all" ? null : mAllSales;
+    const saleTrend = buildSeries(primaryM, secondaryM);
+    if (!saleTrend) continue;
+
+    const rentPrimaryM = monthlyPerSqft(scope.rentals);
+    const rentSecondaryM = scope.kind === "all" ? null : mAllRentals;
+    const rentTrend = buildSeries(rentPrimaryM, rentSecondaryM);
+
+    trend = {
+      months: saleTrend.months,
+      sale: { primary: saleTrend.primary, secondary: saleTrend.secondary },
+      rent:
+        rentTrend && rentTrend.months.length === saleTrend.months.length
+          ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
+          : { primary: [], secondary: [] },
+      primaryLabel: scope.label,
+      secondaryLabel: scope.kind === "all" ? "" : `All ${community}`,
+    };
+    break;
   }
 
-  return {
-    sold,
-    rented,
-    comparablesLabel: primaryLabel,
-    trend: saleTrend
-      ? {
-          months: saleTrend.months,
-          sale: { primary: saleTrend.primary, secondary: saleTrend.secondary },
-          rent:
-            rentTrend && rentTrend.months.length === saleTrend.months.length
-              ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
-              : { primary: [], secondary: [] },
-          primaryLabel,
-          secondaryLabel,
-        }
-      : null,
-  };
+  return { sold, rented, comparablesLabel, trend };
 }

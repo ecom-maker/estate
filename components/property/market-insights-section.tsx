@@ -173,7 +173,9 @@ export async function MarketInsightsSection({
                 Prices &amp; trends
               </h2>
               <p className="mt-1 text-sm text-muted">
-                {insights.trend.primaryLabel} vs {insights.trend.secondaryLabel}
+                {insights.trend.secondaryLabel
+                  ? `${insights.trend.primaryLabel} vs ${insights.trend.secondaryLabel}`
+                  : insights.trend.primaryLabel}
               </p>
               <div className="mt-5 rounded-sm border border-border bg-card p-5">
                 <PriceTrendChart

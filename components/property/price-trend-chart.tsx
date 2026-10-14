@@ -78,6 +78,9 @@ export function PriceTrendChart({
   const hoverIdx =
     hover !== null ? Math.min(hover, view.p.length - 1) : null;
 
+  // Thin data can leave only the community line (no narrower baseline).
+  const hasSecondary = view.s.length > 0 && Boolean(secondaryLabel);
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -86,10 +89,12 @@ export function PriceTrendChart({
             <span className="h-0.5 w-5 rounded bg-primary" />
             {primaryLabel}
           </span>
-          <span className="flex items-center gap-1.5 text-muted">
-            <span className="h-0.5 w-5 rounded bg-accent" />
-            {secondaryLabel}
-          </span>
+          {hasSecondary ? (
+            <span className="flex items-center gap-1.5 text-muted">
+              <span className="h-0.5 w-5 rounded bg-accent" />
+              {secondaryLabel}
+            </span>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
         <div className="inline-flex rounded-full border border-border p-0.5">
@@ -184,15 +189,17 @@ export function PriceTrendChart({
           </text>
         ))}
 
-        <polyline
-          points={view.s
-            .map((v, i) => `${view.x(i, view.s.length)},${view.y(v)}`)
-            .join(" ")}
-          fill="none"
-          className="stroke-accent"
-          strokeWidth={2}
-          strokeDasharray="5 4"
-        />
+        {hasSecondary ? (
+          <polyline
+            points={view.s
+              .map((v, i) => `${view.x(i, view.s.length)},${view.y(v)}`)
+              .join(" ")}
+            fill="none"
+            className="stroke-accent"
+            strokeWidth={2}
+            strokeDasharray="5 4"
+          />
+        ) : null}
         <polyline
           points={view.p
             .map((v, i) => `${view.x(i, view.p.length)},${view.y(v)}`)
@@ -213,12 +220,14 @@ export function PriceTrendChart({
               strokeWidth={1}
               strokeDasharray="4 4"
             />
-            <circle
-              cx={view.x(hoverIdx, view.s.length)}
-              cy={view.y(view.s[hoverIdx])}
-              r={5}
-              className="fill-accent"
-            />
+            {hasSecondary ? (
+              <circle
+                cx={view.x(hoverIdx, view.s.length)}
+                cy={view.y(view.s[hoverIdx])}
+                r={5}
+                className="fill-accent"
+              />
+            ) : null}
             <circle
               cx={view.x(hoverIdx, view.p.length)}
               cy={view.y(view.p[hoverIdx])}
@@ -249,13 +258,15 @@ export function PriceTrendChart({
                 AED {view.p[hoverIdx].toLocaleString()}
               </span>
             </p>
-            <p className="flex items-center gap-1.5 text-muted">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-              {secondaryLabel}:{" "}
-              <span className="font-semibold">
-                AED {view.s[hoverIdx].toLocaleString()}
-              </span>
-            </p>
+            {hasSecondary ? (
+              <p className="flex items-center gap-1.5 text-muted">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+                {secondaryLabel}:{" "}
+                <span className="font-semibold">
+                  AED {view.s[hoverIdx].toLocaleString()}
+                </span>
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
