@@ -212,7 +212,11 @@ export async function updateUnitDetails(
   const unit = id
     ? await prisma.propertyUnit.findUnique({
         where: { id },
-        select: { propertyId: true, property: { select: { slug: true, offPlan: true } } },
+        select: {
+          propertyId: true,
+          metadata: true,
+          property: { select: { slug: true, offPlan: true } },
+        },
       })
     : null;
   if (!unit) return { error: "Unit not found." };
@@ -223,7 +227,24 @@ export async function updateUnitDetails(
   const fields = parseUnitFields(formData);
   if ("error" in fields) return fields;
 
-  await prisma.propertyUnit.update({ where: { id }, data: fields });
+  // Rent asking price lives in metadata (priceAed is the sale price).
+  const data: Prisma.PropertyUnitUpdateInput = { ...fields };
+  const rentRaw = formData.get("rentPriceAed");
+  if (rentRaw != null) {
+    const s = String(rentRaw).replace(/,/g, "").trim();
+    const rent = s === "" ? null : Number(s);
+    if (rent != null && (!Number.isFinite(rent) || rent <= 0)) {
+      return { error: "Rent price must be a positive number in AED." };
+    }
+    const metadata = {
+      ...((unit.metadata as Record<string, unknown> | null) ?? {}),
+    };
+    if (rent === null) delete metadata.rentPriceAed;
+    else metadata.rentPriceAed = rent;
+    data.metadata = metadata as Prisma.InputJsonValue;
+  }
+
+  await prisma.propertyUnit.update({ where: { id }, data });
   revalidateUnitPages(unit.propertyId, unit.property, id);
   return { ok: true };
 }

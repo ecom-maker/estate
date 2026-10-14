@@ -176,6 +176,7 @@ export default async function EditPropertyPage({
                   <th>Bath</th>
                   <th>Area (sqft)</th>
                   <th>Price (AED)</th>
+                  <th>Rent/yr (AED)</th>
                   {showView ? <th>View</th> : null}
                   <th>Status</th>
                   <th>Floor plan</th>
@@ -265,6 +266,28 @@ export default async function EditPropertyPage({
                       ) : (
                         "—"
                       )}
+                    </td>
+                    <td>
+                      {(() => {
+                        const rent = (
+                          u.metadata as { rentPriceAed?: number } | null
+                        )?.rentPriceAed;
+                        return editable ? (
+                          <input
+                            form={`unit-${u.id}`}
+                            name="rentPriceAed"
+                            inputMode="numeric"
+                            defaultValue={rent ? Math.round(rent) : ""}
+                            placeholder="—"
+                            aria-label={`Annual rent in AED for unit ${u.unitNumber}`}
+                            className={`${cellInput} w-28`}
+                          />
+                        ) : rent ? (
+                          Math.round(rent).toLocaleString()
+                        ) : (
+                          "—"
+                        );
+                      })()}
                     </td>
                     {showView ? <td>{u.view ?? "—"}</td> : null}
                     <td>

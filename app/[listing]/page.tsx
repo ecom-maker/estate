@@ -356,7 +356,14 @@ export default async function ListingLandingPage({ params }: Props) {
                     </h3>
                     <p className="mt-1 text-sm text-muted">
                       {isRent
-                        ? "Rent price on request"
+                        ? (() => {
+                            const rent = (
+                              u.metadata as { rentPriceAed?: number } | null
+                            )?.rentPriceAed;
+                            return rent
+                              ? `${formatAED(rent)}/yr`
+                              : "Rent price on request";
+                          })()
                         : u.priceAed
                           ? formatAED(u.priceAed)
                           : "Price on request"}

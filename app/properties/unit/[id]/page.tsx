@@ -125,6 +125,12 @@ export default async function UnitDetailPage({
       null,
   };
 
+  // Sale vs rent availability (per-unit metadata.listing + rent asking price).
+  const listing = unitListing(unit.metadata);
+  const rentPrice =
+    (unit.metadata as { rentPriceAed?: number } | null)?.rentPriceAed ?? null;
+  const rentText = rentPrice ? `${formatAED(rentPrice)}/yr` : "Rent price on request";
+
   const specs: [string, string][] = [
     ["Bedrooms", unit.bedrooms == null ? "—" : unit.bedrooms === 0 ? "Studio" : String(unit.bedrooms)],
     ["Bathrooms", unit.bathrooms != null ? String(unit.bathrooms) : "—"],
@@ -197,8 +203,21 @@ export default async function UnitDetailPage({
         </h1>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-lg text-muted">
-            {unit.priceAed ? formatAED(unit.priceAed) : "Price on request"}
+            {listing === "rent"
+              ? rentText
+              : unit.priceAed
+                ? formatAED(unit.priceAed)
+                : "Price on request"}
           </p>
+          {listing === "both" ? (
+            <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent">
+              Also for rent · {rentText}
+            </span>
+          ) : listing === "rent" ? (
+            <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent">
+              For rent
+            </span>
+          ) : null}
           {unit.status ? (
             <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium capitalize text-primary">
               {unit.status}
