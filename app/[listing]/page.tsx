@@ -64,6 +64,32 @@ interface ResolvedListing {
   nearby: { name: string; slug: string }[];
 }
 
+type Photo = { url: string; alt: string | null };
+
+/**
+ * One photo per unit card, rotating through each project's photos so that two
+ * units of the same project shown side by side don't display the same image.
+ */
+function pickUnitPhotos(
+  units: { property: { slug: string; images: Photo[] } }[],
+): (Photo | undefined)[] {
+  const turns = new Map<string, number>();
+  let lastUrl: string | null = null;
+  return units.map((u) => {
+    const list = u.property.images ?? [];
+    if (!list.length) {
+      lastUrl = null;
+      return undefined;
+    }
+    let turn = turns.get(u.property.slug) ?? 0;
+    if (list.length > 1 && list[turn % list.length].url === lastUrl) turn++;
+    turns.set(u.property.slug, turn + 1);
+    const photo = list[turn % list.length];
+    lastUrl = photo.url;
+    return photo;
+  });
+}
+
 /** Resolve a listing slug to its locality + matching properties (or null). */
 async function resolveListing(slug: string): Promise<ResolvedListing | null> {
   const parsed = parseListingSlug(slug);
@@ -129,7 +155,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
               community: { select: { name: true, emirate: true } },
               images: {
                 orderBy: { sortOrder: "asc" },
-                take: 1,
+                take: 8,
                 select: { url: true, alt: true },
               },
             },
@@ -227,6 +253,7 @@ export default async function ListingLandingPage({ params }: Props) {
   const typeLower = parsed.typeDef.label.toLowerCase();
   // priceAed is the sale price; rent asking prices aren't captured yet.
   const isRent = parsed.deal === "rent";
+  const unitPhotos = pickUnitPhotos(units);
   const faqs = faqFor(parsed, localityName);
   const canonical = `${BASE}/${listing}`;
 
@@ -317,8 +344,8 @@ export default async function ListingLandingPage({ params }: Props) {
             Available {typeLower} in {localityName}
           </h2>
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {units.map((u) => {
-              const image = u.property.images[0];
+            {units.map((u, i) => {
+              const image = unitPhotos[i];
               const bedText =
                 u.bedrooms == null
                   ? "—"
