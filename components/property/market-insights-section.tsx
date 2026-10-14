@@ -49,7 +49,11 @@ export async function MarketInsightsSection({
   // Real DLD transactions for comparable units, or null when there are too few
   // to say anything. Nothing here is estimated — if the data is thin, the
   // transactions table and the trend chart are simply not rendered.
-  const insights = await getMarketInsights(property);
+  const insights = await getMarketInsights({
+    bedrooms: property.bedrooms,
+    community: property.community,
+    building: property.title,
+  });
   const image = property.images?.[0];
   const pp = (property.paymentPlan ?? {}) as { downPaymentPct?: number };
   const meta = (property.metadata ?? {}) as { handoverDate?: string };
@@ -155,7 +159,10 @@ export async function MarketInsightsSection({
             sold={insights.sold}
             rented={insights.rented}
             buildingName={communityName}
-            subtitle={`${property.bedrooms ?? "—"} Bed ${titleCase(property.type)}s in ${communityName}`}
+            subtitle={
+              insights.comparablesLabel ??
+              `${property.bedrooms ?? "—"} Bed ${titleCase(property.type)}s in ${communityName}`
+            }
           />
 
           {/* Prices & trends — only once the comparables span enough months

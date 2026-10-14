@@ -113,14 +113,17 @@ function series(
 export async function getMarketInsights(property: {
   bedrooms: number | null;
   community?: { name: string } | null;
+  /** The project/building name — used to draw a building-specific line when the
+   *  DLD records name it. Off-plan towers have no transactions, so this is
+   *  usually absent and the chart falls back to community comparables. */
+  building?: string | null;
 }): Promise<MarketInsights | null> {
   const community = property.community?.name;
   if (!community) return null;
 
   const beds = property.bedrooms === null ? null : String(property.bedrooms);
+  const building = property.building?.trim() || null;
 
-  // Two scopes: same-bedroom comparables (the headline figure) and everything
-  // in the community (the baseline the comparables are read against).
   const select = {
     transactedOn: true,
     amountAed: true,
@@ -148,12 +151,55 @@ export async function getMarketInsights(property: {
   const sameBeds = (rows: Row[]) =>
     beds === null ? rows : rows.filter((r) => r.bedrooms === beds);
 
-  // Prefer same-bedroom comparables; fall back to the whole community only
-  // when there are too few of them to average honestly.
   const compSales = sameBeds(sales);
   const compRentals = sameBeds(rentals);
-  const salesScope = compSales.length >= MIN_TXNS ? compSales : sales;
-  const rentalScope = compRentals.length >= MIN_TXNS ? compRentals : rentals;
+
+  // Building-level (project-specific) transactions, same bedroom count, when
+  // the DLD records name this building. For an off-plan tower there are none.
+  let buildingSales: Row[] = [];
+  let buildingRentals: Row[] = [];
+  if (building) {
+    const [bs, br] = await Promise.all([
+      prisma.marketTransaction.findMany({
+        where: {
+          emirateCommunity: community,
+          purpose: "for-sale",
+          building: { equals: building, mode: "insensitive" },
+        },
+        select,
+        orderBy: { transactedOn: "desc" },
+        take: 4000,
+      }),
+      prisma.marketTransaction.findMany({
+        where: {
+          emirateCommunity: community,
+          purpose: "for-rent",
+          building: { equals: building, mode: "insensitive" },
+        },
+        select,
+        orderBy: { transactedOn: "desc" },
+        take: 4000,
+      }),
+    ]);
+    buildingSales = sameBeds(bs);
+    buildingRentals = sameBeds(br);
+  }
+
+  // Headline scope (table + primary trend line): the building itself when we
+  // have enough of its own sales, otherwise same-bedroom community comparables,
+  // otherwise the whole community.
+  const useBuilding = buildingSales.length >= MIN_TXNS;
+  const sameBedOk = compSales.length >= MIN_TXNS;
+  const salesScope = useBuilding
+    ? buildingSales
+    : sameBedOk
+      ? compSales
+      : sales;
+  const rentalScope = useBuilding
+    ? buildingRentals
+    : compRentals.length >= MIN_TXNS
+      ? compRentals
+      : rentals;
 
   if (salesScope.length < MIN_TXNS) return null;
 
@@ -168,23 +214,39 @@ export async function getMarketInsights(property: {
 
   if (sold.length < MIN_TXNS) return null;
 
-  const saleTrend = series(monthlyPerSqft(salesScope), monthlyPerSqft(sales));
-  const rentTrend = series(monthlyPerSqft(rentalScope), monthlyPerSqft(rentals));
+  // Baseline (secondary trend line): the same-bedroom community when the
+  // headline is the building; otherwise the whole community.
+  const baseSales = useBuilding && sameBedOk ? compSales : sales;
+  const baseRentals =
+    useBuilding && compRentals.length >= MIN_TXNS ? compRentals : rentals;
 
-  const bedLabel =
-    beds === null || salesScope !== compSales
+  const saleTrend = series(monthlyPerSqft(salesScope), monthlyPerSqft(baseSales));
+  const rentTrend = series(monthlyPerSqft(rentalScope), monthlyPerSqft(baseRentals));
+
+  const bedWord =
+    beds === null
       ? "Similar properties"
       : beds === "0"
         ? "Studios"
         : `${beds} bedroom`;
 
-  // The table and the chart have different evidence bars. A list of recorded
-  // sales is honest with six rows, so it shows as soon as there are comparables.
-  // A trend line claims a direction over time, so it waits for several months —
-  // otherwise a fortnight of sales would be drawn as a market movement.
+  let primaryLabel: string;
+  let secondaryLabel: string;
+  if (useBuilding) {
+    primaryLabel = `${bedWord} at ${building}`;
+    secondaryLabel = sameBedOk ? `${bedWord} in ${community}` : `All ${community}`;
+  } else if (sameBedOk) {
+    primaryLabel = `${bedWord} in ${community}`;
+    secondaryLabel = `All ${community}`;
+  } else {
+    primaryLabel = `Similar properties in ${community}`;
+    secondaryLabel = `All ${community}`;
+  }
+
   return {
     sold,
     rented,
+    comparablesLabel: primaryLabel,
     trend: saleTrend
       ? {
           months: saleTrend.months,
@@ -193,8 +255,8 @@ export async function getMarketInsights(property: {
             rentTrend && rentTrend.months.length === saleTrend.months.length
               ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
               : { primary: [], secondary: [] },
-          primaryLabel: `${bedLabel} in ${community}`,
-          secondaryLabel: `All ${community}`,
+          primaryLabel,
+          secondaryLabel,
         }
       : null,
   };

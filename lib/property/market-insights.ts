@@ -13,6 +13,9 @@ export type Txn = { date: string; aed: number; area: number };
 export type MarketInsights = {
   sold: Txn[];
   rented: Txn[];
+  /** What the sold/rented rows represent, e.g. "1 bedroom at <project>" or
+   *  "1 bedroom in <community>". Drives the transactions table subtitle. */
+  comparablesLabel?: string;
   /**
    * null when the comparables exist but span too few months to call a trend.
    * The transactions table is still shown in that case — it is a list of real
