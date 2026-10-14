@@ -8,6 +8,7 @@ import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
@@ -124,6 +125,18 @@ export default async function ProjectDetailPage({ params }: Props) {
         items={[
           { label: "Home", href: "/" },
           { label: "Projects", href: "/projects" },
+          ...(project.community?.slug
+            ? [
+                {
+                  label: project.community.name,
+                  href: `/${buildListingSlug("properties", "sale", project.community.slug)}`,
+                },
+                {
+                  label: typeDefForType(project.type).label,
+                  href: `/${buildListingSlug(typeDefForType(project.type).token, "sale", project.community.slug)}`,
+                },
+              ]
+            : []),
           ...(project.developer
             ? [{ label: project.developer.name }]
             : []),

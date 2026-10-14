@@ -73,6 +73,21 @@ export function buildListingSlug(
   return `${typeToken}-for-${deal}-in-${localitySlug}`;
 }
 
+/**
+ * The most specific listing type for a Prisma property type, e.g. APARTMENT →
+ * "apartments" (not the broader "flats"), VILLA → "villas", UNIT → "flats".
+ * Used to link a unit/project to its property-type landing page.
+ */
+export function typeDefForType(type: string | null | undefined): PropertyTypeDef {
+  const fallback = PROPERTY_TYPES[PROPERTY_TYPES.length - 1]; // "properties"
+  if (!type) return fallback;
+  const matches = PROPERTY_TYPES.filter((t) =>
+    t.enums.includes(type as PropertyType),
+  );
+  if (!matches.length) return fallback;
+  return matches.reduce((a, b) => (b.enums.length < a.enums.length ? b : a));
+}
+
 /** Title-case a locality slug when we have no Community record for it. */
 export function humanizeSlug(slug: string): string {
   return slug

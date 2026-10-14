@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
 import { handoverLabel } from "@/lib/property/handover";
 import { unitIdFromParam, unitSlug } from "@/lib/property/unit-url";
+import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
 import { SITE_URL } from "@/lib/data-layer/canonical";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { AIChat } from "@/components/ai/ai-chat";
@@ -159,11 +160,29 @@ export default async function UnitDetailPage({
   return (
     <div className="mx-auto grid max-w-7xl gap-10 px-6 pb-28 pt-14 md:grid-cols-[1.6fr_0.9fr] md:px-10">
       <div>
-        <nav className="text-sm text-muted">
+        <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
           <Link href="/properties" className="hover:text-accent">
             Properties
-          </Link>{" "}
-          /{" "}
+          </Link>
+          {p.community?.slug ? (
+            <>
+              <span aria-hidden>/</span>
+              <Link
+                href={`/${buildListingSlug("properties", "sale", p.community.slug)}`}
+                className="hover:text-accent"
+              >
+                {p.community.name}
+              </Link>
+              <span aria-hidden>/</span>
+              <Link
+                href={`/${buildListingSlug(typeDefForType(unit.unitType ?? p.type).token, "sale", p.community.slug)}`}
+                className="hover:text-accent"
+              >
+                {typeDefForType(unit.unitType ?? p.type).label}
+              </Link>
+            </>
+          ) : null}
+          <span aria-hidden>/</span>
           <Link href={`/projects/${p.slug}`} className="hover:text-accent">
             {p.title}
           </Link>
