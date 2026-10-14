@@ -75,16 +75,6 @@ export function LoginForm({
       )}
 
       <div className="space-y-3">
-        {!collectingName && googleEnabled ? (
-          <button
-            type="button"
-            onClick={() => signIn("google", { callbackUrl: next ?? "/" })}
-            className="flex w-full items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary"
-          >
-            Continue with Google
-          </button>
-        ) : null}
-
         {otpChannels.length ? (
           <>
             {!collectingName ? (
@@ -102,6 +92,16 @@ export function LoginForm({
               onCollectingName={setCollectingName}
             />
           </>
+        ) : null}
+
+        {!collectingName && googleEnabled ? (
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl: next ?? "/" })}
+            className="flex w-full items-center justify-center rounded-sm border border-border bg-card px-4 py-3 text-sm font-medium text-primary"
+          >
+            Continue with Google
+          </button>
         ) : null}
       </div>
 
