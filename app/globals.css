@@ -1,5 +1,20 @@
 @import "tailwindcss";
 
+/* Tailwind v4's reset leaves buttons with the default arrow; show a pointer on
+   interactive controls so they read as clickable. */
+@layer base {
+  button:not(:disabled),
+  [role="tab"],
+  [role="button"],
+  [role="option"],
+  select:not(:disabled),
+  summary,
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  label:has(> input[type="radio"]:not(:disabled)) {
+    cursor: pointer;
+  }
+}
+
 :root {
   /* Ethereal Estate design tokens */
   --background: #fcf8fa;
