@@ -1,17 +1,25 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
 import { countContacts } from "@/lib/admin/contacts";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin" };
 
+type Card = { label: string; value: string; href: string; alert?: boolean };
+
 export default async function AdminPage() {
+  // "Seen" markers set when an admin opens the Leads / Sell leads pages.
+  const cookieStore = await cookies();
+  const seenLeads = Number(cookieStore.get("leads_seen_at")?.value ?? 0);
+  const seenSell = Number(cookieStore.get("sell_leads_seen_at")?.value ?? 0);
+
   // Each card links to the view that explains its number.
-  let cards: { label: string; value: string; href: string }[] = [
-    { label: "Properties", value: "—", href: "/admin/properties?filter=ready" },
+  let cards: Card[] = [
+    { label: "Leads", value: "—", href: "/admin/leads" },
     { label: "Projects (off-plan)", value: "—", href: "/admin/properties?filter=offplan" },
     { label: "Active listings", value: "—", href: "/admin/properties?filter=active" },
-    { label: "AI conversations", value: "—", href: "/admin/ai" },
+    { label: "Sell leads", value: "—", href: "/admin/sell-leads" },
     { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
     { label: "Knowledge documents", value: "—", href: "/admin/knowledge-base" },
     { label: "AI usage (all)", value: "—", href: "/admin/ai" },
@@ -20,21 +28,39 @@ export default async function AdminPage() {
   ];
 
   try {
-    const [properties, projects, active, conversations, docs, aiLogs, contacts] =
-      await Promise.all([
-        prisma.property.count({ where: { deletedAt: null, offPlan: false } }),
-        prisma.property.count({ where: { deletedAt: null, offPlan: true } }),
-        prisma.property.count({ where: { deletedAt: null, status: "ACTIVE" } }),
-        prisma.chatSession.count(),
-        prisma.knowledgeDocument.count({ where: { deletedAt: null } }),
-        prisma.aiLog.count(),
-        countContacts(),
-      ]);
+    const [
+      projects,
+      active,
+      docs,
+      aiLogs,
+      contacts,
+      leadsCount,
+      newestLead,
+      sellCount,
+      newestSell,
+    ] = await Promise.all([
+      prisma.property.count({ where: { deletedAt: null, offPlan: true } }),
+      prisma.property.count({ where: { deletedAt: null, status: "ACTIVE" } }),
+      prisma.knowledgeDocument.count({ where: { deletedAt: null } }),
+      prisma.aiLog.count(),
+      countContacts(),
+      prisma.lead.count(),
+      prisma.lead.findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+      prisma.auditLog.count({ where: { action: "sell_lead" } }),
+      prisma.auditLog.findFirst({
+        where: { action: "sell_lead" },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+    ]);
+    // Red until the admin opens the respective page (newest arrival > last seen).
+    const leadsNew = newestLead ? newestLead.createdAt.getTime() > seenLeads : false;
+    const sellNew = newestSell ? newestSell.createdAt.getTime() > seenSell : false;
     cards = [
-      { label: "Properties", value: String(properties), href: "/admin/properties?filter=ready" },
+      { label: "Leads", value: String(leadsCount), href: "/admin/leads", alert: leadsNew },
       { label: "Projects (off-plan)", value: String(projects), href: "/admin/properties?filter=offplan" },
       { label: "Active listings", value: String(active), href: "/admin/properties?filter=active" },
-      { label: "AI conversations", value: String(conversations), href: "/admin/ai" },
+      { label: "Sell leads", value: String(sellCount), href: "/admin/sell-leads", alert: sellNew },
       { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
       { label: "Knowledge documents", value: String(docs), href: "/admin/knowledge-base" },
       { label: "AI usage (all)", value: String(aiLogs), href: "/admin/ai" },
@@ -50,8 +76,8 @@ export default async function AdminPage() {
     ["Units", "/admin/units"],
     ["Contacts", "/admin/contacts"],
     ["Admin contacts", "/admin/users"],
-    ["Leads", "/admin/leads"],
-    ["Sell leads", "/admin/sell-leads"],
+    ["Properties", "/admin/properties?filter=ready"],
+    ["AI conversations", "/admin/ai"],
     ["AI agents (CRM)", "/admin/agents"],
     ["AI", "/admin/ai"],
     ["Knowledge Base", "/admin/knowledge-base"],
@@ -77,16 +103,32 @@ export default async function AdminPage() {
             href={card.href}
             className="group rounded-sm border border-border bg-card p-5 transition hover:border-accent hover:shadow-sm"
           >
-            <p className="flex items-center justify-between text-xs uppercase tracking-wider text-muted">
+            <p
+              className={`flex items-center justify-between text-xs uppercase tracking-wider ${
+                card.alert ? "text-red-600" : "text-muted"
+              }`}
+            >
               {card.label}
-              <span
-                aria-hidden
-                className="text-accent opacity-0 transition group-hover:opacity-100"
-              >
-                →
-              </span>
+              {card.alert ? (
+                <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  New
+                </span>
+              ) : (
+                <span
+                  aria-hidden
+                  className="text-accent opacity-0 transition group-hover:opacity-100"
+                >
+                  →
+                </span>
+              )}
             </p>
-            <p className="mt-3 font-serif text-3xl text-primary">{card.value}</p>
+            <p
+              className={`mt-3 font-serif text-3xl ${
+                card.alert ? "text-red-600" : "text-primary"
+              }`}
+            >
+              {card.value}
+            </p>
           </Link>
         ))}
       </div>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { assertPermission } from "@/lib/rbac/guards";
 import { prisma } from "@/lib/db/prisma";
+import { MarkSeen } from "@/components/admin/mark-seen";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin · Sell leads" };
@@ -55,6 +56,7 @@ export default async function SellLeadsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
+      <MarkSeen cookie="sell_leads_seen_at" />
       <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
         Admin · Sell leads
       </p>
