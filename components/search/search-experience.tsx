@@ -46,6 +46,8 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
   const [properties, setProperties] = useState<PropertyCard[]>([]);
   const [loadingResults, setLoadingResults] = useState(false);
   const [searching, setSearching] = useState(false);
+  // Deal reported by the AI search (authoritative); null until a search runs.
+  const [aiDeal, setAiDeal] = useState<"sale" | "rent" | null>(null);
 
   useEffect(() => {
     if (propertyIds === null) return; // no search yet
@@ -76,13 +78,14 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
 
   const isSearch = propertyIds !== null;
   const busy = searching || loadingResults;
-  // Rent vs sale intent from the query, so a "for rent" search only shows
-  // units actually offered for rent.
-  const deal: "sale" | "rent" = /\b(rent|rental|lease|to\s?let)\b/i.test(
+  // Rent vs sale: prefer the AI search's own criteria; fall back to parsing the
+  // query text so the grid only shows units offered for that deal.
+  const queryDeal: "sale" | "rent" = /\b(rent|rental|lease|to\s?let)\b/i.test(
     initialQuery,
   )
     ? "rent"
     : "sale";
+  const deal: "sale" | "rent" = aiDeal ?? queryDeal;
   const [showFilters, setShowFilters] = useState(false);
 
   return (
@@ -104,6 +107,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
             initialQuery ? [{ role: "user", content: initialQuery }] : []
           }
           onPropertyIds={(ids) => setPropertyIds(ids)}
+          onDeal={setAiDeal}
           onStreaming={setSearching}
         />
       </aside>

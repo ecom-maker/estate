@@ -125,8 +125,18 @@ type AIChatProps = {
   showHistory?: boolean;
   onIntent?: (intentHeader: string | null) => void;
   onPropertyIds?: (ids: string[]) => void;
+  /** The sale/rent intent of the latest search, from the agent's criteria. */
+  onDeal?: (deal: "sale" | "rent" | null) => void;
   onStreaming?: (streaming: boolean) => void;
 };
+
+/** Extract the sale/rent intent from a search-intent object. */
+function dealFromIntent(
+  intent: Record<string, unknown> | null | undefined,
+): "sale" | "rent" | null {
+  const dt = (intent as { dealType?: string } | null | undefined)?.dealType;
+  return dt === "rent" ? "rent" : dt === "sale" ? "sale" : null;
+}
 
 export function AIChat({
   placeholder = "Ask anything...",
@@ -139,6 +149,7 @@ export function AIChat({
   showHistory = false,
   onIntent,
   onPropertyIds,
+  onDeal,
   onStreaming,
 }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(
@@ -192,6 +203,7 @@ export function AIChat({
     setPreviousIntent(cached.intent);
     if (cached.sessionId) setSessionId(cached.sessionId);
     if (cached.propertyIds !== null) onPropertyIds?.(cached.propertyIds);
+    onDeal?.(dealFromIntent(cached.intent));
   }
 
   async function openSession(id: string) {
@@ -210,6 +222,7 @@ export function AIChat({
       setSessionId(d.id);
       setPreviousIntent(d.lastIntent ?? null);
       if (d.lastPropertyIds?.length) onPropertyIds?.(d.lastPropertyIds);
+      onDeal?.(dealFromIntent(d.lastIntent));
     } catch {
       // ignore
     }
@@ -328,6 +341,7 @@ export function AIChat({
           if (meta.intent) {
             turnIntent = meta.intent;
             setPreviousIntent(meta.intent);
+            onDeal?.(dealFromIntent(meta.intent));
           }
         } catch {
           // malformed trailer: keep the text, skip the extras
