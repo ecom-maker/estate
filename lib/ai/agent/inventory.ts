@@ -465,6 +465,7 @@ export function summarize(s: Scored | { p: AgentProperty; units?: UnitType[]; re
     types: propertyTypes(p),
     priceFromAed: aed(p.priceAed),
     priceToAed: aed(m.maxPriceAed),
+    rental: rentalInfo(p),
     bedrooms: beds.length
       ? `${bedLabel(Math.min(...beds))}–${bedLabel(Math.max(...beds))}`
       : p.bedrooms != null

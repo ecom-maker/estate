@@ -2,6 +2,7 @@
 
 import { ProjectImage } from "@/components/property/project-image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
@@ -49,6 +50,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
   const [searching, setSearching] = useState(false);
   // Deal reported by the AI search (authoritative); null until a search runs.
   const [aiDeal, setAiDeal] = useState<"sale" | "rent" | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (propertyIds === null) return; // no search yet
@@ -109,6 +111,11 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
           }
           onPropertyIds={(ids) => setPropertyIds(ids)}
           onDeal={setAiDeal}
+          onUserQuery={(q) =>
+            router.replace(`/search?q=${encodeURIComponent(q)}`, {
+              scroll: false,
+            })
+          }
           onStreaming={setSearching}
         />
       </aside>

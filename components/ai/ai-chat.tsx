@@ -127,6 +127,8 @@ type AIChatProps = {
   onPropertyIds?: (ids: string[]) => void;
   /** The sale/rent intent of the latest search, from the agent's criteria. */
   onDeal?: (deal: "sale" | "rent" | null) => void;
+  /** The latest user query text, so the page can keep its URL in sync. */
+  onUserQuery?: (query: string) => void;
   onStreaming?: (streaming: boolean) => void;
 };
 
@@ -150,6 +152,7 @@ export function AIChat({
   onIntent,
   onPropertyIds,
   onDeal,
+  onUserQuery,
   onStreaming,
 }: AIChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>(
@@ -259,6 +262,7 @@ export function AIChat({
     ];
     setMessages(nextMessages);
     setInput("");
+    onUserQuery?.(trimmed);
     setStreaming(true);
     onStreaming?.(true);
     setMessages([...nextMessages, { role: "assistant", content: "" }]);
