@@ -129,7 +129,7 @@ export default async function ProjectDetailPage({ params }: Props) {
           ...(project.community?.slug
             ? [
                 {
-                  label: project.community.name,
+                  label: communityLabel(project.community.name, project.community.emirate),
                   href: `/${buildListingSlug("properties", "sale", project.community.slug)}`,
                 },
                 {

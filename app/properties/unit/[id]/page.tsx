@@ -179,7 +179,7 @@ export default async function UnitDetailPage({
                 href={`/${buildListingSlug("properties", unitListing(unit.metadata) === "rent" ? "rent" : "sale", p.community.slug)}`}
                 className="hover:text-accent"
               >
-                {p.community.name}
+                {communityLabel(p.community.name, p.community.emirate)}
               </Link>
               <span aria-hidden>/</span>
               <Link
