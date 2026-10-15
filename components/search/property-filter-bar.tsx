@@ -362,11 +362,12 @@ export function PropertyFilterBar({
     return matches.slice(0, 8);
   }, [city, places]);
 
-  function search() {
+  function search(cityOverride?: string) {
+    const cityVal = cityOverride ?? city;
     if (listing) {
       // Plain database filters on the unit list (no AI).
       const qs = unitFiltersToSearch({
-        q: city,
+        q: cityVal,
         types: typeLabels,
         beds,
         baths,
@@ -401,7 +402,7 @@ export function PropertyFilterBar({
     if (types.length) parts.push(...types);
     else parts.push("property");
 
-    if (city.trim()) parts.push(`in ${city.trim()}`);
+    if (cityVal.trim()) parts.push(`in ${cityVal.trim()}`);
     if (status === "offplan") parts.push("off-plan");
     if (status === "ready") parts.push("ready");
 
@@ -453,9 +454,12 @@ export function PropertyFilterBar({
               } else if (e.key === "Enter") {
                 if (placesOpen && highlight >= 0 && suggestions[highlight]) {
                   e.preventDefault();
-                  setCity(suggestions[highlight].label);
+                  const label = suggestions[highlight].label;
+                  setCity(label);
                   setPlacesOpen(false);
                   setHighlight(-1);
+                  // Selecting a suggestion runs the search right away.
+                  search(label);
                 } else {
                   search();
                 }
@@ -483,6 +487,8 @@ export function PropertyFilterBar({
                     setCity(p.label);
                     setPlacesOpen(false);
                     setHighlight(-1);
+                    // Selecting a suggestion runs the search right away.
+                    search(p.label);
                   }}
                   className={cn(
                     "flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm transition",
@@ -572,7 +578,7 @@ export function PropertyFilterBar({
         ) : null}
         <button
           type="button"
-          onClick={search}
+          onClick={() => search()}
           className={cn(
             "inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90",
             !(listing && hasUnitFilters(initial)) && "ml-auto",
