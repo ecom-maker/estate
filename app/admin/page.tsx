@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
+import { auth } from "@/lib/auth";
 import { countContacts } from "@/lib/admin/contacts";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +9,27 @@ export const metadata = { title: "Admin" };
 type Card = { label: string; value: string; href: string; alert?: boolean };
 
 export default async function AdminPage() {
-  // "Seen" markers set when an admin opens the Leads / Sell leads pages.
-  const cookieStore = await cookies();
-  const seenLeads = Number(cookieStore.get("leads_seen_at")?.value ?? 0);
-  const seenSell = Number(cookieStore.get("sell_leads_seen_at")?.value ?? 0);
+  // Per-user "seen" markers (users.preferences_json), set when an admin opens
+  // the Leads / Sell leads page.
+  const session = await auth();
+  const userId = (session?.user as { id?: string } | undefined)?.id ?? null;
+  let seenLeads = 0;
+  let seenSell = 0;
+  if (userId) {
+    try {
+      const u = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferences: true },
+      });
+      const p =
+        (u?.preferences as { leadsSeenAt?: number; sellLeadsSeenAt?: number } | null) ??
+        {};
+      seenLeads = Number(p.leadsSeenAt ?? 0);
+      seenSell = Number(p.sellLeadsSeenAt ?? 0);
+    } catch {
+      // treat as unseen
+    }
+  }
 
   // Each card links to the view that explains its number.
   let cards: Card[] = [

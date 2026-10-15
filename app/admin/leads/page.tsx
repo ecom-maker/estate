@@ -48,7 +48,7 @@ export default async function AdminLeadsPage({
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
-      <MarkSeen cookie="leads_seen_at" />
+      <MarkSeen kind="leads" />
       <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">Admin · Leads</p>
       <h1 className="mt-3 font-serif text-4xl text-primary">Leads</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">

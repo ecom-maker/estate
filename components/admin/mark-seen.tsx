@@ -1,19 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
+import { markSeen, type SeenKind } from "@/app/admin/seen-actions";
 
 /**
- * Records the current time in a cookie when an admin opens a page, so the
- * dashboard can tell whether anything newer has arrived since (e.g. the Leads
- * and Sell leads tiles go red until viewed).
+ * Marks the Leads / Sell leads page as seen for the current user (stored in the
+ * DB), so the dashboard tile clears its "new" highlight once viewed.
  */
-export function MarkSeen({ cookie }: { cookie: string }) {
+export function MarkSeen({ kind }: { kind: SeenKind }) {
   useEffect(() => {
-    try {
-      document.cookie = `${cookie}=${Date.now()}; path=/; max-age=31536000; samesite=lax`;
-    } catch {
-      // Cookies unavailable — the tile just stays highlighted.
-    }
-  }, [cookie]);
+    void markSeen(kind);
+  }, [kind]);
   return null;
 }

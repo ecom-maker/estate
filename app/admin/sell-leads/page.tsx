@@ -56,7 +56,7 @@ export default async function SellLeadsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">
-      <MarkSeen cookie="sell_leads_seen_at" />
+      <MarkSeen kind="sell" />
       <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
         Admin · Sell leads
       </p>
