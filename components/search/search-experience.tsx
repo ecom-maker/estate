@@ -8,6 +8,7 @@ import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { cn, formatAED } from "@/lib/utils";
 import { unitPath } from "@/lib/property/unit-url";
+import { unitMatchesDeal } from "@/lib/property/deal";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 type Unit = {
@@ -19,6 +20,7 @@ type Unit = {
   view: string | null;
   status: string | null;
   unitType?: string | null;
+  metadata?: { listing?: string; rentPriceAed?: number } | null;
 };
 
 type PropertyCard = {
@@ -74,6 +76,13 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
 
   const isSearch = propertyIds !== null;
   const busy = searching || loadingResults;
+  // Rent vs sale intent from the query, so a "for rent" search only shows
+  // units actually offered for rent.
+  const deal: "sale" | "rent" = /\b(rent|rental|lease|to\s?let)\b/i.test(
+    initialQuery,
+  )
+    ? "rent"
+    : "sale";
   const [showFilters, setShowFilters] = useState(false);
 
   return (
@@ -154,10 +163,14 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                   image: imgs[0] ?? null,
                   offPlan: p.offPlan ?? false,
                 };
-                if (p.units && p.units.length) {
+                // Only the units offered for this search's deal (sale/rent).
+                const matched = (p.units ?? []).filter((u) =>
+                  unitMatchesDeal(u.metadata, deal),
+                );
+                if (matched.length) {
                   // Cycle through the project's photos so consecutive units of
                   // the same project don't all show the same image.
-                  return p.units.slice(0, 6).map((u, i) => ({
+                  return matched.slice(0, 6).map((u, i) => ({
                     key: `u-${u.id}`,
                     href: unitPath({
                       id: u.id,
@@ -175,7 +188,10 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                     bedrooms: u.bedrooms,
                     bathrooms: u.bathrooms,
                     areaSqft: u.areaSqft,
-                    priceAed: u.priceAed,
+                    priceAed:
+                      deal === "rent"
+                        ? (u.metadata?.rentPriceAed ?? null)
+                        : u.priceAed,
                     view: u.view,
                     status: u.status,
                   }));
