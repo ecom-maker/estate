@@ -9,6 +9,7 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
+import { communityLabel } from "@/lib/property/location";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { PropertyDescription } from "@/components/property/property-description";
@@ -84,7 +85,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     : `${project.bedrooms ?? "—"} Bed`;
   const highlights: [string, string][] = [
     ["Developer", project.developer?.name ?? "—"],
-    ["Location", project.community?.name ?? "Dubai"],
+    ["Location", communityLabel(project.community?.name, project.community?.emirate)],
     ["Handover", handover ?? "TBA"],
     ["Starting price", `from ${formatAED(project.priceAed)}`],
     ["Unit types", bedSummary],
@@ -155,7 +156,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       </h1>
       <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
         <span>
-          {project.community?.name ?? "Dubai"} · from{" "}
+          {communityLabel(project.community?.name, project.community?.emirate)} · from{" "}
           {formatAED(project.priceAed)}
           {handover ? ` · Handover ${handover}` : ""}
         </span>

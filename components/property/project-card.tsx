@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatAED } from "@/lib/utils";
 import { ProjectImage } from "@/components/property/project-image";
 import type { ProjectCardData } from "@/lib/property/project-card";
+import { communityLabel } from "@/lib/property/location";
 
 export function ProjectCard({ p }: { p: ProjectCardData }) {
   return (
@@ -33,7 +34,9 @@ export function ProjectCard({ p }: { p: ProjectCardData }) {
           {p.title}
         </h3>
         {p.community ? (
-          <p className="mt-1 text-sm text-muted">{p.community}</p>
+          <p className="mt-1 text-sm text-muted">
+            {communityLabel(p.community, p.communityEmirate)}
+          </p>
         ) : null}
 
         {/* Beds available box */}

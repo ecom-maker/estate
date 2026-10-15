@@ -12,6 +12,7 @@ export type ProjectCardData = {
   title: string;
   developer: string | null;
   community: string | null;
+  communityEmirate: string | null;
   imageUrl: string | null;
   imageAlt: string | null;
   offPlan: boolean;
@@ -44,7 +45,7 @@ type ProjectLike = {
   offPlan: boolean;
   metadata: unknown;
   developer: { name: string } | null;
-  community: { name: string } | null;
+  community: { name: string; emirate: string | null } | null;
   images: { url: string; alt: string | null }[];
   units: UnitLike[];
   floorplans: { url: string; title: string; unitRef: string | null }[];
@@ -158,6 +159,7 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
     title: p.title,
     developer: p.developer?.name ?? null,
     community: p.community?.name ?? null,
+    communityEmirate: p.community?.emirate ?? null,
     imageUrl: img?.url ?? null,
     imageAlt: img?.alt ?? p.title,
     offPlan: p.offPlan,

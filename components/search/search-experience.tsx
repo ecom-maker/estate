@@ -9,6 +9,7 @@ import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { cn, formatAED } from "@/lib/utils";
 import { unitPath } from "@/lib/property/unit-url";
 import { unitMatchesDeal } from "@/lib/property/deal";
+import { communityLabel } from "@/lib/property/location";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 type Unit = {
@@ -163,7 +164,10 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                 const base = {
                   projectSlug: p.slug,
                   projectTitle: p.title,
-                  community: p.community?.name ?? "Dubai",
+                  community: communityLabel(
+                    p.community?.name,
+                    p.community?.emirate,
+                  ),
                   image: imgs[0] ?? null,
                   offPlan: p.offPlan ?? false,
                 };

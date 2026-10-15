@@ -14,6 +14,7 @@ import { handoverLabel } from "@/lib/property/handover";
 import { unitIdFromParam, unitSlug } from "@/lib/property/unit-url";
 import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
 import { unitListing } from "@/lib/property/deal";
+import { communityLabel } from "@/lib/property/location";
 import { SITE_URL } from "@/lib/data-layer/canonical";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { AIChat } from "@/components/ai/ai-chat";
@@ -196,7 +197,7 @@ export default async function UnitDetailPage({
         </nav>
 
         <p className="mt-6 text-xs font-medium uppercase tracking-[0.25em] text-accent">
-          {p.community?.name ?? "Dubai"}
+          {communityLabel(p.community?.name, p.community?.emirate)}
         </p>
         <h1 className="mt-2 font-serif text-4xl text-primary">
           {bedLabel(unit.bedrooms)} at {p.title}

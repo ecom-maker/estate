@@ -9,6 +9,7 @@ import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { getAppUrl } from "@/lib/app-url";
 import { unitPath } from "@/lib/property/unit-url";
 import { unitMatchesDeal, developmentMatchesDeal } from "@/lib/property/deal";
+import { communityLabel } from "@/lib/property/location";
 import {
   parseListingSlug,
   buildListingSlug,
@@ -394,7 +395,11 @@ export default async function ListingLandingPage({ params }: Props) {
                   </div>
                   <div className="p-5">
                     <p className="text-xs uppercase tracking-[0.2em] text-accent">
-                      {u.property.community?.name ?? localityName}
+                      {communityLabel(
+                        u.property.community?.name,
+                        u.property.community?.emirate,
+                        localityName,
+                      )}
                     </p>
                     <h3 className="mt-2 font-serif text-lg text-primary">
                       {u.property.title}
@@ -470,7 +475,11 @@ export default async function ListingLandingPage({ params }: Props) {
                 </div>
                 <div className="p-5">
                   <p className="text-xs uppercase tracking-[0.2em] text-accent">
-                    {property.community?.name ?? localityName}
+                    {communityLabel(
+                      property.community?.name,
+                      property.community?.emirate,
+                      localityName,
+                    )}
                   </p>
                   <h2 className="mt-2 font-serif text-lg text-primary">{property.title}</h2>
                   <p className="mt-1 text-sm text-muted">

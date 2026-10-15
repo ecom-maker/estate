@@ -5,6 +5,7 @@ import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
 import { handoverLabel } from "@/lib/property/handover";
 import { unitPath } from "@/lib/property/unit-url";
+import { communityLabel } from "@/lib/property/location";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import {
   hasUnitFilters,
@@ -238,7 +239,10 @@ export default async function PropertiesPage({
                 </div>
                 <div className="p-4">
                   <p className="text-[11px] uppercase tracking-wider text-accent">
-                    {u.property.community?.name ?? "Dubai"}
+                    {communityLabel(
+                      u.property.community?.name,
+                      u.property.community?.emirate,
+                    )}
                   </p>
                   <h2 className="mt-1 truncate font-serif text-lg text-primary">
                     {u.property.title}
