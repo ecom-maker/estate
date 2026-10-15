@@ -149,7 +149,12 @@ export function HeroChatBar() {
           </div>
         </>
       ) : (
-        <PropertyFilterBar dealType={mode === "rent" ? "rent" : "buy"} />
+        // Structured Buy/Rent search goes to the deterministic (open) results
+        // list; the "Ask AI" tab handles conversational search.
+        <PropertyFilterBar
+          mode="listing"
+          dealType={mode === "rent" ? "rent" : "buy"}
+        />
       )}
 
       <SellModal open={sellOpen} onClose={() => setSellOpen(false)} />

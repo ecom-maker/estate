@@ -6,6 +6,7 @@ import { formatAED } from "@/lib/utils";
 import { handoverLabel } from "@/lib/property/handover";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
+import { unitMatchesDeal } from "@/lib/property/deal";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import {
   hasUnitFilters,
@@ -80,7 +81,9 @@ export default async function PropertiesPage({
   const params = await searchParams;
   // Plain database filters from the filter bar (no AI).
   const filters = parseUnitFilters(params);
-  const filtered = hasUnitFilters(filters);
+  const dealParam = Array.isArray(params.deal) ? params.deal[0] : params.deal;
+  const rentOnly = dealParam === "rent";
+  const filtered = hasUnitFilters(filters) || rentOnly;
 
   const live = { deletedAt: null, status: "ACTIVE" as const };
   const where: Prisma.PropertyUnitWhereInput = {
@@ -98,6 +101,7 @@ export default async function PropertiesPage({
     view: string | null;
     status: string | null;
     unitType: string | null;
+    metadata: Prisma.JsonValue;
     property: {
       id: string;
       title: string;
@@ -124,6 +128,7 @@ export default async function PropertiesPage({
           view: true,
           status: true,
           unitType: true,
+          metadata: true,
           property: {
             select: {
               id: true,
@@ -142,6 +147,12 @@ export default async function PropertiesPage({
   } catch {
     units = [];
     total = 0;
+  }
+
+  // "For rent" tab: keep only units offered for rent (per-unit metadata.listing).
+  if (rentOnly) {
+    units = units.filter((u) => unitMatchesDeal(u.metadata, "rent"));
+    total = units.length;
   }
 
   // Each project's photos, loaded once in a fixed order (id breaks sortOrder

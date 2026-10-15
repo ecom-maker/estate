@@ -374,7 +374,10 @@ export function PropertyFilterBar({
         max: maxPrice,
         status,
       });
-      router.push(qs ? `/properties?${qs}` : "/properties");
+      const params = new URLSearchParams(qs);
+      if (deal === "rent") params.set("deal", "rent");
+      const s = params.toString();
+      router.push(s ? `/properties?${s}` : "/properties");
       return;
     }
 
