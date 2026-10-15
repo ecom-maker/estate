@@ -119,6 +119,10 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
       const term = localityName;
       where.OR = [
         { community: { name: { contains: term, mode: "insensitive" } } },
+        // Emirate / city pages (e.g. properties-for-sale-in-ajman) match the
+        // community's emirate or city, not just its name.
+        { community: { emirate: { contains: term, mode: "insensitive" } } },
+        { community: { city: { contains: term, mode: "insensitive" } } },
         { title: { contains: term, mode: "insensitive" } },
         { description: { contains: term, mode: "insensitive" } },
       ];

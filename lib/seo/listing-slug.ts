@@ -88,6 +88,14 @@ export function typeDefForType(type: string | null | undefined): PropertyTypeDef
   return matches.reduce((a, b) => (b.enums.length < a.enums.length ? b : a));
 }
 
+/** Slugify a locality name (community or emirate) for a listing URL. */
+export function slugifyLocality(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 /** Title-case a locality slug when we have no Community record for it. */
 export function humanizeSlug(slug: string): string {
   return slug

@@ -12,7 +12,11 @@ import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
 import { handoverLabel } from "@/lib/property/handover";
 import { unitIdFromParam, unitSlug } from "@/lib/property/unit-url";
-import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
+import {
+  buildListingSlug,
+  typeDefForType,
+  slugifyLocality,
+} from "@/lib/seo/listing-slug";
 import { unitListing } from "@/lib/property/deal";
 import { communityLabel } from "@/lib/property/location";
 import { SITE_URL } from "@/lib/data-layer/canonical";
@@ -132,6 +136,13 @@ export default async function UnitDetailPage({
     (unit.metadata as { rentPriceAed?: number } | null)?.rentPriceAed ?? null;
   const rentText = rentPrice ? `${formatAED(rentPrice)}/yr` : "Rent price on request";
 
+  // Breadcrumb trail: Properties / <type> / <emirate> / <community> / <project>.
+  const crumbDeal = listing === "rent" ? "rent" : "sale";
+  const crumbType = typeDefForType(unit.unitType ?? p.type);
+  const emirate = p.community?.emirate ?? null;
+  const emSlug = emirate ? slugifyLocality(emirate) : null;
+  const commSlug = p.community?.slug ?? null;
+
   const specs: [string, string][] = [
     ["Bedrooms", unit.bedrooms == null ? "—" : unit.bedrooms === 0 ? "Studio" : String(unit.bedrooms)],
     ["Bathrooms", unit.bathrooms != null ? String(unit.bathrooms) : "—"],
@@ -172,21 +183,32 @@ export default async function UnitDetailPage({
           <Link href="/properties" className="hover:text-accent">
             Properties
           </Link>
-          {p.community?.slug ? (
+          {commSlug ? (
             <>
               <span aria-hidden>/</span>
               <Link
-                href={`/${buildListingSlug("properties", unitListing(unit.metadata) === "rent" ? "rent" : "sale", p.community.slug)}`}
+                href={`/${buildListingSlug(crumbType.token, crumbDeal, emSlug ?? commSlug)}`}
                 className="hover:text-accent"
               >
-                {communityLabel(p.community.name, p.community.emirate)}
+                {crumbType.label}
               </Link>
+              {emirate && emSlug ? (
+                <>
+                  <span aria-hidden>/</span>
+                  <Link
+                    href={`/${buildListingSlug("properties", crumbDeal, emSlug)}`}
+                    className="hover:text-accent"
+                  >
+                    {emirate}
+                  </Link>
+                </>
+              ) : null}
               <span aria-hidden>/</span>
               <Link
-                href={`/${buildListingSlug(typeDefForType(unit.unitType ?? p.type).token, unitListing(unit.metadata) === "rent" ? "rent" : "sale", p.community.slug)}`}
+                href={`/${buildListingSlug("properties", crumbDeal, commSlug)}`}
                 className="hover:text-accent"
               >
-                {typeDefForType(unit.unitType ?? p.type).label}
+                {p.community?.name}
               </Link>
             </>
           ) : null}

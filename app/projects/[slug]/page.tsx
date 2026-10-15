@@ -8,7 +8,11 @@ import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
-import { buildListingSlug, typeDefForType } from "@/lib/seo/listing-slug";
+import {
+  buildListingSlug,
+  typeDefForType,
+  slugifyLocality,
+} from "@/lib/seo/listing-slug";
 import { communityLabel } from "@/lib/property/location";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
@@ -127,16 +131,30 @@ export default async function ProjectDetailPage({ params }: Props) {
           { label: "Home", href: "/" },
           { label: "Projects", href: "/projects" },
           ...(project.community?.slug
-            ? [
-                {
-                  label: communityLabel(project.community.name, project.community.emirate),
-                  href: `/${buildListingSlug("properties", "sale", project.community.slug)}`,
-                },
-                {
-                  label: typeDefForType(project.type).label,
-                  href: `/${buildListingSlug(typeDefForType(project.type).token, "sale", project.community.slug)}`,
-                },
-              ]
+            ? (() => {
+                const td = typeDefForType(project.type);
+                const emirate = project.community.emirate;
+                const emSlug = emirate ? slugifyLocality(emirate) : null;
+                const commSlug = project.community.slug;
+                return [
+                  {
+                    label: td.label,
+                    href: `/${buildListingSlug(td.token, "sale", emSlug ?? commSlug)}`,
+                  },
+                  ...(emirate && emSlug
+                    ? [
+                        {
+                          label: emirate,
+                          href: `/${buildListingSlug("properties", "sale", emSlug)}`,
+                        },
+                      ]
+                    : []),
+                  {
+                    label: project.community.name,
+                    href: `/${buildListingSlug("properties", "sale", commSlug)}`,
+                  },
+                ];
+              })()
             : []),
           ...(project.developer
             ? [{ label: project.developer.name }]
