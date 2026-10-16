@@ -11,7 +11,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const SITE_URL = await getRequestSiteUrl();
   const staticPages: MetadataRoute.Sitemap = [
     "",
-    "/search",
     "/properties",
     "/projects",
     "/api-docs",
