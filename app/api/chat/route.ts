@@ -20,6 +20,7 @@ import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { failure } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
 import { rateLimit } from "@/lib/security/rate-limit";
+import { runChatDigest } from "@/lib/chat/digest";
 import {
   SearchIntentSchema,
   type SearchIntent,
@@ -134,6 +135,13 @@ export async function POST(request: Request) {
         } catch {
           // Best-effort: a failed transcript write must not break the chat.
         }
+        // Chat activity drives the transcript digest: email any session that
+        // has since gone quiet (throttled, so busy chats don't sweep each turn).
+        try {
+          await runChatDigest(5 * 60_000);
+        } catch {
+          // Non-critical.
+        }
       });
     };
 
@@ -145,6 +153,11 @@ export async function POST(request: Request) {
         await writes();
       } catch {
         // Best-effort.
+      }
+      try {
+        await runChatDigest(5 * 60_000);
+      } catch {
+        // Non-critical.
       }
     };
 

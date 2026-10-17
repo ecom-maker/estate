@@ -13,7 +13,8 @@ import {
   SearchIntentSchema,
   type SearchIntent,
 } from "@/lib/validation/search-intent";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
+import { runChatDigest } from "@/lib/chat/digest";
 import { z } from "zod";
 
 /**
@@ -454,6 +455,9 @@ export async function POST(request: Request) {
         ...tokens,
       }),
     ]);
+
+    // WhatsApp activity also drives the transcript digest (off the reply path).
+    after(() => runChatDigest(5 * 60_000).catch(() => {}));
 
     return NextResponse.json({
       success: true,
