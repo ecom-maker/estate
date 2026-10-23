@@ -26,6 +26,16 @@ export const TYPE_OPTIONS: { label: string; type: string }[] = [
 export const BEDROOMS = ["studio", "1", "2", "3", "4", "5", "6", "7", "7+"];
 export const BATHROOMS = ["1", "2", "3", "4", "5", "6", "7", "7+"];
 
+export type Furnishing = "" | "furnished" | "unfurnished" | "partly";
+
+// Single-select, shown in the "Filters" panel. "" = All furnishings (no filter).
+export const FURNISHING_OPTIONS: { value: Furnishing; label: string }[] = [
+  { value: "", label: "All furnishings" },
+  { value: "furnished", label: "Furnished" },
+  { value: "unfurnished", label: "Unfurnished" },
+  { value: "partly", label: "Partly furnished" },
+];
+
 export type UnitFilters = {
   q: string;
   types: string[]; // TYPE_OPTIONS labels
@@ -34,6 +44,7 @@ export type UnitFilters = {
   min: string;
   max: string;
   status: "" | "offplan" | "ready";
+  furnishing: Furnishing;
 };
 
 export const EMPTY_FILTERS: UnitFilters = {
@@ -44,6 +55,7 @@ export const EMPTY_FILTERS: UnitFilters = {
   min: "",
   max: "",
   status: "",
+  furnishing: "",
 };
 
 type Params = Record<string, string | string[] | undefined>;
@@ -68,6 +80,7 @@ export function parseUnitFilters(params: Params): UnitFilters {
   const rawBeds = one(params.beds);
   const beds = legacyBeds[rawBeds] ?? list(params.beds, BEDROOMS);
   const status = one(params.status);
+  const furnishing = one(params.furnishing);
   return {
     q: one(params.q).trim().slice(0, 100),
     types: list(params.type, TYPE_OPTIONS.map((o) => o.label)),
@@ -76,6 +89,9 @@ export function parseUnitFilters(params: Params): UnitFilters {
     min: amount(params.min),
     max: amount(params.max),
     status: status === "offplan" || status === "ready" ? status : "",
+    furnishing: FURNISHING_OPTIONS.some((o) => o.value && o.value === furnishing)
+      ? (furnishing as Furnishing)
+      : "",
   };
 }
 
@@ -88,6 +104,7 @@ export function unitFiltersToSearch(f: UnitFilters): string {
   if (amount(f.min)) p.set("min", amount(f.min));
   if (amount(f.max)) p.set("max", amount(f.max));
   if (f.status) p.set("status", f.status);
+  if (f.furnishing) p.set("furnishing", f.furnishing);
   return p.toString();
 }
 
@@ -147,5 +164,16 @@ export function unitFiltersWhere(f: UnitFilters): Prisma.PropertyUnitWhereInput[
   if (f.min) and.push({ priceAed: { gte: Number(f.min) } });
   if (f.max) and.push({ priceAed: { lte: Number(f.max) } });
   if (f.status) and.push({ property: { offPlan: f.status === "offplan" } });
+  // Furnishing lives on the project: `furnished` is a boolean, and the richer
+  // "partly furnished" state (when known) is parsed into metadata.furnishing.
+  if (f.furnishing === "furnished") and.push({ property: { furnished: true } });
+  else if (f.furnishing === "unfurnished")
+    and.push({ property: { furnished: false } });
+  else if (f.furnishing === "partly")
+    and.push({
+      property: {
+        metadata: { path: ["furnishing"], string_contains: "semi" },
+      },
+    });
   return and;
 }

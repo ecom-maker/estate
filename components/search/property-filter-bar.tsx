@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRequireAuth } from "@/components/auth/sign-in-gate";
 import type { Place } from "@/app/api/places/route";
@@ -10,9 +10,11 @@ import {
   BATHROOMS,
   BEDROOMS,
   EMPTY_FILTERS,
+  FURNISHING_OPTIONS,
   TYPE_OPTIONS,
   hasUnitFilters,
   unitFiltersToSearch,
+  type Furnishing,
   type UnitFilters,
 } from "@/lib/search/unit-filters";
 
@@ -292,6 +294,59 @@ function PriceRange({
   );
 }
 
+/**
+ * The "Filters" menu groups the less-common filters behind one trigger, with
+ * room to grow. Furnishing is the first group; add new sections here as they
+ * come. The trigger shows how many of these filters are active.
+ */
+function FiltersMenu({
+  furnishing,
+  onFurnishing,
+}: {
+  furnishing: Furnishing;
+  onFurnishing: (v: Furnishing) => void;
+}) {
+  const { open, setOpen, ref } = usePopover();
+  const activeCount = furnishing ? 1 : 0;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full border border-border bg-white py-2 pl-4 pr-3 text-sm transition focus:border-accent",
+          activeCount > 0 ? "text-accent" : "text-primary/70",
+        )}
+      >
+        <SlidersHorizontal className="h-4 w-4 shrink-0" aria-hidden />
+        <span>Filters</span>
+        {activeCount > 0 ? (
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-medium text-white">
+            {activeCount}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-50 mt-2 max-h-[60vh] w-[340px] max-w-[85vw] overflow-y-auto overscroll-contain rounded-md border border-border bg-white p-4 shadow-[0_20px_60px_rgba(15,23,42,0.25)]">
+          <p className="text-sm font-semibold text-primary">Furnishing</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {FURNISHING_OPTIONS.map((o) => (
+              <Chip
+                key={o.value || "all"}
+                label={o.label}
+                active={furnishing === o.value}
+                onClick={() => onFurnishing(o.value)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PropertyFilterBar({
   dealType = "buy",
   showDeal = false,
@@ -319,6 +374,7 @@ export function PropertyFilterBar({
   const [minPrice, setMinPrice] = useState(initial.min);
   const [maxPrice, setMaxPrice] = useState(initial.max);
   const [status, setStatus] = useState<"" | "offplan" | "ready">(initial.status);
+  const [furnishing, setFurnishing] = useState<Furnishing>(initial.furnishing);
   const listing = mode === "listing";
 
   // Autocomplete for the city/community/building field, loaded from the DB.
@@ -374,6 +430,7 @@ export function PropertyFilterBar({
         min: minPrice,
         max: maxPrice,
         status,
+        furnishing,
       });
       const params = new URLSearchParams(qs);
       if (deal === "rent") params.set("deal", "rent");
@@ -405,6 +462,9 @@ export function PropertyFilterBar({
     if (cityVal.trim()) parts.push(`in ${cityVal.trim()}`);
     if (status === "offplan") parts.push("off-plan");
     if (status === "ready") parts.push("ready");
+    if (furnishing === "furnished") parts.push("furnished");
+    else if (furnishing === "unfurnished") parts.push("unfurnished");
+    else if (furnishing === "partly") parts.push("semi furnished");
 
     const minP = Number(minPrice.replace(/,/g, ""));
     const maxP = Number(maxPrice.replace(/,/g, ""));
@@ -566,6 +626,8 @@ export function PropertyFilterBar({
             Ready
           </button>
         </div>
+
+        <FiltersMenu furnishing={furnishing} onFurnishing={setFurnishing} />
 
         {listing && hasUnitFilters(initial) ? (
           <button

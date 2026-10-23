@@ -16,6 +16,7 @@ describe("unit filters", () => {
       min: "500000",
       max: "1,200,000",
       status: "offplan" as const,
+      furnishing: "furnished" as const,
     };
     const parsed = parseUnitFilters(Object.fromEntries(new URLSearchParams(unitFiltersToSearch(f))));
     expect(parsed).toEqual({ ...f, max: "1200000" });
@@ -47,5 +48,17 @@ describe("unit filters", () => {
       { property: { offPlan: false } },
     ]);
     expect(unitFiltersWhere(EMPTY_FILTERS)).toEqual([]);
+  });
+
+  it("maps furnishing to the project's furnished flag / metadata", () => {
+    expect(unitFiltersWhere({ ...EMPTY_FILTERS, furnishing: "furnished" })).toEqual([
+      { property: { furnished: true } },
+    ]);
+    expect(unitFiltersWhere({ ...EMPTY_FILTERS, furnishing: "unfurnished" })).toEqual([
+      { property: { furnished: false } },
+    ]);
+    expect(unitFiltersWhere({ ...EMPTY_FILTERS, furnishing: "partly" })).toEqual([
+      { property: { metadata: { path: ["furnishing"], string_contains: "semi" } } },
+    ]);
   });
 });
