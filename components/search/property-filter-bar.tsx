@@ -233,13 +233,24 @@ function PriceRange({
   max,
   onMin,
   onMax,
+  onCommit,
 }: {
   min: string;
   max: string;
   onMin: (v: string) => void;
   onMax: (v: string) => void;
+  onCommit?: () => void;
 }) {
   const { open, setOpen, ref } = usePopover();
+  // Price is free text, so it applies when the popover closes (click-away or
+  // Search), not on every keystroke.
+  const commitRef = useRef(onCommit);
+  commitRef.current = onCommit;
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (wasOpen.current && !open) commitRef.current?.();
+    wasOpen.current = open;
+  }, [open]);
 
   const label = (() => {
     const lo = compactAED(min);
@@ -505,7 +516,7 @@ export function PropertyFilterBar({
     return matches.slice(0, 8);
   }, [city, places]);
 
-  function search(cityOverride?: string, sortOverride?: Sort) {
+  function search(cityOverride?: string) {
     const cityVal = cityOverride ?? city;
     if (listing) {
       // Plain database filters on the unit list (no AI).
@@ -521,10 +532,10 @@ export function PropertyFilterBar({
       });
       const params = new URLSearchParams(qs);
       if (deal === "rent") params.set("deal", "rent");
-      const sortVal = sortOverride ?? sort;
-      if (sortVal !== DEFAULT_SORT) params.set("sort", sortVal);
+      if (sort !== DEFAULT_SORT) params.set("sort", sort);
       const s = params.toString();
-      router.push(s ? `/properties?${s}` : "/properties");
+      // Keep the scroll position — the bar is sticky and the user is filtering.
+      router.push(s ? `/properties?${s}` : "/properties", { scroll: false });
       return;
     }
 
@@ -567,6 +578,53 @@ export function PropertyFilterBar({
     const url = `/search?${new URLSearchParams({ q }).toString()}`;
     void requireAuth(() => router.push(url), { next: url });
   }
+
+  // Signature of what's currently selected vs. what the URL reflects.
+  const currentSig = `${unitFiltersToSearch({
+    q: city,
+    types: typeLabels,
+    beds,
+    baths,
+    min: minPrice,
+    max: maxPrice,
+    status,
+    furnishing,
+  })}|${sort}`;
+  const initialSig = `${unitFiltersToSearch(initial)}|${initialSort}`;
+  // Changes to discrete controls (type, beds, baths, status, furnishing, sort)
+  // apply right away; free-text city/price don't auto-fire on every keystroke.
+  const discreteSig = JSON.stringify([
+    typeLabels,
+    beds,
+    baths,
+    status,
+    furnishing,
+    sort,
+  ]);
+
+  // Adopt the URL when it changes from outside this component — the Clear
+  // button, browser back/forward, or the server echoing our own push. The bar
+  // isn't remounted, so open popovers stay open.
+  useEffect(() => {
+    setCity(initial.q);
+    setTypeLabels(initial.types);
+    setBeds(initial.beds);
+    setBaths(initial.baths);
+    setMinPrice(initial.min);
+    setMaxPrice(initial.max);
+    setStatus(initial.status);
+    setFurnishing(initial.furnishing);
+    setSort(initialSort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSig]);
+
+  // Selecting a discrete filter runs the search immediately (listing only).
+  useEffect(() => {
+    if (!listing) return;
+    if (currentSig === initialSig) return; // already reflects the URL
+    search();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discreteSig]);
 
   return (
     <div className="rounded-sm border border-white/15 bg-white/95 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.35)] backdrop-blur">
@@ -688,6 +746,9 @@ export function PropertyFilterBar({
           max={maxPrice}
           onMin={setMinPrice}
           onMax={setMaxPrice}
+          onCommit={() => {
+            if (listing && currentSig !== initialSig) search();
+          }}
         />
 
         <div className="inline-flex items-center rounded-full border border-border bg-white text-sm">
@@ -718,15 +779,7 @@ export function PropertyFilterBar({
 
         <FiltersMenu furnishing={furnishing} onFurnishing={setFurnishing} />
 
-        {listing ? (
-          <SortMenu
-            sort={sort}
-            onSort={(v) => {
-              setSort(v);
-              search(undefined, v);
-            }}
-          />
-        ) : null}
+        {listing ? <SortMenu sort={sort} onSort={setSort} /> : null}
 
         {listing && hasUnitFilters(initial) ? (
           <button

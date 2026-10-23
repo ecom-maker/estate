@@ -12,7 +12,6 @@ import {
   hasUnitFilters,
   parseSort,
   parseUnitFilters,
-  unitFiltersToSearch,
   unitFiltersWhere,
   unitSortOrderBy,
 } from "@/lib/search/unit-filters";
@@ -186,12 +185,10 @@ export default async function PropertiesPage({
     <div className="mx-auto max-w-7xl px-6 pb-28 pt-6 md:px-10">
       {/* Stays under the site header while the list scrolls. */}
       <div className="sticky top-[69px] z-30 -mx-2 bg-background px-2 py-3 md:top-[73px]">
-        <PropertyFilterBar
-          key={`${unitFiltersToSearch(filters)}|${sort}`}
-          mode="listing"
-          initial={filters}
-          sort={sort}
-        />
+        {/* No remount key: the bar stays mounted across filter navigations so
+            open popovers (multi-select type/beds) persist. It syncs itself to
+            the URL instead. */}
+        <PropertyFilterBar mode="listing" initial={filters} sort={sort} />
       </div>
 
       <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
