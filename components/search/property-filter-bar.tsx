@@ -2,19 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Search, ChevronDown, SlidersHorizontal, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRequireAuth } from "@/components/auth/sign-in-gate";
 import type { Place } from "@/app/api/places/route";
 import {
   BATHROOMS,
   BEDROOMS,
+  DEFAULT_SORT,
   EMPTY_FILTERS,
   FURNISHING_OPTIONS,
+  SORT_OPTIONS,
   TYPE_OPTIONS,
   hasUnitFilters,
   unitFiltersToSearch,
   type Furnishing,
+  type Sort,
   type UnitFilters,
 } from "@/lib/search/unit-filters";
 
@@ -347,11 +350,93 @@ function FiltersMenu({
   );
 }
 
+/**
+ * Sort control for the unit list. Single-select (radio), applied immediately on
+ * choice — the expected behaviour for a sort menu, unlike the filters which
+ * apply on Search.
+ */
+function SortMenu({
+  sort,
+  onSort,
+}: {
+  sort: Sort;
+  onSort: (v: Sort) => void;
+}) {
+  const { open, setOpen, ref } = usePopover();
+  const current = SORT_OPTIONS.find((o) => o.value === sort);
+  const active = sort !== DEFAULT_SORT;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "inline-flex items-center gap-2 rounded-full border border-border bg-white py-2 pl-4 pr-3 text-sm transition focus:border-accent",
+          active ? "text-accent" : "text-primary/70",
+        )}
+      >
+        <ArrowUpDown className="h-4 w-4 shrink-0" aria-hidden />
+        <span>{active ? current?.label : "Sort"}</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-muted transition-transform",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <div
+          role="radiogroup"
+          aria-label="Sort"
+          className="absolute left-0 top-full z-50 mt-2 w-[220px] max-w-[80vw] overflow-hidden rounded-md border border-border bg-white py-1 shadow-[0_20px_60px_rgba(15,23,42,0.25)]"
+        >
+          {SORT_OPTIONS.map((o) => {
+            const selected = o.value === sort;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => {
+                  onSort(o.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition hover:bg-accent/5",
+                  selected ? "text-accent" : "text-primary/80",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
+                    selected ? "border-accent" : "border-muted",
+                  )}
+                  aria-hidden
+                >
+                  {selected ? (
+                    <span className="h-2 w-2 rounded-full bg-accent" />
+                  ) : null}
+                </span>
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function PropertyFilterBar({
   dealType = "buy",
   showDeal = false,
   mode = "search",
   initial = EMPTY_FILTERS,
+  sort: initialSort = DEFAULT_SORT,
 }: {
   dealType?: "rent" | "buy";
   showDeal?: boolean;
@@ -361,6 +446,7 @@ export function PropertyFilterBar({
    */
   mode?: "search" | "listing";
   initial?: UnitFilters;
+  sort?: Sort;
 }) {
   const router = useRouter();
   // Results open only for signed-in visitors (agents and automation skip this).
@@ -375,6 +461,7 @@ export function PropertyFilterBar({
   const [maxPrice, setMaxPrice] = useState(initial.max);
   const [status, setStatus] = useState<"" | "offplan" | "ready">(initial.status);
   const [furnishing, setFurnishing] = useState<Furnishing>(initial.furnishing);
+  const [sort, setSort] = useState<Sort>(initialSort);
   const listing = mode === "listing";
 
   // Autocomplete for the city/community/building field, loaded from the DB.
@@ -418,7 +505,7 @@ export function PropertyFilterBar({
     return matches.slice(0, 8);
   }, [city, places]);
 
-  function search(cityOverride?: string) {
+  function search(cityOverride?: string, sortOverride?: Sort) {
     const cityVal = cityOverride ?? city;
     if (listing) {
       // Plain database filters on the unit list (no AI).
@@ -434,6 +521,8 @@ export function PropertyFilterBar({
       });
       const params = new URLSearchParams(qs);
       if (deal === "rent") params.set("deal", "rent");
+      const sortVal = sortOverride ?? sort;
+      if (sortVal !== DEFAULT_SORT) params.set("sort", sortVal);
       const s = params.toString();
       router.push(s ? `/properties?${s}` : "/properties");
       return;
@@ -628,6 +717,16 @@ export function PropertyFilterBar({
         </div>
 
         <FiltersMenu furnishing={furnishing} onFurnishing={setFurnishing} />
+
+        {listing ? (
+          <SortMenu
+            sort={sort}
+            onSort={(v) => {
+              setSort(v);
+              search(undefined, v);
+            }}
+          />
+        ) : null}
 
         {listing && hasUnitFilters(initial) ? (
           <button

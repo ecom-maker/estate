@@ -10,9 +10,11 @@ import { unitMatchesDeal } from "@/lib/property/deal";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import {
   hasUnitFilters,
+  parseSort,
   parseUnitFilters,
   unitFiltersToSearch,
   unitFiltersWhere,
+  unitSortOrderBy,
 } from "@/lib/search/unit-filters";
 
 export const dynamic = "force-dynamic";
@@ -81,6 +83,7 @@ export default async function PropertiesPage({
   const params = await searchParams;
   // Plain database filters from the filter bar (no AI).
   const filters = parseUnitFilters(params);
+  const sort = parseSort(params.sort);
   const dealParam = Array.isArray(params.deal) ? params.deal[0] : params.deal;
   const rentOnly = dealParam === "rent";
   const filtered = hasUnitFilters(filters) || rentOnly;
@@ -117,7 +120,7 @@ export default async function PropertiesPage({
     [units, total] = await Promise.all([
       prisma.propertyUnit.findMany({
         where,
-        orderBy: [{ priceAed: "asc" }],
+        orderBy: unitSortOrderBy(sort),
         take: 300,
         select: {
           id: true,
@@ -184,9 +187,10 @@ export default async function PropertiesPage({
       {/* Stays under the site header while the list scrolls. */}
       <div className="sticky top-[69px] z-30 -mx-2 bg-background px-2 py-3 md:top-[73px]">
         <PropertyFilterBar
-          key={unitFiltersToSearch(filters)}
+          key={`${unitFiltersToSearch(filters)}|${sort}`}
           mode="listing"
           initial={filters}
+          sort={sort}
         />
       </div>
 

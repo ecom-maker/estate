@@ -36,6 +36,43 @@ export const FURNISHING_OPTIONS: { value: Furnishing; label: string }[] = [
   { value: "partly", label: "Partly furnished" },
 ];
 
+// Result ordering for the unit list. Kept separate from UnitFilters — sorting
+// isn't a "filter", so it doesn't count toward the active-filter state.
+export const SORT_OPTIONS = [
+  { value: "newest", label: "Newest" },
+  { value: "price_low", label: "Price (low)" },
+  { value: "price_high", label: "Price (high)" },
+  { value: "beds_least", label: "Beds (least)" },
+  { value: "beds_most", label: "Beds (most)" },
+] as const;
+
+export type Sort = (typeof SORT_OPTIONS)[number]["value"];
+export const DEFAULT_SORT: Sort = "newest";
+
+export function parseSort(v: string | string[] | undefined): Sort {
+  const s = one(v);
+  return SORT_OPTIONS.some((o) => o.value === s) ? (s as Sort) : DEFAULT_SORT;
+}
+
+/** Prisma orderBy for the chosen sort, with a stable id tiebreaker. */
+export function unitSortOrderBy(
+  sort: Sort,
+): Prisma.PropertyUnitOrderByWithRelationInput[] {
+  switch (sort) {
+    case "price_low":
+      return [{ priceAed: "asc" }, { id: "asc" }];
+    case "price_high":
+      return [{ priceAed: "desc" }, { id: "asc" }];
+    case "beds_least":
+      return [{ bedrooms: "asc" }, { id: "asc" }];
+    case "beds_most":
+      return [{ bedrooms: "desc" }, { id: "asc" }];
+    case "newest":
+    default:
+      return [{ createdAt: "desc" }, { id: "asc" }];
+  }
+}
+
 export type UnitFilters = {
   q: string;
   types: string[]; // TYPE_OPTIONS labels
