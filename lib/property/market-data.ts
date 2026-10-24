@@ -234,6 +234,14 @@ export async function getMarketInsights(property: {
       ? `${bedWord} in ${community}`
       : `Similar properties in ${community}`;
 
+  // Chart line labels. Phrased so the two lines read clearly on their own:
+  // the bedroom segment ("4-bedroom average") against the whole-area baseline
+  // ("Downtown Dubai average (all sizes)"), rather than the easily-confused
+  // "4 bedroom in Downtown Dubai" vs "All Downtown Dubai".
+  const segWord =
+    beds === null ? "Similar homes" : beds === "0" ? "Studio" : `${beds}-bedroom`;
+  const areaAvgLabel = `${community} average (all sizes)`;
+
   // Trend: pick the most specific scope that spans enough months, so a chart
   // appears wherever the data honestly supports one. When only the whole
   // community has enough months, it draws as a single line (no narrower
@@ -244,17 +252,17 @@ export async function getMarketInsights(property: {
     scopes.push({
       sales: buildingSales,
       rentals: buildingRentals,
-      label: `${bedWord} at ${building}`,
+      label: `${segWord} at ${building}`,
       kind: "building",
     });
   if (sameBedOk)
     scopes.push({
       sales: compSales,
       rentals: compRentals,
-      label: `${bedWord} in ${community}`,
+      label: `${segWord} average`,
       kind: "sameBed",
     });
-  scopes.push({ sales, rentals, label: `All ${community}`, kind: "all" });
+  scopes.push({ sales, rentals, label: areaAvgLabel, kind: "all" });
 
   const mAllSales = monthlyPerSqft(sales);
   const mAllRentals = monthlyPerSqft(rentals);
@@ -278,7 +286,7 @@ export async function getMarketInsights(property: {
           ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
           : { primary: [], secondary: [] },
       primaryLabel: scope.label,
-      secondaryLabel: scope.kind === "all" ? "" : `All ${community}`,
+      secondaryLabel: scope.kind === "all" ? "" : areaAvgLabel,
     };
     break;
   }
