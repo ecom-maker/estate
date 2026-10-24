@@ -2,7 +2,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
-export const metadata = { title: "Reset password" };
+export const metadata = {
+  title: "Reset password",
+  robots: { index: false, follow: true },
+};
 
 export default function ResetPasswordPage() {
   return (

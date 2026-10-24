@@ -1,6 +1,9 @@
 import { FavoritesList } from "@/components/property/favorites-list";
 
-export const metadata = { title: "Favorites" };
+export const metadata = {
+  title: "Favorites",
+  robots: { index: false, follow: true },
+};
 
 export default function FavoritesPage() {
   return (

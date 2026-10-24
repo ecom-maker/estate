@@ -4,7 +4,10 @@ import { SignupForm } from "@/components/auth/signup-form";
 import { isGoogleAuthEnabled } from "@/lib/auth";
 import { availableOtpChannels, isMockOtp } from "@/lib/auth/otp-senders";
 
-export const metadata = { title: "Create account" };
+export const metadata = {
+  title: "Create account",
+  robots: { index: false, follow: true },
+};
 
 export default async function SignupPage() {
   // Visitor's country from the host (Vercel sets x-vercel-ip-country).

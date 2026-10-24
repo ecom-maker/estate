@@ -3,7 +3,10 @@ import { prisma } from "@/lib/db/prisma";
 import { bedroomsValue, isStartingFigure } from "@/lib/property/bedrooms";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Compare" };
+export const metadata = {
+  title: "Compare",
+  robots: { index: false, follow: true },
+};
 
 export default async function ComparePage() {
   let items: Array<{
