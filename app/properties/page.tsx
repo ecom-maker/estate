@@ -118,6 +118,7 @@ export default async function PropertiesPage({
       offPlan: boolean;
       metadata: Prisma.JsonValue;
       community: { name: string; emirate: string | null } | null;
+      developer: { name: string } | null;
     };
   }> = [];
   let total = 0;
@@ -146,6 +147,7 @@ export default async function PropertiesPage({
               offPlan: true,
               metadata: true,
               community: { select: { name: true, emirate: true } },
+              developer: { select: { name: true } },
             },
           },
         },
@@ -255,17 +257,29 @@ export default async function PropertiesPage({
                     {delivery.date ? ` · ${delivery.date}` : ""}
                   </span>
                 </div>
-                <div className="p-4">
-                  <p className="text-[11px] uppercase tracking-wider text-accent">
-                    {communityLabel(
-                      u.property.community?.name,
-                      u.property.community?.emirate,
-                    )}
+                <div className="p-5">
+                  {/* Developer-first header, matching the project cards:
+                      developer eyebrow · project title · location. Falls back to
+                      the location as the eyebrow when no developer is on file. */}
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+                    {u.property.developer?.name ??
+                      communityLabel(
+                        u.property.community?.name,
+                        u.property.community?.emirate,
+                      )}
                   </p>
-                  <h2 className="mt-1 truncate font-serif text-lg text-primary">
+                  <h2 className="mt-1 font-serif text-2xl leading-tight text-primary">
                     {u.property.title}
                   </h2>
-                  <p className="mt-1 text-sm text-muted">
+                  {u.property.developer?.name ? (
+                    <p className="mt-1 text-sm text-muted">
+                      {communityLabel(
+                        u.property.community?.name,
+                        u.property.community?.emirate,
+                      )}
+                    </p>
+                  ) : null}
+                  <p className="mt-3 text-sm text-muted">
                     {u.unitType && u.unitType !== "APARTMENT" && u.unitType !== "UNIT"
                       ? `${u.unitType.charAt(0)}${u.unitType.slice(1).toLowerCase()} · `
                       : ""}
