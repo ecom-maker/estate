@@ -17,7 +17,13 @@ import {
 } from "@/lib/search/unit-filters";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Properties" };
+// Self-canonical to the clean path: every filter/sort query-string variant
+// (?type, ?beds, ?sort, ?furnishing, ?deal, ?min, ?max…) points here, so Google
+// treats them as one page instead of "Duplicate without user-selected canonical".
+export const metadata = {
+  title: "Properties",
+  alternates: { canonical: "/properties" },
+};
 
 type Photo = { url: string; alt: string | null };
 

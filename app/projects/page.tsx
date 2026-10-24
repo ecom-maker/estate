@@ -12,6 +12,7 @@ export const metadata = {
   title: "New Projects",
   description:
     "Off-plan developments from leading developers — explore new projects, payment plans, unit types and floor plans.",
+  alternates: { canonical: "/projects" },
 };
 
 const PROJECTS_WHERE: Prisma.PropertyWhereInput = {

@@ -39,10 +39,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     });
     if (!project) return { title: "Project" };
     const title = `${project.title}${project.developer ? ` by ${project.developer.name}` : ""}`;
+    const canonical = `/projects/${project.slug}`;
     return {
       title,
       description: metaDescription(project),
-      openGraph: { title, description: metaDescription(project) },
+      alternates: { canonical },
+      openGraph: { title, description: metaDescription(project), url: canonical },
     };
   } catch {
     return { title: "Project" };

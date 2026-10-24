@@ -1,6 +1,9 @@
 import { HeroChatBar } from "@/components/ai/hero-chat-bar";
 import { AskAiOnWhatsApp } from "@/components/home/ask-ai-whatsapp";
 
+// Self-canonical so "/" and any tracking-param variants collapse to one URL.
+export const metadata = { alternates: { canonical: "/" } };
+
 export default function HomePage() {
   return (
     <section className="relative -mt-[65px] min-h-[100svh] pt-[65px]">
