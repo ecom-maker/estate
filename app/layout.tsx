@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Providers } from "@/components/providers";
 import { googleOneTapClientId } from "@/lib/auth";
-import { getAppUrl } from "@/lib/app-url";
+import { SITE_URL } from "@/lib/data-layer/canonical";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -24,7 +24,10 @@ export const metadata: Metadata = {
   },
   description:
     "AI-native luxury real estate discovery — conversational search for villas, residences, and investment properties.",
-  metadataBase: new URL(getAppUrl()),
+  // Canonical domain (dmglobal.me, or CANONICAL_SITE_URL) — NOT getAppUrl,
+  // which resolves to the *.vercel.app deployment URL and must never be the
+  // canonical host. Relative canonicals on child pages resolve against this.
+  metadataBase: new URL(SITE_URL),
   // Renders <meta name="google-site-verification" ...> in <head> on every page.
   verification: {
     google: "YCxaPp99sf296IxMbtM1FUtXRt1z8UXQpQqaR5FXupg",

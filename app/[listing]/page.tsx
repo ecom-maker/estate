@@ -6,7 +6,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { formatAED } from "@/lib/utils";
 import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
-import { getAppUrl } from "@/lib/app-url";
+import { SITE_URL } from "@/lib/data-layer/canonical";
 import { unitPath } from "@/lib/property/unit-url";
 import { unitMatchesDeal, developmentMatchesDeal } from "@/lib/property/deal";
 import { communityLabel } from "@/lib/property/location";
@@ -23,7 +23,10 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ listing: string }> };
 
-const BASE = getAppUrl();
+// Canonical domain for canonical tags, og:url and breadcrumb JSON-LD — the
+// real site host (dmglobal.me / CANONICAL_SITE_URL), never the *.vercel.app
+// deployment URL that getAppUrl() can return.
+const BASE = SITE_URL;
 
 type ListingProperty = Prisma.PropertyGetPayload<{
   include: {
