@@ -291,5 +291,11 @@ export async function getMarketInsights(property: {
     break;
   }
 
-  return { sold, rented, comparablesLabel, trend };
+  return {
+    sold,
+    rented,
+    comparablesLabel,
+    scope: useBuilding ? "building" : "area",
+    trend,
+  };
 }

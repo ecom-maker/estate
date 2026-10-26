@@ -16,6 +16,11 @@ export type MarketInsights = {
   /** What the sold/rented rows represent, e.g. "1 bedroom at <project>" or
    *  "1 bedroom in <community>". Drives the transactions table subtitle. */
   comparablesLabel?: string;
+  /** Whether the rows are this building's own sales ("building") or
+   *  same-bedroom comparables across the community ("area"). Drives the
+   *  transactions table heading so it never claims "this building" for what are
+   *  actually area comparables (e.g. an off-plan tower with no sales yet). */
+  scope?: "building" | "area";
   /**
    * null when the comparables exist but span too few months to call a trend.
    * The transactions table is still shown in that case — it is a list of real

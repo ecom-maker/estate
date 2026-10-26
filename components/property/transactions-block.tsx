@@ -60,14 +60,28 @@ export function TransactionsBlock({
   sold,
   rented,
   subtitle,
-  buildingName,
+  locationName,
+  scope = "area",
 }: {
   sold: Txn[];
   rented: Txn[];
   subtitle: string;
-  buildingName: string;
+  /** Community / location name, used when the rows are area comparables. */
+  locationName: string;
+  /** "building" = this building's own sales; "area" = community comparables. */
+  scope?: "building" | "area";
 }) {
   const [open, setOpen] = useState(false);
+  // The heading must match the data: only say "this building" when the rows are
+  // actually the building's own sales, not area comparables.
+  const heading =
+    scope === "building"
+      ? "Transactions in this building"
+      : `Recent transactions in ${locationName}`;
+  const modalTitle =
+    scope === "building"
+      ? "All transactions in this building"
+      : `All transactions in ${locationName}`;
 
   useEffect(() => {
     if (!open) return;
@@ -80,9 +94,7 @@ export function TransactionsBlock({
 
   return (
     <section>
-      <h2 className="font-serif text-2xl text-primary">
-        Transactions in this building
-      </h2>
+      <h2 className="font-serif text-2xl text-primary">{heading}</h2>
       <p className="mt-1 text-sm text-muted">{subtitle}</p>
 
       <div className="mt-5 grid gap-8 md:grid-cols-2">
@@ -106,7 +118,9 @@ export function TransactionsBlock({
           onClick={() => setOpen(true)}
           className="inline-flex items-center rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary transition hover:border-accent"
         >
-          See all transactions in this location
+          {scope === "building"
+            ? "See all transactions in this building"
+            : "See all transactions in this location"}
         </button>
       </div>
 
@@ -115,7 +129,7 @@ export function TransactionsBlock({
           className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="All transactions in this location"
+          aria-label={modalTitle}
         >
           <div
             className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
@@ -126,7 +140,7 @@ export function TransactionsBlock({
             <div className="flex items-start justify-between gap-4 border-b border-border p-5">
               <div>
                 <h3 className="font-serif text-xl text-primary">
-                  All transactions in {buildingName}
+                  {modalTitle}
                 </h3>
                 <p className="mt-0.5 text-sm text-muted">{subtitle}</p>
               </div>

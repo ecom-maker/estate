@@ -158,7 +158,8 @@ export async function MarketInsightsSection({
           <TransactionsBlock
             sold={insights.sold}
             rented={insights.rented}
-            buildingName={communityName}
+            scope={insights.scope ?? "area"}
+            locationName={communityName}
             subtitle={
               insights.comparablesLabel ??
               `${property.bedrooms ?? "—"} Bed ${titleCase(property.type)}s in ${communityName}`
