@@ -74,22 +74,29 @@ export function buildListingFaqs({
 
   // 1) Headline GEO question: best off-plan under a locality-appropriate budget.
   if (isSale && offPlan.length) {
-    // Reference = ~3rd cheapest off-plan start price, so the chosen tier
-    // captures several options, not just the single cheapest.
-    const ref = offPlan[Math.min(2, offPlan.length - 1)].priceAed;
+    // Tier from the CHEAPEST off-plan start price, so the budget framing is as
+    // low (and as search-matching) as the real inventory truthfully allows —
+    // budget areas surface "under 500k/600k", premium areas land higher. Never
+    // invent a tier with no inventory under it.
+    const ref = offPlan[0].priceAed;
     const threshold =
       BUDGET_LADDER.find((t) => t >= ref) ?? Math.ceil(ref / 100_000) * 100_000;
     const under = offPlan.filter((d) => d.priceAed <= threshold);
     if (under.length) {
+      const noun = under.length === 1 ? singular : type;
+      const verb = under.length === 1 ? "is" : "are";
       const picks = under
         .slice(0, 4)
         .map((d) => `${d.title} (from ${formatAED(d.priceAed)})`);
+      const lead =
+        under.length === 1
+          ? `The most affordable is ${picks[0]}`
+          : `The most affordable include ${joinAnd(picks)}`;
       faqs.push({
         q: `What are the best off-plan ${type} in ${localityName} under ${formatAED(threshold)}?`,
         a:
-          `${under.length} off-plan ${type} in ${localityName} ${under.length === 1 ? "is" : "are"} ` +
-          `listed under ${formatAED(threshold)} on DM Global. The most affordable include ${joinAnd(picks)}. ` +
-          `All prices are starting figures from verified developer listings.`,
+          `${under.length} off-plan ${noun} in ${localityName} ${verb} listed under ${formatAED(threshold)} on DM Global. ` +
+          `${lead}. All prices are starting figures from verified developer listings.`,
       });
     }
   }
@@ -115,10 +122,12 @@ export function buildListingFaqs({
   const offPlanAll = developments.filter((d) => d.offPlan);
   if (isSale && offPlanAll.length) {
     const names = [...new Set(offPlanAll.map((d) => d.title))].slice(0, 3);
+    const noun = offPlanAll.length === 1 ? singular : type;
+    const verb = offPlanAll.length === 1 ? "is" : "are";
     faqs.push({
       q: `Are there off-plan ${type} in ${localityName}?`,
       a:
-        `Yes — ${offPlanAll.length} off-plan ${type} in ${localityName} ${offPlanAll.length === 1 ? "is" : "are"} listed on DM Global` +
+        `Yes — ${offPlanAll.length} off-plan ${noun} in ${localityName} ${verb} listed on DM Global` +
         `${names.length ? `, including ${joinAnd(names)}` : ""}. Handover timelines and payment plans vary by project.`,
     });
   }
