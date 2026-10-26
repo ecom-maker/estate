@@ -73,7 +73,7 @@ function TriggerPill({
       aria-expanded={open}
       onClick={onClick}
       className={cn(
-        "inline-flex max-w-[15rem] items-center gap-2 truncate rounded-full border border-border bg-white py-2 pl-4 pr-3 text-sm transition focus:border-accent",
+        "inline-flex max-w-[15rem] items-center gap-2 truncate rounded-full border border-border bg-white py-2 pl-3 pr-2.5 text-sm transition focus:border-accent md:pl-4 md:pr-3",
         active ? "text-accent" : "text-primary/70",
       )}
     >
@@ -330,7 +330,7 @@ function FiltersMenu({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border border-border bg-white py-2 pl-4 pr-3 text-sm transition focus:border-accent",
+          "inline-flex items-center gap-2 rounded-full border border-border bg-white py-2 pl-3 pr-2.5 text-sm transition focus:border-accent md:pl-4 md:pr-3",
           activeCount > 0 ? "text-accent" : "text-primary/70",
         )}
       >
@@ -384,7 +384,7 @@ function SortMenu({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border border-border bg-white py-2 pl-4 pr-3 text-sm transition focus:border-accent",
+          "inline-flex items-center gap-2 rounded-full border border-border bg-white py-2 pl-3 pr-2.5 text-sm transition focus:border-accent md:pl-4 md:pr-3",
           active ? "text-accent" : "text-primary/70",
         )}
       >
@@ -627,10 +627,10 @@ export function PropertyFilterBar({
   }, [discreteSig]);
 
   return (
-    <div className="rounded-sm border border-white/15 bg-white/95 p-4 shadow-[0_20px_60px_rgba(15,23,42,0.35)] backdrop-blur">
+    <div className="rounded-sm border border-white/15 bg-white/95 p-3 shadow-[0_20px_60px_rgba(15,23,42,0.35)] backdrop-blur md:p-4">
       <div ref={cityRef} className="relative">
-        <div className="flex items-center gap-3 border-b border-border px-1 pb-3">
-          <Search className="h-5 w-5 shrink-0 text-muted" aria-hidden />
+        <div className="flex items-center gap-2.5 border-b border-border px-1 pb-2.5 md:gap-3 md:pb-3">
+          <Search className="h-4 w-4 shrink-0 text-muted md:h-5 md:w-5" aria-hidden />
           <label htmlFor="filter-city" className="sr-only">
             City, community or building
           </label>
@@ -676,7 +676,7 @@ export function PropertyFilterBar({
               }
             }}
             placeholder="City, community or building"
-            className="w-full bg-transparent text-base text-primary outline-none placeholder:text-muted"
+            className="w-full bg-transparent text-sm text-primary outline-none placeholder:text-muted md:text-base"
           />
         </div>
         {placesOpen && suggestions.length ? (
@@ -713,7 +713,7 @@ export function PropertyFilterBar({
         ) : null}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 md:mt-3 md:gap-2">
         {showDeal ? (
           <div className="relative">
             <select
@@ -757,7 +757,7 @@ export function PropertyFilterBar({
             aria-pressed={status === "offplan"}
             onClick={() => setStatus(status === "offplan" ? "" : "offplan")}
             className={cn(
-              "rounded-full px-4 py-2 transition",
+              "rounded-full px-3 py-2 transition md:px-4",
               status === "offplan" ? "text-accent" : "text-primary/70",
             )}
           >
@@ -769,7 +769,7 @@ export function PropertyFilterBar({
             aria-pressed={status === "ready"}
             onClick={() => setStatus(status === "ready" ? "" : "ready")}
             className={cn(
-              "rounded-full px-4 py-2 transition",
+              "rounded-full px-3 py-2 transition md:px-4",
               status === "ready" ? "text-accent" : "text-primary/70",
             )}
           >
@@ -785,7 +785,7 @@ export function PropertyFilterBar({
           <button
             type="button"
             onClick={() => router.push("/properties")}
-            className="ml-auto text-sm font-medium text-muted transition hover:text-primary"
+            className="text-sm font-medium text-muted transition hover:text-primary md:ml-auto"
           >
             Clear
           </button>
@@ -794,8 +794,11 @@ export function PropertyFilterBar({
           type="button"
           onClick={() => search()}
           className={cn(
-            "inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90",
-            !(listing && hasUnitFilters(initial)) && "ml-auto",
+            // Hidden on mobile: filters apply on selection and the city field
+            // searches on the keyboard's Enter/Go key, so an explicit Search
+            // button only costs a row. Shown and right-aligned on desktop.
+            "hidden items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 md:inline-flex md:px-5",
+            !(listing && hasUnitFilters(initial)) && "md:ml-auto",
           )}
         >
           <Search className="h-4 w-4" aria-hidden />
