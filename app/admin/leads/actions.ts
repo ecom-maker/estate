@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 
-const STATUSES = ["new", "contacted", "closed"] as const;
+const STATUSES = ["new", "contacted", "closed", "spam"] as const;
 
 /** Move a lead along: new → contacted → closed. */
 export async function setLeadStatus(formData: FormData) {

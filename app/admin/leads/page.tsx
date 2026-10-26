@@ -57,7 +57,7 @@ export default async function AdminLeadsPage({
       </p>
 
       <nav className="mt-6 flex gap-2 text-sm">
-        {["new", "contacted", "closed", "all"].map((s) => (
+        {["new", "contacted", "closed", "spam", "all"].map((s) => (
           <Link
             key={s}
             href={`/admin/leads?status=${s}`}
@@ -133,6 +133,7 @@ export default async function AdminLeadsPage({
                       <option value="new">new</option>
                       <option value="contacted">contacted</option>
                       <option value="closed">closed</option>
+                      <option value="spam">spam</option>
                     </select>
                     <button type="submit" className="text-xs font-medium text-accent hover:underline">
                       Save
