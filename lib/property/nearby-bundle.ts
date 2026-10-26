@@ -6,6 +6,7 @@ import { getNearbySchools } from "@/lib/property/schools";
 import { getNearbyHospitals } from "@/lib/property/hospitals";
 import { getNearbyMetro } from "@/lib/property/metro";
 import { storedNearby, type NearbyLandmark } from "@/lib/property/nearby";
+import { cleanPlaceName } from "@/lib/property/place-name";
 
 export type NearbyBundle = {
   landmarks: NearbyLandmark[];
@@ -20,6 +21,23 @@ const EMPTY: NearbyBundle = {
   hospitals: [],
   metro: [],
 };
+
+/**
+ * Tidy place names on read (e.g. a doctor's listing → the hospital name), so
+ * every consumer — the page's nearby section and the FAQ — shows clean names,
+ * including for data cached before this ran. Non-destructive; the stored copy
+ * is untouched.
+ */
+function cleanBundle(b: NearbyBundle): NearbyBundle {
+  const clean = (list: NearbyLandmark[]) =>
+    list.map((x) => ({ ...x, name: cleanPlaceName(x.name) }));
+  return {
+    landmarks: clean(b.landmarks),
+    schools: clean(b.schools),
+    hospitals: clean(b.hospitals),
+    metro: clean(b.metro),
+  };
+}
 
 // Bump whenever the landmark set or filtering logic changes — stored caches
 // with an older version are treated as stale and recomputed on next view.
@@ -83,7 +101,7 @@ export async function getNearbyBundle(property: {
   metadata: unknown;
 }): Promise<NearbyBundle> {
   const cached = readStored(property.metadata);
-  if (cached) return cached;
+  if (cached) return cleanBundle(cached);
 
   if (!hasCoords(property.latitude, property.longitude)) return EMPTY;
 
@@ -121,7 +139,7 @@ export async function getNearbyBundle(property: {
     }
   });
 
-  return bundle;
+  return cleanBundle(bundle);
 }
 
 /**
