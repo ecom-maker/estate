@@ -153,7 +153,7 @@ describe("buildListingFaqs", () => {
     });
     noEmpty(faqs);
     const qs = faqs.map((f) => f.q);
-    expect(qs.some((q) => q.includes("off-plan and completed"))).toBe(true);
+    expect(qs.some((q) => q.includes("off-plan vs completed"))).toBe(true);
     expect(qs.some((q) => q.includes("average price per sqft"))).toBe(true);
     expect(qs.some((q) => q.includes("price range"))).toBe(true);
     expect(qs.some((q) => q.includes("Which developers build"))).toBe(true);

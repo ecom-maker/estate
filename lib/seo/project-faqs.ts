@@ -104,14 +104,14 @@ export function buildProjectFaqs(args: {
   if (school || hospital) {
     const bits: string[] = [];
     if (school)
-      bits.push(`the nearest school is ${school.name}, ${school.km} km away`);
+      bits.push(`the nearest school is ${school.name} (${school.km} km away)`);
     if (hospital)
       bits.push(
-        `the nearest hospital is ${hospital.name}, ${hospital.km} km away`,
+        `the nearest hospital is ${hospital.name} (${hospital.km} km away)`,
       );
     faqs.push({
       q: `What schools and hospitals are near ${title}?`,
-      a: `From ${title}, ${joinAnd(bits)}.`,
+      a: `From ${title}, ${bits.join("; ")}.`,
     });
   }
 

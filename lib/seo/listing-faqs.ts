@@ -98,9 +98,13 @@ export function buildListingFaqs({
   if (developments.length) {
     const off = developments.filter((d) => d.offPlan).length;
     const done = developments.length - off;
+    const projLabel =
+      parsed.typeDef.enums.length === 0
+        ? "projects"
+        : `${parsed.typeDef.singular} projects`;
     faqs.push({
-      q: `How many off-plan and completed ${type} projects are there in ${localityName}?`,
-      a: `In ${localityName}, ${off} ${type} project${off === 1 ? " is" : "s are"} off-plan and ${done} ${done === 1 ? "is" : "are"} completed, from ${developments.length} development${developments.length === 1 ? "" : "s"} listed on DM Global.`,
+      q: `How many off-plan vs completed ${projLabel} are there in ${localityName}?`,
+      a: `In ${localityName}, ${off} of ${developments.length} ${projLabel} ${off === 1 ? "is" : "are"} off-plan and ${done} ${done === 1 ? "is" : "are"} completed, based on developments listed on DM Global.`,
     });
   }
 
