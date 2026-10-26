@@ -69,12 +69,15 @@ export function UnitsSection({
                 {g.fromLabel ? (
                   <span className="text-sm text-muted">{g.fromLabel}</span>
                 ) : null}
-                <span className="ml-auto text-sm text-muted">
-                  {g.bathrooms ?? "—"} bath
-                </span>
+                {g.bathrooms != null && g.bathrooms > 0 ? (
+                  <span className="ml-auto text-sm text-muted">
+                    {g.bathrooms} bath
+                  </span>
+                ) : null}
                 <span
                   className={cn(
                     "text-muted transition-transform",
+                    (g.bathrooms == null || g.bathrooms <= 0) && "ml-auto",
                     isOpen && "rotate-180",
                   )}
                   aria-hidden
