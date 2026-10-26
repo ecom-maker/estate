@@ -31,6 +31,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         select: {
           slug: true,
           type: true,
+          offPlan: true,
+          paymentPlan: true,
+          metadata: true,
           updatedAt: true,
           community: { select: { slug: true } },
         },
@@ -129,12 +132,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
+    // Off-plan facet landing pages: payment plans, and handover-by-year — only
+    // where there is matching inventory, so no empty page is advertised.
+    const facetPages: MetadataRoute.Sitemap = [];
+    const offPlan = projects.filter((p) => p.offPlan);
+    const hasPaymentPlan = offPlan.some((p) => {
+      const pp = p.paymentPlan;
+      return (
+        typeof pp === "object" &&
+        pp !== null &&
+        Object.keys(pp as Record<string, unknown>).length > 0
+      );
+    });
+    if (hasPaymentPlan) {
+      facetPages.push({
+        url: `${SITE_URL}/payment-plan`,
+        changeFrequency: "weekly",
+        priority: 0.6,
+      });
+    }
+    const nowYear = new Date().getUTCFullYear();
+    const handoverYears = new Set<number>();
+    for (const p of offPlan) {
+      const hd = (p.metadata as { handoverDate?: string } | null)?.handoverDate;
+      if (!hd) continue;
+      const y = new Date(hd).getUTCFullYear();
+      if (!Number.isNaN(y) && y >= nowYear - 1 && y <= nowYear + 10) {
+        handoverYears.add(y);
+      }
+    }
+    for (const y of handoverYears) {
+      facetPages.push({
+        url: `${SITE_URL}/handover/${y}`,
+        changeFrequency: "weekly",
+        priority: 0.6,
+      });
+    }
+
     return [
       ...staticPages,
       ...projectPages,
       ...unitPages,
       ...listingPages,
       ...rentListingPages,
+      ...facetPages,
     ];
   } catch {
     return staticPages;

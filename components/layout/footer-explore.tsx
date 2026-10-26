@@ -54,9 +54,63 @@ const getFooterAreas = unstable_cache(
   { revalidate: 3600 },
 );
 
+/**
+ * Off-plan facet links (payment plans, handover-by-year) — only for facets that
+ * have inventory, so the footer never links an empty page.
+ */
+const getFooterOffplan = unstable_cache(
+  async (): Promise<{ hasPaymentPlan: boolean; handoverYears: number[] }> => {
+    try {
+      const rows = await prisma.property.findMany({
+        where: { deletedAt: null, status: "ACTIVE", offPlan: true },
+        select: { paymentPlan: true, metadata: true },
+        take: 5000,
+      });
+      const hasPaymentPlan = rows.some((p) => {
+        const pp = p.paymentPlan;
+        return (
+          typeof pp === "object" &&
+          pp !== null &&
+          Object.keys(pp as Record<string, unknown>).length > 0
+        );
+      });
+      const now = new Date().getUTCFullYear();
+      const years = new Set<number>();
+      for (const p of rows) {
+        const hd = (p.metadata as { handoverDate?: string } | null)
+          ?.handoverDate;
+        if (!hd) continue;
+        const y = new Date(hd).getUTCFullYear();
+        if (!Number.isNaN(y) && y >= now - 1 && y <= now + 10) years.add(y);
+      }
+      return {
+        hasPaymentPlan,
+        handoverYears: [...years].sort((a, b) => a - b),
+      };
+    } catch {
+      return { hasPaymentPlan: false, handoverYears: [] };
+    }
+  },
+  ["footer-explore-offplan"],
+  { revalidate: 3600 },
+);
+
 export async function FooterExplore() {
-  const areas = await getFooterAreas();
+  const [areas, offplan] = await Promise.all([
+    getFooterAreas(),
+    getFooterOffplan(),
+  ]);
   if (!areas.length) return null;
+
+  const offplanLinks = [
+    ...(offplan.hasPaymentPlan
+      ? [{ label: "Payment plan properties", href: "/payment-plan" }]
+      : []),
+    ...offplan.handoverYears.map((y) => ({
+      label: `Handover ${y}`,
+      href: `/handover/${y}`,
+    })),
+  ];
 
   // "Popular searches": each top area's dominant property type.
   const searches = areas
@@ -72,7 +126,7 @@ export async function FooterExplore() {
 
   return (
     <div className="mx-auto max-w-7xl border-b border-border px-6 py-10 md:px-10">
-      <div className="grid gap-8 sm:grid-cols-2">
+      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
             Popular areas
@@ -104,6 +158,26 @@ export async function FooterExplore() {
                     className="text-muted transition hover:text-primary"
                   >
                     {s.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {offplanLinks.length ? (
+          <div>
+            <h3 className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+              Off-plan
+            </h3>
+            <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+              {offplanLinks.map((l) => (
+                <li key={l.href}>
+                  <Link
+                    href={l.href}
+                    className="text-muted transition hover:text-primary"
+                  >
+                    {l.label}
                   </Link>
                 </li>
               ))}
