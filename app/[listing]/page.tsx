@@ -18,6 +18,7 @@ import {
   DEAL_LABELS,
   type ParsedListingSlug,
 } from "@/lib/seo/listing-slug";
+import { buildListingFaqs } from "@/lib/seo/listing-faqs";
 
 export const dynamic = "force-dynamic";
 
@@ -225,30 +226,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function faqFor(parsed: ParsedListingSlug, localityName: string) {
-  const type = parsed.typeDef.label.toLowerCase();
-  const singular = parsed.typeDef.singular;
-  const deal = parsed.deal === "sale" ? "buy" : "rent";
-  return [
-    {
-      q: `How many ${type} are available ${DEAL_LABELS[parsed.deal].toLowerCase()} in ${localityName}?`,
-      a: `We list verified ${type} ${DEAL_LABELS[parsed.deal].toLowerCase()} in ${localityName} from trusted builders and owners, updated regularly as new inventory is added.`,
-    },
-    {
-      q: `What is the price range of ${type} in ${localityName}?`,
-      a: `Prices for ${type} in ${localityName} vary by size, floor, view and finishing. Browse the listings below to compare current asking prices and recent transaction trends.`,
-    },
-    {
-      q: `Is it a good time to ${deal} a ${singular} in ${localityName}?`,
-      a: `${localityName} remains a sought-after location. Use our locality insights, price history and AI assistant to evaluate whether now is the right time for you.`,
-    },
-    {
-      q: `How do I schedule a viewing for a ${singular} in ${localityName}?`,
-      a: `Open any listing below and use the enquiry option to connect with the listing agent and arrange a viewing at a time that suits you.`,
-    },
-  ];
-}
-
 export default async function ListingLandingPage({ params }: Props) {
   const { listing } = await params;
   const resolved = await resolveListing(listing);
@@ -286,7 +263,12 @@ export default async function ListingLandingPage({ params }: Props) {
       : "") +
     (priceBit ? `, with prices${priceBit}` : "") +
     `. Compare live listings, price trends and FAQs below.`;
-  const faqs = faqFor(parsed, localityName);
+  const faqs = buildListingFaqs({
+    parsed,
+    localityName,
+    units,
+    developments: properties,
+  });
   const canonical = `${BASE}/${listing}`;
 
   const jsonLd = {
