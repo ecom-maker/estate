@@ -19,6 +19,7 @@ import {
   type ParsedListingSlug,
 } from "@/lib/seo/listing-slug";
 import { buildListingFaqs } from "@/lib/seo/listing-faqs";
+import { FaqSection } from "@/components/seo/faq-section";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ type ListingProperty = Prisma.PropertyGetPayload<{
   include: {
     images: true;
     community: true;
+    developer: { select: { name: true } };
     units: { select: { bedrooms: true; hidden: true; metadata: true } };
   };
 }>;
@@ -47,6 +49,7 @@ type ListingUnit = Prisma.PropertyUnitGetPayload<{
     view: true;
     status: true;
     unitType: true;
+    updatedAt: true;
     metadata: true;
     property: {
       select: {
@@ -138,6 +141,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
         include: {
           images: { orderBy: { sortOrder: "asc" }, take: 1 },
           community: true,
+          developer: { select: { name: true } },
           units: { select: { bedrooms: true, hidden: true, metadata: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -155,6 +159,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
           view: true,
           status: true,
           unitType: true,
+          updatedAt: true,
           metadata: true,
           property: {
             select: {
@@ -267,8 +272,17 @@ export default async function ListingLandingPage({ params }: Props) {
     parsed,
     localityName,
     units,
-    developments: properties,
+    developments: properties.map((p) => ({
+      title: p.title,
+      priceAed: p.priceAed,
+      offPlan: p.offPlan,
+      developerName: p.developer?.name ?? null,
+    })),
   });
+  const lastUpdated = [
+    ...units.map((u) => u.updatedAt),
+    ...properties.map((p) => p.updatedAt),
+  ].reduce<Date | null>((acc, d) => (d && (!acc || d > acc) ? d : acc), null);
   const canonical = `${BASE}/${listing}`;
 
   const jsonLd = {
@@ -311,15 +325,9 @@ export default async function ListingLandingPage({ params }: Props) {
           })),
         ],
       },
-      {
-        "@type": "FAQPage",
-        mainEntity: faqs.map((f) => ({
-          "@type": "Question",
-          name: f.q,
-          acceptedAnswer: { "@type": "Answer", text: f.a },
-        })),
-      },
     ],
+    // FAQPage JSON-LD is emitted by <FaqSection> so it always matches the
+    // visible FAQ text exactly.
   };
 
   return (
@@ -522,20 +530,7 @@ export default async function ListingLandingPage({ params }: Props) {
         </section>
       ) : null}
 
-      {/* FAQ */}
-      <section className="mt-16">
-        <h2 className="font-serif text-2xl text-primary">Frequently asked questions</h2>
-        <div className="mt-6 divide-y divide-border border-y border-border">
-          {faqs.map((f) => (
-            <details key={f.q} className="group py-4">
-              <summary className="cursor-pointer list-none text-sm font-medium text-primary">
-                {f.q}
-              </summary>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{f.a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
+      <FaqSection faqs={faqs} lastUpdated={lastUpdated} />
     </div>
   );
 }

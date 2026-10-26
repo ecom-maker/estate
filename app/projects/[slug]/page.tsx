@@ -21,6 +21,9 @@ import { metaDescription } from "@/lib/property/description";
 import { formatKm } from "@/lib/property/nearby";
 import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
+import { getMarketInsights } from "@/lib/property/market-data";
+import { buildProjectFaqs } from "@/lib/seo/project-faqs";
+import { FaqSection } from "@/components/seo/faq-section";
 import {
   PaymentPlanSection,
   ProjectTimelineSection,
@@ -106,6 +109,48 @@ export default async function ProjectDetailPage({ params }: Props) {
     hospitals: nearbyHospitals,
     metro: nearbyMetro,
   } = await getNearbyBundle(project);
+
+  // Data-driven FAQs (server-rendered + FAQPage JSON-LD via <FaqSection>).
+  const insights = await getMarketInsights({
+    bedrooms: project.bedrooms,
+    community: project.community ? { name: project.community.name } : null,
+    building: project.title,
+  });
+  const avgPerSqft = (() => {
+    const vals = (insights?.sold ?? [])
+      .map((s) => (s.area > 0 ? s.aed / s.area : null))
+      .filter((n): n is number => typeof n === "number" && n > 0);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  })();
+  const trendDirection = ((): "rising" | "softening" | "stable" | null => {
+    const p = insights?.trend?.sale.primary ?? [];
+    if (p.length < 2 || !p[0]) return null;
+    const ch = (p[p.length - 1] - p[0]) / p[0];
+    return ch > 0.03 ? "rising" : ch < -0.03 ? "softening" : "stable";
+  })();
+  const projectFaqs = buildProjectFaqs({
+    title: project.title,
+    offPlan: project.offPlan,
+    startingPriceAed: project.priceAed,
+    developerName: project.developer?.name ?? null,
+    handoverLabel: handover,
+    paymentPlan: project.paymentPlan as {
+      downPaymentPct?: number | null;
+      duringConstructionPct?: number | null;
+      onHandoverPct?: number | null;
+    } | null,
+    unitLayouts: unitGroups.map((g) => g.label),
+    schools: nearbySchools,
+    hospitals: nearbyHospitals,
+    transactionCount: insights?.sold.length ?? null,
+    avgPerSqft,
+    trendDirection,
+    comparablesLabel: insights?.comparablesLabel ?? null,
+  });
+  const projectLastUpdated = [
+    project.updatedAt,
+    ...project.units.map((u) => u.updatedAt),
+  ].reduce<Date | null>((acc, d) => (d && (!acc || d > acc) ? d : acc), null);
 
   return (
     <div className="mx-auto max-w-7xl px-6 pb-28 pt-14 md:px-10">
@@ -382,6 +427,8 @@ export default async function ProjectDetailPage({ params }: Props) {
               metadata: project.metadata,
             }}
           />
+
+          <FaqSection faqs={projectFaqs} lastUpdated={projectLastUpdated} />
         </div>
 
         {/* Sticky enquiry aside */}

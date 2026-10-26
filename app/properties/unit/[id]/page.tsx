@@ -25,6 +25,9 @@ import { AIChat } from "@/components/ai/ai-chat";
 import { formatKm } from "@/lib/property/nearby";
 import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
+import { getMarketInsights } from "@/lib/property/market-data";
+import { buildUnitFaqs } from "@/lib/seo/unit-faqs";
+import { FaqSection } from "@/components/seo/faq-section";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
@@ -135,6 +138,44 @@ export default async function UnitDetailPage({
   const rentPrice =
     (unit.metadata as { rentPriceAed?: number } | null)?.rentPriceAed ?? null;
   const rentText = rentPrice ? `${formatAED(rentPrice)}/yr` : "Rent price on request";
+
+  // Data-driven unit FAQs (server-rendered + FAQPage JSON-LD via <FaqSection>).
+  const unitInsights = await getMarketInsights({
+    bedrooms: unit.bedrooms,
+    community: p.community ? { name: p.community.name } : null,
+    building: p.title,
+  });
+  const unitAvgPerSqft = (() => {
+    const vals = (unitInsights?.sold ?? [])
+      .map((s) => (s.area > 0 ? s.aed / s.area : null))
+      .filter((n): n is number => typeof n === "number" && n > 0);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  })();
+  const unitPricePerSqft =
+    unit.priceAed && unit.areaSqft && unit.areaSqft > 0
+      ? unit.priceAed / unit.areaSqft
+      : null;
+  const unitFaqs = buildUnitFaqs({
+    projectTitle: p.title,
+    pricePerSqft: unitPricePerSqft,
+    avgPerSqft: unitAvgPerSqft,
+    avgScopeLabel: unitInsights
+      ? unitInsights.scope === "building"
+        ? "building"
+        : (p.community?.name ?? null)
+      : null,
+    paymentPlan: p.paymentPlan as {
+      downPaymentPct?: number | null;
+      duringConstructionPct?: number | null;
+      onHandoverPct?: number | null;
+    } | null,
+    listing,
+    rentPriceAed: rentPrice,
+  });
+  const unitLastUpdated = [unit.updatedAt, p.updatedAt].reduce<Date | null>(
+    (acc, d) => (d && (!acc || d > acc) ? d : acc),
+    null,
+  );
 
   // Breadcrumb trail: Properties / <type> / <emirate> / <community> / <project>.
   const crumbDeal = listing === "rent" ? "rent" : "sale";
@@ -421,6 +462,8 @@ export default async function UnitDetailPage({
             metadata: p.metadata,
           }}
         />
+
+        <FaqSection faqs={unitFaqs} lastUpdated={unitLastUpdated} />
       </div>
 
       <aside className="h-fit rounded-sm border border-border bg-card p-4 lg:sticky lg:top-24">
