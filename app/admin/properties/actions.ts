@@ -352,6 +352,65 @@ function parseUnitFields(formData: FormData): UnitFields | { error: string } {
 const PLAN_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
 const PLAN_MAX_BYTES = 3.5 * 1024 * 1024; // under the 4 MB server-action limit
 
+// NOC (No Objection Certificate) uploads: PDF or PNG only, under the 4 MB
+// server-action body limit.
+const NOC_TYPES = new Set(["application/pdf", "image/png"]);
+const NOC_MAX_BYTES = 3.5 * 1024 * 1024;
+
+/**
+ * Store (or replace) a project's NOC from the property form. Best-effort: the
+ * caller decides what to do with the returned error. A single NOC per property
+ * is kept (kind="noc"); an empty file input leaves the existing one untouched,
+ * and the `nocRemove` flag deletes it.
+ */
+async function saveNoc(
+  propertyId: string,
+  formData: FormData,
+): Promise<{ error?: string }> {
+  if (formData.get("nocRemove") === "on") {
+    await prisma.propertyDocument.deleteMany({
+      where: { propertyId, kind: "noc" },
+    });
+    return {};
+  }
+
+  const file = formData.get("noc");
+  if (!(file instanceof File) || file.size === 0) return {};
+  if (!NOC_TYPES.has(file.type)) return { error: "NOC must be a PDF or PNG file." };
+  if (file.size > NOC_MAX_BYTES) return { error: "NOC is too large (3.5 MB max)." };
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const ext = file.type === "image/png" ? "png" : "pdf";
+  const path = `noc/${propertyId}/${Date.now()}.${ext}`;
+  let url: string;
+  if (getSupabaseAdmin()) {
+    url = (await uploadObject({ path, body: bytes, contentType: file.type })).publicUrl;
+  } else if (process.env.NODE_ENV !== "production") {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const { dirname, join } = await import("node:path");
+    const target = join(process.cwd(), "public", "uploads", path);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, bytes);
+    url = `/uploads/${path}`;
+  } else {
+    return { error: "File storage isn't configured (Supabase)." };
+  }
+
+  await prisma.$transaction([
+    prisma.propertyDocument.deleteMany({ where: { propertyId, kind: "noc" } }),
+    prisma.propertyDocument.create({
+      data: {
+        propertyId,
+        title: "No Objection Certificate (NOC)",
+        url,
+        mimeType: file.type,
+        kind: "noc",
+      },
+    }),
+  ]);
+  return {};
+}
+
 /** Load a unit for a floor-plan change and check the admin may edit it. */
 async function unitForPlanEdit(id: string) {
   let session;
@@ -544,6 +603,10 @@ export async function createProperty(
       },
     });
 
+    // Optional NOC document (PDF/PNG). Surface a failure but keep the listing.
+    const noc = await saveNoc(created.id, formData);
+    if (noc.error) return { error: noc.error };
+
     // Record the creator (used to scope who may later edit this listing).
     try {
       await prisma.auditLog.create({
@@ -655,6 +718,10 @@ export async function updateProperty(
           : { disconnect: true },
       },
     });
+
+    // Optional NOC document (PDF/PNG), replaced/removed via the form.
+    const noc = await saveNoc(id, formData);
+    if (noc.error) return { error: noc.error };
 
     // Edit history: record which fields changed, by whom. Best-effort so a
     // logging hiccup never fails the edit.

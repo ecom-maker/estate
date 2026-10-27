@@ -79,6 +79,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         amenities: { include: { amenity: true } },
         community: true,
         developer: true,
+        documents: { where: { kind: "noc" }, orderBy: { id: "desc" }, take: 1 },
       },
     });
   } catch {
@@ -100,6 +101,8 @@ export default async function ProjectDetailPage({ params }: Props) {
     (
       (project.metadata as { parking?: string | null } | null)?.parking ?? ""
     ).trim() || null;
+  // NOC (No Objection Certificate) document, shown as a link when uploaded.
+  const nocUrl = project.documents[0]?.url ?? null;
   const bedSummary = unitGroups.length
     ? unitGroups.length === 1
       ? unitGroups[0].label
@@ -269,6 +272,30 @@ export default async function ProjectDetailPage({ params }: Props) {
           </span>
         ) : null}
       </p>
+
+      {nocUrl ? (
+        <a
+          href={nocUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary transition hover:border-primary/40 hover:bg-background"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+          </svg>
+          No Objection Certificate (NOC)
+        </a>
+      ) : null}
 
       <ProjectGallery
         images={project.images}

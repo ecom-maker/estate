@@ -48,6 +48,13 @@ export default async function EditPropertyPage({
   const [property, communities] = await Promise.all([
     prisma.property.findFirst({
       where: { OR: [{ id }, { slug: id }], deletedAt: null },
+      include: {
+        documents: {
+          where: { kind: "noc" },
+          orderBy: { id: "desc" },
+          take: 1,
+        },
+      },
     }),
     prisma.community.findMany({
       select: { id: true, name: true },
@@ -146,6 +153,7 @@ export default async function EditPropertyPage({
             handoverDate: meta.handoverDate ?? null,
             serviceCharge: meta.serviceCharge ?? null,
             parking: meta.parking ?? null,
+            nocUrl: property.documents[0]?.url ?? null,
             dealType: meta.dealType ?? "sale",
             forRent: meta.forRent ?? false,
           }}

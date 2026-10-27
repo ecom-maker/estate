@@ -26,6 +26,7 @@ type PropertyDefaults = {
   handoverDate?: string | null;
   serviceCharge?: string | null;
   parking?: string | null;
+  nocUrl?: string | null;
 };
 
 const TYPES = ["VILLA", "APARTMENT", "PENTHOUSE", "TOWNHOUSE", "UNIT", "LAND"];
@@ -312,6 +313,39 @@ export function PropertyForm({
           Optional. Shown in the overview on the project and unit pages when
           set. Leave blank to hide.
         </p>
+      </div>
+
+      <div>
+        <label htmlFor="noc" className={labelClass}>
+          NOC (No Objection Certificate)
+        </label>
+        <input
+          id="noc"
+          name="noc"
+          type="file"
+          accept="application/pdf,image/png"
+          className={`${fieldClass} file:mr-3 file:rounded-sm file:border-0 file:bg-primary file:px-3 file:py-1 file:text-xs file:text-primary-foreground`}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          Optional. PDF or PNG only (max 3.5 MB). Shown as a download link on
+          the project page when uploaded.
+        </p>
+        {property?.nocUrl ? (
+          <div className="mt-2 flex items-center gap-4 text-xs">
+            <a
+              href={property.nocUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              View current NOC
+            </a>
+            <label className="flex items-center gap-1.5 text-muted">
+              <input type="checkbox" name="nocRemove" />
+              Remove
+            </label>
+          </div>
+        ) : null}
       </div>
 
       <div>
