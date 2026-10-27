@@ -475,6 +475,26 @@ export default async function UnitDetailPage({
           }}
         />
 
+        {p.latitude != null && p.longitude != null ? (
+          <section className="mt-16">
+            <h2 className="font-serif text-2xl text-primary">
+              Where you&rsquo;ll be
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              {communityLabel(p.community?.name, p.community?.emirate)}
+            </p>
+            <div className="mt-5 overflow-hidden rounded-xl border border-border">
+              <iframe
+                title={`Map of ${communityLabel(p.community?.name, p.community?.emirate)}`}
+                src={`https://maps.google.com/maps?q=${p.latitude},${p.longitude}&z=14&output=embed`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="h-[360px] w-full border-0"
+              />
+            </div>
+          </section>
+        ) : null}
+
         <FaqSection faqs={unitFaqs} lastUpdated={unitLastUpdated} />
       </div>
 
