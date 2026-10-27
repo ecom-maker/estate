@@ -138,6 +138,13 @@ export default async function UnitDetailPage({
   const rentPrice =
     (unit.metadata as { rentPriceAed?: number } | null)?.rentPriceAed ?? null;
   const rentText = rentPrice ? `${formatAED(rentPrice)}/yr` : "Rent price on request";
+  // Service charge is a project-level fact (metadata.serviceCharge); shown on
+  // the unit only when it's on file.
+  const serviceCharge =
+    (
+      (p.metadata as { serviceCharge?: string | null } | null)?.serviceCharge ??
+      ""
+    ).trim() || null;
 
   // Data-driven unit FAQs (server-rendered + FAQPage JSON-LD via <FaqSection>).
   const unitInsights = await getMarketInsights({
@@ -296,6 +303,11 @@ export default async function UnitDetailPage({
             {delivery.label}
             {delivery.date ? ` · ${delivery.date}` : ""}
           </span>
+          {serviceCharge ? (
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+              Service charge {serviceCharge}
+            </span>
+          ) : null}
           {isAdminViewer ? (
             <span className="inline-flex flex-wrap items-center gap-2 rounded-sm border border-accent/30 bg-accent/5 px-2.5 py-0.5 text-xs text-primary">
               <span className="font-medium">Unit {unit.unitNumber}</span>
