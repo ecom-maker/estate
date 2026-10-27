@@ -25,6 +25,7 @@ type PropertyDefaults = {
   furnished?: boolean | null;
   handoverDate?: string | null;
   serviceCharge?: string | null;
+  parking?: string | null;
 };
 
 const TYPES = ["VILLA", "APARTMENT", "PENTHOUSE", "TOWNHOUSE", "UNIT", "LAND"];
@@ -291,6 +292,24 @@ export function PropertyForm({
         />
         <p className="mt-1.5 text-xs text-muted">
           Optional. Shown next to the price on the project and unit pages when
+          set. Leave blank to hide.
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="parking" className={labelClass}>
+          Parking
+        </label>
+        <input
+          id="parking"
+          name="parking"
+          type="text"
+          defaultValue={property?.parking ?? ""}
+          placeholder="e.g. 2 covered spaces"
+          className={fieldClass}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          Optional. Shown in the overview on the project and unit pages when
           set. Leave blank to hide.
         </p>
       </div>

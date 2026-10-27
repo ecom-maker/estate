@@ -95,6 +95,11 @@ export default async function ProjectDetailPage({ params }: Props) {
       (project.metadata as { serviceCharge?: string | null } | null)
         ?.serviceCharge ?? ""
     ).trim() || null;
+  // Parking is a free-text string on the metadata, shown only when on file.
+  const parking =
+    (
+      (project.metadata as { parking?: string | null } | null)?.parking ?? ""
+    ).trim() || null;
   const bedSummary = unitGroups.length
     ? unitGroups.length === 1
       ? unitGroups[0].label
@@ -107,6 +112,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     ["Starting price", `from ${formatAED(project.priceAed)}`],
     ["Unit types", bedSummary],
     ["Status", project.offPlan ? "Off-plan" : "Ready"],
+    ...(parking ? ([["Parking", parking]] as [string, string][]) : []),
   ];
 
   // Nearby data: served from the DB (metadata.nearbyData) after the first

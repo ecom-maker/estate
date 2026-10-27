@@ -146,6 +146,11 @@ export default async function UnitDetailPage({
       (p.metadata as { serviceCharge?: string | null } | null)?.serviceCharge ??
       ""
     ).trim() || null;
+  // Parking is a free-text metadata string, shown only when on file.
+  const parking =
+    (
+      (p.metadata as { parking?: string | null } | null)?.parking ?? ""
+    ).trim() || null;
 
   // Data-driven unit FAQs (server-rendered + FAQPage JSON-LD via <FaqSection>).
   const unitInsights = await getMarketInsights({
@@ -202,6 +207,7 @@ export default async function UnitDetailPage({
     ["View", unit.view ?? "—"],
     ["Status", unit.status ? unit.status : "—"],
     ["Developer", p.developer?.name ?? "—"],
+    ...(parking ? ([["Parking", parking]] as [string, string][]) : []),
   ];
 
   const section = (title: string, items: { name: string; km: number }[]) =>
