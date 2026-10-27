@@ -224,9 +224,22 @@ export default async function ProjectDetailPage({ params }: Props) {
           {project.developer.name}
         </p>
       ) : null}
-      <h1 className="mt-2 font-serif text-4xl text-primary md:text-5xl">
-        {project.title}
-      </h1>
+      <div className="mt-2 flex items-start justify-between gap-4">
+        <h1 className="font-serif text-4xl text-primary md:text-5xl">
+          {project.title}
+        </h1>
+        <ShareSaveBar
+          shareId={project.slug}
+          title={project.title}
+          subtitle={`${communityLabel(
+            project.community?.name,
+            project.community?.emirate,
+          )} · from ${formatAED(project.priceAed)}`}
+          imageUrl={project.images[0]?.url ?? null}
+          path={`/projects/${project.slug}`}
+          className="mt-1 flex-none"
+        />
+      </div>
       <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg text-muted">
         <span>
           {communityLabel(project.community?.name, project.community?.emirate)} · from{" "}
@@ -245,17 +258,6 @@ export default async function ProjectDetailPage({ params }: Props) {
           {project.offPlan ? "Off-plan" : "Ready"}
         </span>
       </p>
-
-      <ShareSaveBar
-        shareId={project.slug}
-        title={project.title}
-        subtitle={`${communityLabel(
-          project.community?.name,
-          project.community?.emirate,
-        )} · from ${formatAED(project.priceAed)}`}
-        imageUrl={project.images[0]?.url ?? null}
-        path={`/projects/${project.slug}`}
-      />
 
       <ProjectGallery
         images={project.images}

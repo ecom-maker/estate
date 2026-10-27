@@ -45,6 +45,8 @@ type ShareSaveBarProps = {
   path: string;
   /** Noun for the share-sheet heading, e.g. "project" (default) or "property". */
   entityLabel?: string;
+  /** Classes for the trigger row (override to place it inline with the title). */
+  className?: string;
 };
 
 const SAVED_KEY = "dmg:saved";
@@ -74,6 +76,7 @@ export function ShareSaveBar({
   imageUrl,
   path,
   entityLabel = "project",
+  className,
 }: ShareSaveBarProps) {
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(false);
@@ -179,7 +182,7 @@ export function ShareSaveBar({
 
   return (
     <>
-      <div className="mt-4 flex items-center gap-4">
+      <div className={cn("mt-4 flex items-center gap-4", className)}>
         <button type="button" onClick={openShare} className={btnClass} aria-label="Share">
           <Share className="h-4 w-4" />
           Share

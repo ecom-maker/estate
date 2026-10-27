@@ -270,9 +270,29 @@ export default async function UnitDetailPage({
         <p className="mt-6 text-xs font-medium uppercase tracking-[0.25em] text-accent">
           {communityLabel(p.community?.name, p.community?.emirate)}
         </p>
-        <h1 className="mt-2 font-serif text-4xl text-primary">
-          {bedLabel(unit.bedrooms)} at {p.title}
-        </h1>
+        <div className="mt-2 flex items-start justify-between gap-4">
+          <h1 className="font-serif text-4xl text-primary">
+            {bedLabel(unit.bedrooms)} at {p.title}
+          </h1>
+          <ShareSaveBar
+            shareId={canonical}
+            title={`${bedLabel(unit.bedrooms)} at ${p.title}`}
+            subtitle={`${communityLabel(
+              p.community?.name,
+              p.community?.emirate,
+            )} · ${
+              listing === "rent"
+                ? rentText
+                : unit.priceAed
+                  ? formatAED(unit.priceAed)
+                  : "Price on request"
+            }`}
+            imageUrl={p.images[0]?.url ?? null}
+            path={`/properties/unit/${canonical}`}
+            entityLabel="property"
+            className="mt-1 flex-none"
+          />
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-lg text-muted">
             {listing === "rent"
@@ -319,24 +339,6 @@ export default async function UnitDetailPage({
             </span>
           ) : null}
         </div>
-
-        <ShareSaveBar
-          shareId={canonical}
-          title={`${bedLabel(unit.bedrooms)} at ${p.title}`}
-          subtitle={`${communityLabel(
-            p.community?.name,
-            p.community?.emirate,
-          )} · ${
-            listing === "rent"
-              ? rentText
-              : unit.priceAed
-                ? formatAED(unit.priceAed)
-                : "Price on request"
-          }`}
-          imageUrl={p.images[0]?.url ?? null}
-          path={`/properties/unit/${canonical}`}
-          entityLabel="property"
-        />
 
         {p.images.length ? (
           <ProjectGallery
