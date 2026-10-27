@@ -24,6 +24,7 @@ type PropertyDefaults = {
   waterfront?: boolean | null;
   furnished?: boolean | null;
   handoverDate?: string | null;
+  serviceCharge?: string | null;
 };
 
 const TYPES = ["VILLA", "APARTMENT", "PENTHOUSE", "TOWNHOUSE", "UNIT", "LAND"];
@@ -273,6 +274,24 @@ export function PropertyForm({
         <p className="mt-1.5 text-xs text-muted">
           Shown as the delivery date for off-plan, or the completed date for
           ready properties.
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="serviceCharge" className={labelClass}>
+          Service charge
+        </label>
+        <input
+          id="serviceCharge"
+          name="serviceCharge"
+          type="text"
+          defaultValue={property?.serviceCharge ?? ""}
+          placeholder="e.g. AED 18/sqft"
+          className={fieldClass}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          Optional. Shown next to the price on the project and unit pages when
+          set. Leave blank to hide.
         </p>
       </div>
 

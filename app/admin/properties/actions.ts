@@ -78,6 +78,7 @@ function parseForm(formData: FormData) {
     waterfront: formData.get("waterfront") === "on",
     furnished: formData.get("furnished") === "on",
     handoverDate: String(formData.get("handoverDate") ?? "").trim() || null,
+    serviceCharge: String(formData.get("serviceCharge") ?? "").trim() || null,
     dealType:
       String(formData.get("dealType") ?? "sale") === "rent" ? "rent" : "sale",
     // Completed properties can be offered for rent alongside sale (admin-set).
@@ -533,6 +534,7 @@ export async function createProperty(
           dealType: input.dealType,
           forRent: !input.offPlan && input.forRent,
           ...(input.handoverDate ? { handoverDate: input.handoverDate } : {}),
+          ...(input.serviceCharge ? { serviceCharge: input.serviceCharge } : {}),
         },
         ...(input.communityId
           ? { community: { connect: { id: input.communityId } } }
@@ -614,6 +616,8 @@ export async function updateProperty(
     };
     if (input.handoverDate) metadata.handoverDate = input.handoverDate;
     else delete metadata.handoverDate;
+    if (input.serviceCharge) metadata.serviceCharge = input.serviceCharge;
+    else delete metadata.serviceCharge;
     metadata.dealType = input.dealType;
     metadata.forRent = !input.offPlan && input.forRent;
     await prisma.property.update({
@@ -666,6 +670,7 @@ export async function updateProperty(
         ["waterfront", existing?.waterfront, input.waterfront],
         ["furnished", existing?.furnished, input.furnished],
         ["handover date", oldMeta.handoverDate ?? null, metadata.handoverDate ?? null],
+        ["service charge", oldMeta.serviceCharge ?? null, metadata.serviceCharge ?? null],
         ["deal type", oldMeta.dealType ?? null, metadata.dealType ?? null],
         ["description", existing?.description, input.description],
         ...(slug

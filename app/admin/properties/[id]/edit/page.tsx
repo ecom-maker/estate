@@ -105,6 +105,7 @@ export default async function EditPropertyPage({
 
   const meta = (property.metadata ?? {}) as {
     handoverDate?: string;
+    serviceCharge?: string;
     dealType?: string;
     forRent?: boolean;
   };
@@ -142,6 +143,7 @@ export default async function EditPropertyPage({
           property={{
             ...property,
             handoverDate: meta.handoverDate ?? null,
+            serviceCharge: meta.serviceCharge ?? null,
             dealType: meta.dealType ?? "sale",
             forRent: meta.forRent ?? false,
           }}
