@@ -87,6 +87,13 @@ export default async function ProjectDetailPage({ params }: Props) {
   if (!project) notFound();
   const unitGroups = buildUnitGroups(project);
   const handover = handoverLabel(project.metadata);
+  // Service charge is a free-text string on the project metadata, shown only
+  // when it's on file.
+  const serviceCharge =
+    (
+      (project.metadata as { serviceCharge?: string | null } | null)
+        ?.serviceCharge ?? ""
+    ).trim() || null;
   const bedSummary = unitGroups.length
     ? unitGroups.length === 1
       ? unitGroups[0].label
@@ -223,6 +230,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         <span>
           {communityLabel(project.community?.name, project.community?.emirate)} · from{" "}
           {formatAED(project.priceAed)}
+          {serviceCharge ? ` · Service charge ${serviceCharge}` : ""}
           {handover ? ` · Handover ${handover}` : ""}
         </span>
         <span
