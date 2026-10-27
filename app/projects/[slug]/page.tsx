@@ -263,6 +263,11 @@ export default async function ProjectDetailPage({ params }: Props) {
         >
           {project.offPlan ? "Off-plan" : "Ready"}
         </span>
+        {parking ? (
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+            Parking · {parking}
+          </span>
+        ) : null}
       </p>
 
       <ProjectGallery

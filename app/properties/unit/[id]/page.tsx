@@ -335,6 +335,11 @@ export default async function UnitDetailPage({
               Service charge {serviceCharge}
             </span>
           ) : null}
+          {parking ? (
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+              Parking · {parking}
+            </span>
+          ) : null}
           {isAdminViewer ? (
             <span className="inline-flex flex-wrap items-center gap-2 rounded-sm border border-accent/30 bg-accent/5 px-2.5 py-0.5 text-xs text-primary">
               <span className="font-medium">Unit {unit.unitNumber}</span>
