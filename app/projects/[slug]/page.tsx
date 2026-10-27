@@ -436,6 +436,29 @@ export default async function ProjectDetailPage({ params }: Props) {
             }}
           />
 
+          {project.latitude != null && project.longitude != null ? (
+            <section className="mt-16">
+              <h2 className="font-serif text-2xl text-primary">
+                Where you&rsquo;ll be
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                {communityLabel(
+                  project.community?.name,
+                  project.community?.emirate,
+                )}
+              </p>
+              <div className="mt-5 overflow-hidden rounded-xl border border-border">
+                <iframe
+                  title={`Map of ${communityLabel(project.community?.name, project.community?.emirate)}`}
+                  src={`https://maps.google.com/maps?q=${project.latitude},${project.longitude}&z=14&output=embed`}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="h-[360px] w-full border-0"
+                />
+              </div>
+            </section>
+          ) : null}
+
           <FaqSection faqs={projectFaqs} lastUpdated={projectLastUpdated} />
         </div>
 
