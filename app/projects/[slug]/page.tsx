@@ -278,7 +278,7 @@ export default async function ProjectDetailPage({ params }: Props) {
               {highlights.map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-sm border border-border bg-card p-4"
+                  className="rounded-xl border border-border bg-card p-4"
                 >
                   <p className="text-[11px] uppercase tracking-wider text-muted">
                     {label}
@@ -299,7 +299,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                 {project.amenities.map(({ amenity }) => (
                   <li
                     key={amenity.id}
-                    className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs text-primary"
+                    className="rounded-xl border border-border bg-card px-3 py-1.5 text-xs text-primary"
                   >
                     {amenity.name}
                   </li>
@@ -319,7 +319,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                 {nearby.map((n) => (
                   <li
                     key={n.name}
-                    className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
                   >
                     <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
                       {formatKm(n.km)}
@@ -344,7 +344,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                 {nearbySchools.map((s) => (
                   <li
                     key={s.name}
-                    className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
                   >
                     <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
                       {formatKm(s.km)}
@@ -369,7 +369,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                 {nearbyHospitals.map((h) => (
                   <li
                     key={h.name}
-                    className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
                   >
                     <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
                       {formatKm(h.km)}
@@ -394,7 +394,7 @@ export default async function ProjectDetailPage({ params }: Props) {
                 {nearbyMetro.map((m) => (
                   <li
                     key={m.name}
-                    className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
                   >
                     <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
                       {formatKm(m.km)}

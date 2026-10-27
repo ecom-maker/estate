@@ -212,7 +212,7 @@ export default async function UnitDetailPage({
           {items.map((n) => (
             <li
               key={n.name}
-              className="flex items-center gap-3 rounded-sm border border-border bg-card px-4 py-3"
+              className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
             >
               <span className="whitespace-nowrap rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
                 {formatKm(n.km)}
