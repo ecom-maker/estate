@@ -16,6 +16,7 @@ import {
 import { communityLabel } from "@/lib/property/location";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { ShareSaveBar } from "@/components/property/share-save-bar";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
 import { formatKm } from "@/lib/property/nearby";
@@ -244,6 +245,17 @@ export default async function ProjectDetailPage({ params }: Props) {
           {project.offPlan ? "Off-plan" : "Ready"}
         </span>
       </p>
+
+      <ShareSaveBar
+        shareId={project.slug}
+        title={project.title}
+        subtitle={`${communityLabel(
+          project.community?.name,
+          project.community?.emirate,
+        )} · from ${formatAED(project.priceAed)}`}
+        imageUrl={project.images[0]?.url ?? null}
+        path={`/projects/${project.slug}`}
+      />
 
       <ProjectGallery
         images={project.images}
