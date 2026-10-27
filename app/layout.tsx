@@ -3,6 +3,7 @@ import Script from "next/script";
 import { DM_Sans } from "next/font/google";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { FloatingWhatsApp } from "@/components/layout/floating-whatsapp";
 import { Providers } from "@/components/providers";
 import { googleOneTapClientId } from "@/lib/auth";
 import { SITE_URL } from "@/lib/data-layer/canonical";
@@ -68,6 +69,7 @@ gtag('config', '${GA_ID}');`}
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
+          <FloatingWhatsApp />
         </Providers>
       </body>
     </html>
