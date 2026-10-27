@@ -213,6 +213,9 @@ model Developer {
   description String?    @db.Text
   website     String?
   logoUrl     String?    @map("logo_url")
+  email       String?
+  phone       String?
+  nocUrl      String?    @map("noc_url")
   createdAt   DateTime   @default(now()) @map("created_at")
   updatedAt   DateTime   @updatedAt @map("updated_at")
   properties  Property[]
