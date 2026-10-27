@@ -226,7 +226,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       <h1 className="mt-2 font-serif text-4xl text-primary md:text-5xl">
         {project.title}
       </h1>
-      <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+      <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg text-muted">
         <span>
           {communityLabel(project.community?.name, project.community?.emirate)} · from{" "}
           {formatAED(project.priceAed)}
