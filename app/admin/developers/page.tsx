@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
-import { DeveloperRow, type DeveloperRowData } from "./developer-row";
+import { type DeveloperRowData } from "./developer-row";
+import { DevelopersList } from "./developers-list";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Developers" };
@@ -77,11 +78,7 @@ export default async function AdminDevelopersPage() {
       {developers.length === 0 ? (
         <p className="mt-8 text-sm text-muted">No developers yet.</p>
       ) : (
-        <div className="mt-8 space-y-4">
-          {developers.map((d) => (
-            <DeveloperRow key={d.id} developer={d} />
-          ))}
-        </div>
+        <DevelopersList developers={developers} />
       )}
     </div>
   );
