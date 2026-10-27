@@ -43,6 +43,8 @@ type ShareSaveBarProps = {
   imageUrl?: string | null;
   /** Canonical path to share (e.g. "/projects/slug"); absolute URL built client-side. */
   path: string;
+  /** Noun for the share-sheet heading, e.g. "project" (default) or "property". */
+  entityLabel?: string;
 };
 
 const SAVED_KEY = "dmg:saved";
@@ -71,6 +73,7 @@ export function ShareSaveBar({
   subtitle,
   imageUrl,
   path,
+  entityLabel = "project",
 }: ShareSaveBarProps) {
   const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(false);
@@ -200,7 +203,7 @@ export function ShareSaveBar({
           className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Share this project"
+          aria-label={`Share this ${entityLabel}`}
         >
           <div
             className="absolute inset-0 bg-primary/40 backdrop-blur-sm"
@@ -217,7 +220,9 @@ export function ShareSaveBar({
               <X className="h-5 w-5" />
             </button>
 
-            <h2 className="font-serif text-2xl text-primary">Share this project</h2>
+            <h2 className="font-serif text-2xl text-primary">
+              Share this {entityLabel}
+            </h2>
 
             <div className="mt-4 flex items-center gap-3">
               {imageUrl ? (

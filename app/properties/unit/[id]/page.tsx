@@ -29,6 +29,7 @@ import { getMarketInsights } from "@/lib/property/market-data";
 import { buildUnitFaqs } from "@/lib/seo/unit-faqs";
 import { FaqSection } from "@/components/seo/faq-section";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { ShareSaveBar } from "@/components/property/share-save-bar";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
 
@@ -318,6 +319,24 @@ export default async function UnitDetailPage({
             </span>
           ) : null}
         </div>
+
+        <ShareSaveBar
+          shareId={canonical}
+          title={`${bedLabel(unit.bedrooms)} at ${p.title}`}
+          subtitle={`${communityLabel(
+            p.community?.name,
+            p.community?.emirate,
+          )} · ${
+            listing === "rent"
+              ? rentText
+              : unit.priceAed
+                ? formatAED(unit.priceAed)
+                : "Price on request"
+          }`}
+          imageUrl={p.images[0]?.url ?? null}
+          path={`/properties/unit/${canonical}`}
+          entityLabel="property"
+        />
 
         {p.images.length ? (
           <ProjectGallery
