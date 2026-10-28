@@ -1,5 +1,6 @@
 import { HeroChatBar } from "@/components/ai/hero-chat-bar";
 import { AskAiOnWhatsApp } from "@/components/home/ask-ai-whatsapp";
+import { ConnectMcp } from "@/components/home/connect-mcp";
 
 // Self-canonical so "/" and any tracking-param variants collapse to one URL.
 export const metadata = { alternates: { canonical: "/" } };
@@ -38,6 +39,9 @@ export default function HomePage() {
           <HeroChatBar />
           <div className="mt-4">
             <AskAiOnWhatsApp />
+          </div>
+          <div className="mt-4">
+            <ConnectMcp />
           </div>
         </div>
 
