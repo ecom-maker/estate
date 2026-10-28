@@ -204,4 +204,113 @@ export const TOOLS: ToolDef[] = [
   },
 ];
 
+// --- OpenAI / ChatGPT compatibility tools ------------------------------------
+// ChatGPT's standard connectors + Deep Research require a server to expose two
+// read-only tools named exactly `search` and `fetch`, with a fixed result
+// shape. These are thin aliases over the data layer so DM Global works in every
+// MCP client (Claude, the OpenAI API, and ChatGPT without Developer Mode).
+
+type Detail = Record<string, unknown> & {
+  title?: string;
+  description?: string;
+  url?: string;
+  "@id"?: string;
+  price?: { currency?: string; amount?: number | null };
+  specs?: { bedrooms?: number | null; bathrooms?: number | null; areaSqft?: number | null };
+  community?: { name?: string } | null;
+  developer?: { name?: string } | null;
+  offPlan?: boolean;
+  delivery?: { handoverDate?: string | null };
+};
+
+function detailUrl(ctx: ToolContext, slug: string, d: Detail): string {
+  return d.url ?? d["@id"] ?? `${ctx.base}/properties/${slug}`;
+}
+
+function detailText(d: Detail): string {
+  const parts: string[] = [];
+  if (d.title) parts.push(d.title);
+  const facts: string[] = [];
+  if (d.community?.name) facts.push(d.community.name);
+  if (d.developer?.name) facts.push(`by ${d.developer.name}`);
+  if (d.price?.amount) facts.push(`AED ${d.price.amount.toLocaleString()}`);
+  if (d.specs?.bedrooms != null) facts.push(`${d.specs.bedrooms} bed`);
+  if (d.specs?.bathrooms != null) facts.push(`${d.specs.bathrooms} bath`);
+  if (d.specs?.areaSqft) facts.push(`${Math.round(d.specs.areaSqft)} sqft`);
+  if (typeof d.offPlan === "boolean") facts.push(d.offPlan ? "off-plan" : "ready");
+  if (d.delivery?.handoverDate) facts.push(`handover ${d.delivery.handoverDate}`);
+  if (facts.length) parts.push(facts.join(" · "));
+  if (d.description) parts.push(d.description);
+  return parts.join("\n\n");
+}
+
+const COMPAT_TOOLS: ToolDef[] = [
+  {
+    name: "search",
+    description:
+      "Search DM Global's property inventory and return matching listings as " +
+      "{id, title, url} results (OpenAI/ChatGPT deep-research compatible). " +
+      "`id` is the listing slug — pass it to `fetch` for full detail.",
+    inputSchema: {
+      type: "object",
+      properties: { query: str("What to search for (natural language)") },
+      required: ["query"],
+      additionalProperties: false,
+    },
+    handler: async (a, ctx) => {
+      const res = (await getJson(
+        ctx,
+        `/search${qs({ q: a.query, limit: 15 })}`,
+      )) as { data?: Array<Record<string, unknown>> };
+      const results = (res.data ?? []).map((r) => {
+        const title = [r.title, r.community, r.developer]
+          .filter(Boolean)
+          .join(" — ");
+        return {
+          id: String(r.slug ?? ""),
+          title: title || String(r.title ?? r.slug ?? "Listing"),
+          url: String(r.url ?? `${ctx.base}/properties/${r.slug}`),
+        };
+      });
+      return { results };
+    },
+  },
+  {
+    name: "fetch",
+    description:
+      "Fetch one DM Global listing by its id (slug) and return its full " +
+      "content as {id, title, text, url, metadata} (OpenAI/ChatGPT compatible).",
+    inputSchema: {
+      type: "object",
+      properties: { id: str("The listing slug returned by `search`") },
+      required: ["id"],
+      additionalProperties: false,
+    },
+    handler: async (a, ctx) => {
+      const slug = encodeURIComponent(String(a.id));
+      let d: Detail;
+      try {
+        d = (await getJson(ctx, `/properties/${slug}`)) as Detail;
+      } catch {
+        // Fall back to a project (off-plan development) with the same slug.
+        d = (await getJson(ctx, `/projects/${slug}`)) as Detail;
+      }
+      return {
+        id: String(a.id),
+        title: d.title ?? String(a.id),
+        text: detailText(d),
+        url: detailUrl(ctx, String(a.id), d),
+        metadata: {
+          price: d.price ?? null,
+          community: d.community?.name ?? null,
+          developer: d.developer?.name ?? null,
+          offPlan: d.offPlan ?? null,
+        },
+      };
+    },
+  },
+];
+
+TOOLS.push(...COMPAT_TOOLS);
+
 export const TOOL_MAP = new Map(TOOLS.map((t) => [t.name, t]));
