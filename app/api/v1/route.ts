@@ -19,6 +19,7 @@ export function GET() {
     documentation: `${SITE_URL}/api-docs`,
     agentCard: `${SITE_URL}/.well-known/agent-card.json`,
     a2a: `${SITE_URL}/api/a2a`,
+    mcp: `${SITE_URL}/api/mcp`,
     endpoints: {
       search: `${base}/search`,
       properties: `${base}/properties`,
