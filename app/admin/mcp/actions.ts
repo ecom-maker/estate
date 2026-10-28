@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { assertAuthenticated } from "@/lib/rbac/guards";
 import { isSuperAdmin } from "@/lib/rbac/check";
 import { createMcpKey, revokeMcpKey } from "@/lib/mcp/keys";
+import { setOauthEnabled } from "@/lib/mcp/oauth";
 
 export type McpKeyState = {
   error?: string;
@@ -37,6 +38,24 @@ export async function createKeyAction(
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Failed to create key.",
+    };
+  }
+}
+
+export async function setOauthAction(
+  _prev: McpKeyState,
+  formData: FormData,
+): Promise<McpKeyState> {
+  if (!(await requireSuperAdmin())) {
+    return { error: "Only super-admins can change OAuth settings." };
+  }
+  try {
+    await setOauthEnabled(String(formData.get("enabled")) === "true");
+    revalidatePath("/admin/mcp");
+    return {};
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to update OAuth.",
     };
   }
 }

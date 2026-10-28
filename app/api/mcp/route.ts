@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { TOOLS, TOOL_MAP, type ToolContext } from "@/lib/mcp/tools";
 import { mcpAuthEnabled, verifyMcpKey } from "@/lib/mcp/keys";
+import { oauthEnabled, verifyAccessToken } from "@/lib/mcp/oauth";
+import { getRequestSiteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -42,15 +44,39 @@ function rpcError(id: RpcId, code: number, message: string) {
 async function authClient(
   request: Request,
 ): Promise<{ ok: boolean; clientId: string }> {
-  if (!(await mcpAuthEnabled())) return { ok: true, clientId: "anonymous" };
+  const [keysEnabled, oauthOn] = await Promise.all([
+    mcpAuthEnabled(),
+    oauthEnabled(),
+  ]);
+  if (!keysEnabled && !oauthOn) return { ok: true, clientId: "anonymous" };
 
   const header = request.headers.get("authorization") ?? "";
   const bearer = header.toLowerCase().startsWith("bearer ")
     ? header.slice(7).trim()
     : null;
+
+  // Prefer an OAuth access token (JWT), then fall back to an API key.
+  if (bearer && oauthOn) {
+    const payload = await verifyAccessToken(bearer);
+    if (payload) {
+      return {
+        ok: true,
+        clientId: `oauth:${payload.client_id ?? payload.sub ?? "user"}`,
+      };
+    }
+  }
   const url = new URL(request.url);
   const key = bearer ?? url.searchParams.get("key") ?? "";
   return verifyMcpKey(key);
+}
+
+/** 401 challenge headers that point MCP clients at the OAuth metadata. */
+async function challengeHeaders(): Promise<Record<string, string>> {
+  const base = await getRequestSiteUrl();
+  return {
+    ...CORS,
+    "WWW-Authenticate": `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`,
+  };
 }
 
 /** Best-effort usage log — never blocks or fails a tool call. */
@@ -180,9 +206,10 @@ export async function GET() {
       protocolVersion: PROTOCOL_VERSION,
       transport: "Send JSON-RPC requests via HTTP POST to this URL.",
       tools: TOOLS.map((t) => t.name),
-      authentication: (await mcpAuthEnabled())
-        ? "Bearer API key required (Authorization header or ?key=)."
-        : "Open (read-only public data).",
+      authentication:
+        (await mcpAuthEnabled()) || (await oauthEnabled())
+          ? "Authentication required (OAuth bearer token or API key)."
+          : "Open (read-only public data).",
     },
     { headers: CORS },
   );
@@ -193,7 +220,7 @@ export async function POST(request: Request) {
   if (!auth.ok) {
     return Response.json(rpcError(null, -32001, "Unauthorized"), {
       status: 401,
-      headers: CORS,
+      headers: await challengeHeaders(),
     });
   }
 

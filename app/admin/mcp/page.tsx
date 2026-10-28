@@ -4,8 +4,10 @@ import { auth } from "@/lib/auth";
 import { isSuperAdmin } from "@/lib/rbac/check";
 import { SITE_URL } from "@/lib/data-layer/canonical";
 import { listMcpKeys, mcpAuthEnabled } from "@/lib/mcp/keys";
+import { oauthEnabled } from "@/lib/mcp/oauth";
 import { getMcpUsage } from "@/lib/mcp/usage";
 import { KeyManager } from "./key-manager";
+import { OauthToggle } from "./oauth-toggle";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "MCP server" };
@@ -24,9 +26,10 @@ export default async function AdminMcpPage() {
   const roles = (session?.user as { roles?: string[] } | undefined)?.roles;
   if (!isSuperAdmin(roles)) notFound();
 
-  const [keys, enabled, usage] = await Promise.all([
+  const [keys, enabled, oauthOn, usage] = await Promise.all([
     listMcpKeys(),
     mcpAuthEnabled(),
+    oauthEnabled(),
     getMcpUsage(),
   ]);
 
@@ -52,6 +55,26 @@ export default async function AdminMcpPage() {
         <Stat label="Tool calls (all time)" value={String(usage.total)} />
         <Stat label="Last 7 days" value={String(usage.last7d)} />
         <Stat label="Errors (7 days)" value={String(usage.errors7d)} />
+      </div>
+
+      <div className="mt-8 rounded-sm border border-border bg-card p-5">
+        <h2 className="font-serif text-xl text-primary">
+          Web connector (OAuth)
+        </h2>
+        <p className="mt-1 text-sm text-muted">
+          Turn this on to let Claude’s one-click “Add custom connector” flow
+          sign in via OAuth. While on, the MCP endpoint requires a token — so
+          anonymous access stops and CLI clients must use an API key.
+        </p>
+        <div className="mt-3">
+          <OauthToggle enabled={oauthOn} />
+        </div>
+        {oauthOn ? (
+          <p className="mt-3 text-xs text-muted">
+            Discovery: <code>{SITE_URL}/.well-known/oauth-protected-resource</code>{" "}
+            · <code>{SITE_URL}/.well-known/oauth-authorization-server</code>
+          </p>
+        ) : null}
       </div>
 
       <h2 className="mt-12 font-serif text-2xl text-primary">API keys</h2>
