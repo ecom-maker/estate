@@ -23,13 +23,30 @@ const REFRESH_TTL = "30d";
 const CODE_TTL_MS = 5 * 60 * 1000;
 
 function secret(): Uint8Array | null {
-  const s = process.env.AUTH_SECRET || process.env.ENCRYPTION_KEY;
+  // Same resolution as NextAuth (lib/auth): AUTH_SECRET, then NEXTAUTH_SECRET,
+  // with ENCRYPTION_KEY as a last resort. Mismatching this silently disables
+  // OAuth (oauthEnabled() returns false when no secret is found).
+  const s =
+    process.env.AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    process.env.ENCRYPTION_KEY;
   return s ? new TextEncoder().encode(s) : null;
 }
 
+/** Whether a token-signing secret is configured (required for OAuth to work). */
+export function oauthSecretAvailable(): boolean {
+  return secret() !== null;
+}
+
+/** The stored on/off flag, independent of whether a secret is present. */
+export async function oauthFlagOn(): Promise<boolean> {
+  return (await kvGet<boolean>(ENABLED_KEY, false)) === true;
+}
+
+/** True only when the flag is on AND a signing secret exists. */
 export async function oauthEnabled(): Promise<boolean> {
   if (secret() === null) return false;
-  return (await kvGet<boolean>(ENABLED_KEY, false)) === true;
+  return oauthFlagOn();
 }
 
 export async function setOauthEnabled(on: boolean): Promise<void> {

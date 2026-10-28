@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { isSuperAdmin } from "@/lib/rbac/check";
 import { SITE_URL } from "@/lib/data-layer/canonical";
 import { listMcpKeys, mcpAuthEnabled } from "@/lib/mcp/keys";
-import { oauthEnabled } from "@/lib/mcp/oauth";
+import { oauthFlagOn, oauthSecretAvailable } from "@/lib/mcp/oauth";
 import { getMcpUsage } from "@/lib/mcp/usage";
 import { KeyManager } from "./key-manager";
 import { OauthToggle } from "./oauth-toggle";
@@ -29,9 +29,10 @@ export default async function AdminMcpPage() {
   const [keys, enabled, oauthOn, usage] = await Promise.all([
     listMcpKeys(),
     mcpAuthEnabled(),
-    oauthEnabled(),
+    oauthFlagOn(),
     getMcpUsage(),
   ]);
+  const secretOk = oauthSecretAvailable();
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-28 md:px-10">
@@ -69,7 +70,14 @@ export default async function AdminMcpPage() {
         <div className="mt-3">
           <OauthToggle enabled={oauthOn} />
         </div>
-        {oauthOn ? (
+        {oauthOn && !secretOk ? (
+          <p className="mt-3 rounded-sm border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            OAuth is switched on but no token-signing secret
+            (<code>AUTH_SECRET</code>) was found in the environment, so it stays
+            inactive. Set AUTH_SECRET in the deployment and redeploy.
+          </p>
+        ) : null}
+        {oauthOn && secretOk ? (
           <p className="mt-3 text-xs text-muted">
             Discovery: <code>{SITE_URL}/.well-known/oauth-protected-resource</code>{" "}
             · <code>{SITE_URL}/.well-known/oauth-authorization-server</code>
