@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { auth } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/rbac/check";
 import { type DeveloperRowData } from "./developer-row";
 import { DevelopersList } from "./developers-list";
 
@@ -7,6 +10,11 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Developers" };
 
 export default async function AdminDevelopersPage() {
+  // Super-admins only. Other staff admins get a 404 rather than the page.
+  const session = await auth();
+  const roles = (session?.user as { roles?: string[] } | undefined)?.roles;
+  if (!isSuperAdmin(roles)) notFound();
+
   let developers: DeveloperRowData[] = [];
   // The contact/NOC columns ship in a migration (20261027120000_developer_contact).
   // Until it's applied, selecting them throws — fall back to names only and warn.

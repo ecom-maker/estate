@@ -103,6 +103,9 @@ export default async function ProjectDetailPage({ params }: Props) {
     ).trim() || null;
   // NOC (No Objection Certificate) document, shown as a link when uploaded.
   const nocUrl = project.documents[0]?.url ?? null;
+  // Developer contact, surfaced when the developer has email/phone on file.
+  const devEmail = project.developer?.email?.trim() || null;
+  const devPhone = project.developer?.phone?.trim() || null;
   const bedSummary = unitGroups.length
     ? unitGroups.length === 1
       ? unitGroups[0].label
@@ -295,6 +298,31 @@ export default async function ProjectDetailPage({ params }: Props) {
           </svg>
           No Objection Certificate (NOC)
         </a>
+      ) : null}
+
+      {project.developer && (devEmail || devPhone) ? (
+        <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <span className="font-medium text-primary">
+            {project.developer.name}
+          </span>
+          {devEmail ? (
+            <a
+              href={`mailto:${devEmail}`}
+              className="text-accent hover:underline"
+            >
+              {devEmail}
+            </a>
+          ) : null}
+          {devEmail && devPhone ? <span aria-hidden>·</span> : null}
+          {devPhone ? (
+            <a
+              href={`tel:${devPhone.replace(/\s+/g, "")}`}
+              className="text-accent hover:underline"
+            >
+              {devPhone}
+            </a>
+          ) : null}
+        </p>
       ) : null}
 
       <ProjectGallery

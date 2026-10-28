@@ -9,6 +9,11 @@ export function isAdmin(roles: string[] | undefined): boolean {
   return roles.some((r) => (ADMIN_ROLES as readonly string[]).includes(r));
 }
 
+/** True only for SUPER_ADMIN (gates super-admin-only areas like Developers). */
+export function isSuperAdmin(roles: string[] | undefined): boolean {
+  return Boolean(roles?.includes("SUPER_ADMIN"));
+}
+
 export function hasPermission(
   roles: string[] | undefined,
   permission: Permission,

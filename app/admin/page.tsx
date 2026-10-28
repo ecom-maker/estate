@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db/prisma";
 import { auth } from "@/lib/auth";
+import { isSuperAdmin } from "@/lib/rbac/check";
 import { countContacts } from "@/lib/admin/contacts";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,10 @@ export default async function AdminPage() {
   // the Leads / Sell leads page.
   const session = await auth();
   const userId = (session?.user as { id?: string } | undefined)?.id ?? null;
+  // The Developers tile/link is super-admin-only.
+  const superAdmin = isSuperAdmin(
+    (session?.user as { roles?: string[] } | undefined)?.roles,
+  );
   let seenLeads = 0;
   let seenSell = 0;
   if (userId) {
@@ -38,7 +43,9 @@ export default async function AdminPage() {
     { label: "Active listings", value: "—", href: "/admin/properties?filter=active" },
     { label: "Sell leads", value: "—", href: "/admin/sell-leads" },
     { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
-    { label: "Developers", value: "—", href: "/admin/developers" },
+    superAdmin
+      ? { label: "Developers", value: "—", href: "/admin/developers" }
+      : { label: "Knowledge documents", value: "—", href: "/admin/knowledge-base" },
     { label: "AI usage (all)", value: "—", href: "/admin/ai" },
     { label: "Contacts", value: "—", href: "/admin/contacts" },
     { label: "Calendar", value: "Viewings", href: "/admin/calendar" },
@@ -49,6 +56,7 @@ export default async function AdminPage() {
       projects,
       active,
       developers,
+      knowledgeDocs,
       aiLogs,
       contacts,
       leadsCount,
@@ -59,6 +67,7 @@ export default async function AdminPage() {
       prisma.property.count({ where: { deletedAt: null, offPlan: true } }),
       prisma.property.count({ where: { deletedAt: null, status: "ACTIVE" } }),
       prisma.developer.count(),
+      prisma.knowledgeDocument.count({ where: { deletedAt: null } }),
       prisma.aiLog.count(),
       countContacts(),
       prisma.lead.count(),
@@ -79,7 +88,9 @@ export default async function AdminPage() {
       { label: "Active listings", value: String(active), href: "/admin/properties?filter=active" },
       { label: "Sell leads", value: String(sellCount), href: "/admin/sell-leads", alert: sellNew },
       { label: "API sync status", value: "Healthy", href: "/admin/api-connectors" },
-      { label: "Developers", value: String(developers), href: "/admin/developers" },
+      superAdmin
+        ? { label: "Developers", value: String(developers), href: "/admin/developers" }
+        : { label: "Knowledge documents", value: String(knowledgeDocs), href: "/admin/knowledge-base" },
       { label: "AI usage (all)", value: String(aiLogs), href: "/admin/ai" },
       { label: "Contacts", value: String(contacts), href: "/admin/contacts" },
       { label: "Calendar", value: "Viewings", href: "/admin/calendar" },
@@ -88,12 +99,14 @@ export default async function AdminPage() {
     // keep placeholders
   }
 
-  const links = [
+  const links: [string, string][] = [
     ["Projects / Properties", "/admin/properties"],
     ["Units", "/admin/units"],
     ["Contacts", "/admin/contacts"],
     ["Admin contacts", "/admin/users"],
-    ["Developers", "/admin/developers"],
+    ...(superAdmin
+      ? ([["Developers", "/admin/developers"]] as [string, string][])
+      : []),
     ["Properties", "/admin/properties?filter=ready"],
     ["AI conversations", "/admin/ai"],
     ["AI agents (CRM)", "/admin/agents"],
@@ -102,7 +115,7 @@ export default async function AdminPage() {
     ["API Connectors", "/admin/api-connectors"],
     ["Analytics", "/admin/analytics"],
     ["Settings", "/admin"],
-  ] as const;
+  ];
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-28 md:px-10">

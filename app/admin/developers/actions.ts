@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
-import { assertPermission } from "@/lib/rbac/guards";
+import { assertAuthenticated } from "@/lib/rbac/guards";
+import { isSuperAdmin } from "@/lib/rbac/check";
 import { getSupabaseAdmin, uploadObject } from "@/lib/storage/supabase";
 
 export type DeveloperFormState = { error?: string; ok?: boolean };
@@ -24,9 +25,11 @@ export async function saveDeveloper(
   formData: FormData,
 ): Promise<DeveloperFormState> {
   try {
-    await assertPermission("properties.update");
+    const session = await assertAuthenticated();
+    const roles = (session.user as { roles?: string[] }).roles;
+    if (!isSuperAdmin(roles)) throw new Error("FORBIDDEN");
   } catch {
-    return { error: "You don't have permission to edit developers." };
+    return { error: "Only super-admins can edit developers." };
   }
 
   const email = String(formData.get("email") ?? "").trim() || null;
