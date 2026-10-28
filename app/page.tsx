@@ -37,10 +37,8 @@ export default function HomePage() {
         {/* Search sits directly below the logo. */}
         <div className="mt-8">
           <HeroChatBar />
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <AskAiOnWhatsApp />
-          </div>
-          <div className="mt-4">
             <ConnectMcp />
           </div>
         </div>
