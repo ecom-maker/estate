@@ -49,6 +49,9 @@ export default async function AdminPage() {
     { label: "AI usage (all)", value: "—", href: "/admin/ai" },
     { label: "Contacts", value: "—", href: "/admin/contacts" },
     { label: "Calendar", value: "Viewings", href: "/admin/calendar" },
+    ...(superAdmin
+      ? [{ label: "MCP usage (7d)", value: "—", href: "/admin/mcp" }]
+      : []),
   ];
 
   try {
@@ -63,6 +66,7 @@ export default async function AdminPage() {
       newestLead,
       sellCount,
       newestSell,
+      mcpCalls7d,
     ] = await Promise.all([
       prisma.property.count({ where: { deletedAt: null, offPlan: true } }),
       prisma.property.count({ where: { deletedAt: null, status: "ACTIVE" } }),
@@ -77,6 +81,13 @@ export default async function AdminPage() {
         where: { action: "sell_lead" },
         orderBy: { createdAt: "desc" },
         select: { createdAt: true },
+      }),
+      // MCP tool calls in the last 7 days (super-admin tile).
+      prisma.auditLog.count({
+        where: {
+          action: "mcp_call",
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
       }),
     ]);
     // Red until the admin opens the respective page (newest arrival > last seen).
@@ -94,6 +105,9 @@ export default async function AdminPage() {
       { label: "AI usage (all)", value: String(aiLogs), href: "/admin/ai" },
       { label: "Contacts", value: String(contacts), href: "/admin/contacts" },
       { label: "Calendar", value: "Viewings", href: "/admin/calendar" },
+      ...(superAdmin
+        ? [{ label: "MCP usage (7d)", value: String(mcpCalls7d), href: "/admin/mcp" }]
+        : []),
     ];
   } catch {
     // keep placeholders
@@ -105,7 +119,10 @@ export default async function AdminPage() {
     ["Contacts", "/admin/contacts"],
     ["Admin contacts", "/admin/users"],
     ...(superAdmin
-      ? ([["Developers", "/admin/developers"]] as [string, string][])
+      ? ([
+          ["Developers", "/admin/developers"],
+          ["MCP server", "/admin/mcp"],
+        ] as [string, string][])
       : []),
     ["Properties", "/admin/properties?filter=ready"],
     ["AI conversations", "/admin/ai"],

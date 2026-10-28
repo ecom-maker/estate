@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { TOOLS, TOOL_MAP, type ToolContext } from "@/lib/mcp/tools";
+import { mcpAuthEnabled, verifyMcpKey } from "@/lib/mcp/keys";
 
 export const dynamic = "force-dynamic";
 
@@ -33,17 +34,15 @@ function rpcError(id: RpcId, code: number, message: string) {
 }
 
 /**
- * Optional API-key gate. When MCP_API_KEYS (comma-separated) is set, a request
- * must carry a matching key via `Authorization: Bearer <key>` or `?key=`. When
- * it's unset the server is open (read-only public data). Returns the caller's
- * client id for logging, or null when rejected.
+ * API-key gate. Auth is enforced as soon as any active key exists (created in
+ * the admin UI) or MCP_API_KEYS is set; otherwise the server is open (read-only
+ * public data). Keys are presented via `Authorization: Bearer <key>` or `?key=`.
+ * Returns the caller's client id for logging, or ok=false when rejected.
  */
-function authClient(request: Request): { ok: boolean; clientId: string } {
-  const configured = (process.env.MCP_API_KEYS ?? "")
-    .split(",")
-    .map((k) => k.trim())
-    .filter(Boolean);
-  if (configured.length === 0) return { ok: true, clientId: "anonymous" };
+async function authClient(
+  request: Request,
+): Promise<{ ok: boolean; clientId: string }> {
+  if (!(await mcpAuthEnabled())) return { ok: true, clientId: "anonymous" };
 
   const header = request.headers.get("authorization") ?? "";
   const bearer = header.toLowerCase().startsWith("bearer ")
@@ -51,10 +50,7 @@ function authClient(request: Request): { ok: boolean; clientId: string } {
     : null;
   const url = new URL(request.url);
   const key = bearer ?? url.searchParams.get("key") ?? "";
-  if (key && configured.includes(key)) {
-    return { ok: true, clientId: `key:${key.slice(0, 6)}` };
-  }
-  return { ok: false, clientId: "rejected" };
+  return verifyMcpKey(key);
 }
 
 /** Best-effort usage log — never blocks or fails a tool call. */
@@ -175,7 +171,7 @@ export function OPTIONS() {
 }
 
 /** Human/agent discovery when the endpoint is opened directly. */
-export function GET() {
+export async function GET() {
   return Response.json(
     {
       name: SERVER.name,
@@ -184,17 +180,16 @@ export function GET() {
       protocolVersion: PROTOCOL_VERSION,
       transport: "Send JSON-RPC requests via HTTP POST to this URL.",
       tools: TOOLS.map((t) => t.name),
-      authentication:
-        (process.env.MCP_API_KEYS ?? "").trim().length > 0
-          ? "Bearer API key required (Authorization header or ?key=)."
-          : "Open (read-only public data).",
+      authentication: (await mcpAuthEnabled())
+        ? "Bearer API key required (Authorization header or ?key=)."
+        : "Open (read-only public data).",
     },
     { headers: CORS },
   );
 }
 
 export async function POST(request: Request) {
-  const auth = authClient(request);
+  const auth = await authClient(request);
   if (!auth.ok) {
     return Response.json(rpcError(null, -32001, "Unauthorized"), {
       status: 401,
