@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { effectiveOffPlan } from "@/lib/property/handover";
 
 /**
  * Canonical Property Data Layer
@@ -71,6 +72,10 @@ function coordinates(lat: number | null, lng: number | null) {
 export function toCanonicalProperty(p: CanonicalPropertyRecord) {
   const meta = (p.metadata ?? {}) as Meta;
   const url = `${SITE_URL}/properties/${p.slug}`;
+  // A delivered project (handover in the past) is completed, even if a stale
+  // import still flags it off-plan. See lib/property/handover.ts.
+  const offPlan = effectiveOffPlan(p.offPlan, p.metadata);
+  const ready = !offPlan;
 
   return {
     "@id": url,
@@ -85,8 +90,8 @@ export function toCanonicalProperty(p: CanonicalPropertyRecord) {
 
     status: {
       listing: p.status,
-      offPlan: p.offPlan,
-      ready: p.ready,
+      offPlan,
+      ready,
       availability: p.availability,
       reraStatus: p.reraStatus,
       handoverDate: meta.handoverDate ?? null,
@@ -217,6 +222,8 @@ export type CanonicalSummaryRecord = Prisma.PropertyGetPayload<{
 export function toCanonicalPropertySummary(p: CanonicalSummaryRecord) {
   const meta = (p.metadata ?? {}) as Meta;
   const url = `${SITE_URL}/properties/${p.slug}`;
+  const offPlan = effectiveOffPlan(p.offPlan, p.metadata);
+  const ready = !offPlan;
   return {
     "@id": url,
     id: p.id,
@@ -229,8 +236,8 @@ export function toCanonicalPropertySummary(p: CanonicalSummaryRecord) {
     bedrooms: p.bedrooms,
     bathrooms: p.bathrooms,
     areaSqft: p.areaSqft,
-    offPlan: p.offPlan,
-    ready: p.ready,
+    offPlan,
+    ready,
     community: p.community?.name ?? null,
     developer: p.developer?.name ?? null,
     image: p.images[0]?.url ?? null,

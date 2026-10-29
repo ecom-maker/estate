@@ -10,7 +10,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
 import { cn, formatAED } from "@/lib/utils";
-import { handoverLabel } from "@/lib/property/handover";
+import { handoverLabel, effectiveOffPlan } from "@/lib/property/handover";
 import { unitIdFromParam, unitSlug } from "@/lib/property/unit-url";
 import {
   buildListingSlug,
@@ -125,8 +125,10 @@ export default async function UnitDetailPage({
 
   // Delivery badge: off-plan with handover date, or completed with the
   // completion date when it's on file (metadata.handoverDate / completionLabel).
+  // Past handover ⇒ completed, even if a stale import still flags it off-plan.
+  const unitOffPlan = effectiveOffPlan(p.offPlan, p.metadata);
   const delivery = {
-    label: p.offPlan ? "Off-plan" : "Completed",
+    label: unitOffPlan ? "Off-plan" : "Completed",
     date:
       handoverLabel(p.metadata) ??
       (p.metadata as { completionLabel?: string | null } | null)
@@ -324,7 +326,7 @@ export default async function UnitDetailPage({
           <span
             className={cn(
               "rounded-full px-2.5 py-0.5 text-[11px] font-medium",
-              p.offPlan ? "bg-accent/90 text-white" : "bg-primary/10 text-primary",
+              unitOffPlan ? "bg-accent/90 text-white" : "bg-primary/10 text-primary",
             )}
           >
             {delivery.label}
@@ -498,7 +500,7 @@ export default async function UnitDetailPage({
             bedrooms: unit.bedrooms,
             priceAed: unit.priceAed,
             areaSqft: unit.areaSqft,
-            offPlan: p.offPlan,
+            offPlan: unitOffPlan,
             images: p.images,
             community: p.community,
             developer: p.developer,

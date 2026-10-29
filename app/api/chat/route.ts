@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { effectiveOffPlan } from "@/lib/property/handover";
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { extractSearchIntent, isRealEstateQuery } from "@/lib/ai/intent";
@@ -213,7 +214,9 @@ export async function POST(request: Request) {
           `Specs: ${bedroomsText(property) ?? "—"} · ${property.bathrooms ?? "—"} bath · ${isStartingFigure(property) ? "from " : ""}${property.areaSqft ?? "—"} sqft`,
           property.community ? `Community: ${property.community.name}` : null,
           property.developer ? `Developer: ${property.developer.name}` : null,
-          property.offPlan ? "Status: off-plan" : "Status: ready / completed",
+          effectiveOffPlan(property.offPlan, property.metadata)
+            ? "Status: off-plan"
+            : "Status: ready / completed",
           property.rentalYield != null
             ? `Rental yield on file: ${property.rentalYield}%`
             : "Rental yield: not available.",

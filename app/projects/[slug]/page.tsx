@@ -17,6 +17,7 @@ import { communityLabel } from "@/lib/property/location";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { ShareSaveBar } from "@/components/property/share-save-bar";
+import { effectiveOffPlan } from "@/lib/property/handover";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
 import { formatKm } from "@/lib/property/nearby";
@@ -89,6 +90,9 @@ export default async function ProjectDetailPage({ params }: Props) {
   if (!project) notFound();
   const unitGroups = buildUnitGroups(project);
   const handover = handoverLabel(project.metadata);
+  // Off-plan only while the handover is still ahead; a past handover means the
+  // project is completed, even if a stale import still flags it off-plan.
+  const isOffPlan = effectiveOffPlan(project.offPlan, project.metadata);
   // Service charge is a free-text string on the project metadata, shown only
   // when it's on file.
   const serviceCharge =
@@ -117,7 +121,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     ["Handover", handover ?? "TBA"],
     ["Starting price", `from ${formatAED(project.priceAed)}`],
     ["Unit types", bedSummary],
-    ["Status", project.offPlan ? "Off-plan" : "Ready"],
+    ["Status", isOffPlan ? "Off-plan" : "Ready"],
     ...(parking ? ([["Parking", parking]] as [string, string][]) : []),
   ];
 
@@ -150,7 +154,7 @@ export default async function ProjectDetailPage({ params }: Props) {
   })();
   const projectFaqs = buildProjectFaqs({
     title: project.title,
-    offPlan: project.offPlan,
+    offPlan: isOffPlan,
     startingPriceAed: project.priceAed,
     developerName: project.developer?.name ?? null,
     handoverLabel: handover,
@@ -262,12 +266,12 @@ export default async function ProjectDetailPage({ params }: Props) {
         <span
           className={cn(
             "rounded-full px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
-            project.offPlan
+            isOffPlan
               ? "bg-accent/15 text-accent"
               : "bg-primary/10 text-primary",
           )}
         >
-          {project.offPlan ? "Off-plan" : "Ready"}
+          {isOffPlan ? "Off-plan" : "Ready"}
         </span>
         {parking ? (
           <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
@@ -493,7 +497,7 @@ export default async function ProjectDetailPage({ params }: Props) {
           <UnitsSection
             category={project.type}
             groups={unitGroups}
-            fromDeveloper={project.offPlan}
+            fromDeveloper={isOffPlan}
           />
 
           {/* Recorded DLD transactions + price trend for comparable units */}
@@ -507,7 +511,7 @@ export default async function ProjectDetailPage({ params }: Props) {
               bedrooms: project.bedrooms,
               priceAed: project.priceAed,
               areaSqft: project.areaSqft,
-              offPlan: project.offPlan,
+              offPlan: isOffPlan,
               images: project.images,
               community: project.community,
               developer: project.developer,

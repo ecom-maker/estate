@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
-import { handoverLabel } from "@/lib/property/handover";
+import { handoverLabel, effectiveOffPlan } from "@/lib/property/handover";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
 import { unitMatchesDeal } from "@/lib/property/deal";
@@ -77,7 +77,10 @@ function deliveryBadge(
 ): { label: string; date: string | null } {
   const meta = (metadata ?? {}) as { completionLabel?: string | null };
   const date = handoverLabel(metadata) ?? meta.completionLabel?.trim() ?? null;
-  return { label: offPlan ? "Off-plan" : "Completed", date };
+  return {
+    label: effectiveOffPlan(offPlan, metadata) ? "Off-plan" : "Completed",
+    date,
+  };
 }
 
 export default async function PropertiesPage({

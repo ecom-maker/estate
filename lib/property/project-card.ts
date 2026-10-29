@@ -1,4 +1,5 @@
 import { buildUnitGroups } from "@/lib/property/unit-groups";
+import { effectiveOffPlan } from "@/lib/property/handover";
 
 export type ProjectBedConfig = {
   label: string; // "1 Bed", "Studio"
@@ -162,7 +163,7 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
     communityEmirate: p.community?.emirate ?? null,
     imageUrl: img?.url ?? null,
     imageAlt: img?.alt ?? p.title,
-    offPlan: p.offPlan,
+    offPlan: effectiveOffPlan(p.offPlan, p.metadata),
     handover: handoverLabel(p.metadata),
     startingPriceAed,
     beds,

@@ -4,6 +4,7 @@ import { extractSearchIntent } from "@/lib/ai/intent";
 import { searchProperties } from "@/lib/search/search-service";
 import type { SearchIntent } from "@/lib/validation/search-intent";
 import { SITE_URL } from "@/lib/data-layer/canonical";
+import { effectiveOffPlan } from "@/lib/property/handover";
 
 export const dynamic = "force-dynamic";
 const TYPES = ["villa", "apartment", "penthouse", "townhouse", "unit", "land"];
@@ -63,7 +64,7 @@ export async function GET(request: Request) {
         bedrooms: p.bedrooms,
         bathrooms: p.bathrooms,
         areaSqft: p.areaSqft,
-        offPlan: p.offPlan,
+        offPlan: effectiveOffPlan(p.offPlan, p.metadata),
         community: p.community?.name ?? null,
         developer: p.developer?.name ?? null,
         image: p.images?.[0]?.url ?? null,
