@@ -9,13 +9,14 @@ import { BackfillCommunitiesButton } from "@/components/admin/backfill-communiti
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin Properties" };
 
-type Filter = "all" | "ready" | "offplan" | "active";
+type Filter = "all" | "ready" | "offplan" | "active" | "partners";
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "ready", label: "Properties" },
   { key: "offplan", label: "Projects (off-plan)" },
   { key: "active", label: "Active" },
+  { key: "partners", label: "Partner submissions" },
 ];
 
 function whereForFilter(filter: Filter): Prisma.PropertyWhereInput {
@@ -23,6 +24,8 @@ function whereForFilter(filter: Filter): Prisma.PropertyWhereInput {
   if (filter === "ready") return { ...base, offPlan: false };
   if (filter === "offplan") return { ...base, offPlan: true };
   if (filter === "active") return { ...base, status: "ACTIVE" };
+  if (filter === "partners")
+    return { ...base, source: { startsWith: "partner:" } };
   return base;
 }
 
@@ -55,7 +58,11 @@ export default async function AdminPropertiesPage({
     priceAed: number | null;
     bedrooms: number | null;
     community: { name: string } | null;
+    source: string | null;
+    metadata: unknown;
   }> = [];
+
+  const isPartners = filter === "partners";
 
   // The list is capped at 100 rows, so the heading uses a real count rather
   // than the array length — otherwise it would read "100 listings" forever.
@@ -167,7 +174,7 @@ export default async function AdminPropertiesPage({
               <th>Beds</th>
               <th>Price</th>
               <th>Status</th>
-              <th>Created by</th>
+              {isPartners ? <th>Partner</th> : <th>Created by</th>}
               <th className="px-4">Actions</th>
             </tr>
           </thead>
@@ -194,7 +201,16 @@ export default async function AdminPropertiesPage({
                   <td>{property.bedrooms ?? "—"}</td>
                   <td>{formatAED(property.priceAed)}</td>
                   <td>{property.status}</td>
-                  <td className="text-muted">{createdBy}</td>
+                  {isPartners ? (
+                    <td className="text-muted">
+                      {(property.metadata as { partner?: string } | null)
+                        ?.partner ??
+                        property.source?.replace(/^partner:/, "") ??
+                        "—"}
+                    </td>
+                  ) : (
+                    <td className="text-muted">{createdBy}</td>
+                  )}
                   <td className="px-4">
                     {canEdit ? (
                       <Link
