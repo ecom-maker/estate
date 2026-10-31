@@ -228,6 +228,7 @@ model Community {
   name        String
   slug        String     @unique
   description String?    @db.Text
+  country     String?
   city        String?
   emirate     String?
   latitude    Float?
@@ -258,6 +259,9 @@ model Property {
   /// AI-written key points, a JSON array of strings.
   highlights          Json?
   priceAed            Float?         @map("price_aed")
+  priceNative         Float?         @map("price_native")
+  currency            String         @default("AED")
+  country             String?
   areaSqft            Float?         @map("area_sqft")
   plotAreaSqft        Float?         @map("plot_area_sqft")
   bedrooms            Int?

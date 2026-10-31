@@ -97,9 +97,11 @@ export function toCanonicalProperty(p: CanonicalPropertyRecord) {
       handoverDate: meta.handoverDate ?? null,
     },
 
+    country: p.country ?? "AE",
     price: {
-      currency: "AED",
-      amount: p.priceAed,
+      currency: p.currency ?? "AED",
+      amount: p.priceNative ?? p.priceAed,
+      amountAed: p.priceAed,
       rentalYieldPct: p.rentalYield,
     },
 
@@ -232,12 +234,17 @@ export function toCanonicalPropertySummary(p: CanonicalSummaryRecord) {
     title: p.title,
     propertyType: p.type.toLowerCase(),
     dealType: meta.dealType === "rent" ? "rent" : "sale",
-    price: { currency: "AED", amount: p.priceAed },
     bedrooms: p.bedrooms,
     bathrooms: p.bathrooms,
     areaSqft: p.areaSqft,
     offPlan,
     ready,
+    country: p.country ?? "AE",
+    price: {
+      currency: p.currency ?? "AED",
+      amount: p.priceNative ?? p.priceAed,
+      amountAed: p.priceAed,
+    },
     community: p.community?.name ?? null,
     developer: p.developer?.name ?? null,
     image: p.images[0]?.url ?? null,

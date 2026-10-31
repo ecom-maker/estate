@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Prisma, PropertyType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { communityForText } from "@/lib/communities/catalog";
+import { toAed } from "@/lib/currency/fx";
 
 const TYPE_MAP: Record<string, PropertyType> = {
   villa: "VILLA",
@@ -24,6 +25,8 @@ export const listingSchema = z.object({
   price: z
     .object({ currency: z.string().optional(), amount: z.number().positive() })
     .optional(),
+  currency: z.string().min(3).max(3).optional(),
+  country: z.string().length(2).optional(),
   bedrooms: z.number().int().min(0).max(50).optional(),
   bathrooms: z.number().int().min(0).max(50).optional(),
   areaSqft: z.number().positive().optional(),
@@ -130,7 +133,15 @@ export async function upsertListing(
   }
 
   const source = `partner:${partner.partnerId}`;
-  const priceAed = input.priceAed ?? input.price?.amount ?? null;
+  // Native price + currency, normalized to AED for cross-country sorting.
+  const nativeAmount = input.price?.amount ?? input.priceAed ?? null;
+  const currency = (
+    input.currency ??
+    (input.price ? input.price.currency : undefined) ??
+    "AED"
+  ).toUpperCase();
+  const priceAed = nativeAmount != null ? toAed(nativeAmount, currency) : null;
+  const country = (input.country ?? "AE").toUpperCase();
   const [communityId, developerId] = await Promise.all([
     resolveCommunityId(input.community, input.title),
     resolveDeveloperId(input.developer),
@@ -158,6 +169,9 @@ export async function upsertListing(
     title: input.title,
     type,
     priceAed,
+    priceNative: nativeAmount,
+    currency,
+    country,
     bedrooms: input.bedrooms ?? null,
     bathrooms: input.bathrooms ?? null,
     areaSqft: input.areaSqft ?? null,

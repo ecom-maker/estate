@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import { ProjectImage } from "@/components/property/project-image";
 import type { ProjectCardData } from "@/lib/property/project-card";
 import { communityLabel } from "@/lib/property/location";
@@ -74,7 +74,9 @@ export function ProjectCard({ p }: { p: ProjectCardData }) {
               Starting from
             </p>
             <p className="mt-0.5 font-serif text-xl text-primary">
-              {p.startingPriceAed != null ? formatAED(p.startingPriceAed) : "—"}
+              {p.startingPrice != null
+                ? formatMoney(p.startingPrice, p.currency)
+                : "—"}
             </p>
           </div>
           <span className="rounded-md border border-border px-4 py-2 text-sm font-medium text-primary transition group-hover:border-accent group-hover:text-accent">

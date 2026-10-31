@@ -19,6 +19,8 @@ export type ProjectCardData = {
   offPlan: boolean;
   handover: string | null; // "Oct 2027"
   startingPriceAed: number | null;
+  startingPrice: number | null; // native amount for display
+  currency: string;
   beds: ProjectBedConfig[];
   bedsHeading: string; // "1, 2 & 3 Beds Available"
   bedRange: string | null; // "1 – 3 beds"
@@ -43,6 +45,8 @@ type ProjectLike = {
   bathrooms: number | null;
   areaSqft: number | null;
   priceAed: number | null;
+  priceNative: number | null;
+  currency: string;
   offPlan: boolean;
   metadata: unknown;
   developer: { name: string } | null;
@@ -153,6 +157,11 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
   const startingPriceAed = unitPrices.length
     ? Math.min(...unitPrices)
     : p.priceAed;
+  // Unit-derived prices are AED; a standalone listing shows its own currency.
+  const currency = unitPrices.length ? "AED" : p.currency ?? "AED";
+  const startingPrice = unitPrices.length
+    ? startingPriceAed
+    : p.priceNative ?? p.priceAed;
 
   return {
     id: p.id,
@@ -166,6 +175,8 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
     offPlan: effectiveOffPlan(p.offPlan, p.metadata),
     handover: handoverLabel(p.metadata),
     startingPriceAed,
+    startingPrice,
+    currency,
     beds,
     bedsHeading,
     bedRange,

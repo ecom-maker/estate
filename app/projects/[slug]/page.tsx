@@ -18,6 +18,7 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { ShareSaveBar } from "@/components/property/share-save-bar";
 import { effectiveOffPlan } from "@/lib/property/handover";
+import { formatMoney, countryName } from "@/lib/currency/fx";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
 import { formatKm } from "@/lib/property/nearby";
@@ -93,6 +94,16 @@ export default async function ProjectDetailPage({ params }: Props) {
   // Off-plan only while the handover is still ahead; a past handover means the
   // project is completed, even if a stale import still flags it off-plan.
   const isOffPlan = effectiveOffPlan(project.offPlan, project.metadata);
+  // Price shown in the listing's native currency (AED for existing UAE stock).
+  const priceLabel = formatMoney(
+    project.priceNative ?? project.priceAed,
+    project.currency,
+  );
+  // Country shown only for non-UAE listings (existing stock is UAE/implicit).
+  const countryLabel =
+    project.country && project.country !== "AE"
+      ? countryName(project.country)
+      : null;
   // Service charge is a free-text string on the project metadata, shown only
   // when it's on file.
   const serviceCharge =
@@ -119,7 +130,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     ["Developer", project.developer?.name ?? "—"],
     ["Location", communityLabel(project.community?.name, project.community?.emirate)],
     ["Handover", handover ?? "TBA"],
-    ["Starting price", `from ${formatAED(project.priceAed)}`],
+    ["Starting price", `from ${priceLabel}`],
     ["Unit types", bedSummary],
     ["Status", isOffPlan ? "Off-plan" : "Ready"],
     ...(parking ? ([["Parking", parking]] as [string, string][]) : []),
@@ -250,7 +261,7 @@ export default async function ProjectDetailPage({ params }: Props) {
           subtitle={`${communityLabel(
             project.community?.name,
             project.community?.emirate,
-          )} · from ${formatAED(project.priceAed)}`}
+          )} · from ${priceLabel}`}
           imageUrl={project.images[0]?.url ?? null}
           path={`/projects/${project.slug}`}
           className="mt-1 flex-none"
@@ -258,8 +269,8 @@ export default async function ProjectDetailPage({ params }: Props) {
       </div>
       <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg text-muted">
         <span>
-          {communityLabel(project.community?.name, project.community?.emirate)} · from{" "}
-          {formatAED(project.priceAed)}
+          {communityLabel(project.community?.name, project.community?.emirate)}
+          {countryLabel ? `, ${countryLabel}` : ""} · from {priceLabel}
           {serviceCharge ? ` · Service charge ${serviceCharge}` : ""}
           {handover ? ` · Handover ${handover}` : ""}
         </span>

@@ -114,8 +114,10 @@ export default function PartnerApiDocsPage() {
             <Field name="title" type="string" req desc="Listing headline." />
             <Field name="type" type="string" req desc="villa | apartment | penthouse | townhouse | unit | land" />
             <Field name="dealType" type="string" desc="sale (default) or rent." />
-            <Field name="price" type="{ amount }" desc="Price, e.g. { currency: 'AED', amount: 1500000 }. Or send priceAed." />
-            <Field name="priceAed" type="number" desc="Price in AED (alternative to price)." />
+            <Field name="country" type="string" desc="ISO-3166 alpha-2 country code, e.g. 'AE', 'GB', 'SA'. Defaults to AE." />
+            <Field name="price" type="{ amount }" desc="Native price, e.g. { currency: 'GBP', amount: 450000 }. Or send priceAed." />
+            <Field name="currency" type="string" desc="ISO currency code, e.g. 'AED', 'GBP', 'USD'. Defaults to AED (or price.currency)." />
+            <Field name="priceAed" type="number" desc="Price in AED (shortcut when the listing is in AED)." />
             <Field name="bedrooms" type="number" desc="Bedroom count (0 = studio)." />
             <Field name="bathrooms" type="number" desc="Bathroom count." />
             <Field name="areaSqft" type="number" desc="Built-up area in sqft." />
@@ -174,6 +176,17 @@ export default function PartnerApiDocsPage() {
     }
   ]
 }`}</Code>
+
+      <h2 className="mt-10 font-serif text-2xl text-primary">
+        Countries &amp; currency
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-muted">
+        Listings can be from any country. Send <code>country</code> (ISO-2) and
+        the native <code>currency</code> with the price. We display the price in
+        its own currency and also store an AED-normalized value so cross-country
+        sorting and price filters work. Omit them and the listing defaults to
+        AE / AED.
+      </p>
 
       <h2 className="mt-10 font-serif text-2xl text-primary">Review &amp; status</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">
