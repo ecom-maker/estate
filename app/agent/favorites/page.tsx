@@ -3,7 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
-import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import { AgentShell, EmptyState } from "@/components/agent/agent-shell";
 
 export const dynamic = "force-dynamic";
@@ -68,7 +68,7 @@ export default async function FavoritesPage() {
                     {p.areaSqft?.toLocaleString() ?? "—"} sqft
                   </p>
                   <p className="mt-2 text-sm font-medium text-primary">
-                    {formatAED(p.priceAed)}
+                    {formatMoney(p.priceNative ?? p.priceAed, p.currency)}
                   </p>
                 </div>
               </Link>

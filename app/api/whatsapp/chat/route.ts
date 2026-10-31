@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import { searchProperties } from "@/lib/search/search-service";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { failure } from "@/lib/api/response";
-import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import {
   SearchIntentSchema,
   type SearchIntent,
@@ -404,7 +404,7 @@ export async function POST(request: Request) {
                 (p, i) =>
                   `${i + 1}. *${p.title}*` +
                   (p.community?.name ? `\n   ${p.community.name}` : "") +
-                  `\n   from ${formatAED(p.priceAed)}`,
+                  `\n   from ${formatMoney(p.priceNative ?? p.priceAed, p.currency)}`,
               ),
               "",
               "Reply to refine - for example \"only waterfront\" or \"under 3M\".",

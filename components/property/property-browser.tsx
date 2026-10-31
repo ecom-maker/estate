@@ -6,7 +6,8 @@ import { ProjectImage } from "@/components/property/project-image";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
-import { cn, formatAED } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
@@ -15,6 +16,8 @@ export type BrowserCard = {
   slug: string;
   title: string;
   priceAed: number | null;
+  priceNative?: number | null;
+  currency?: string;
   bedrooms: number | null;
   bathrooms: number | null;
   areaSqft: number | null;
@@ -208,7 +211,7 @@ export function PropertyBrowser({
                       {showFromPrice || isStartingFigure(property)
                         ? "from "
                         : ""}
-                      {formatAED(property.priceAed)}
+                      {formatMoney(property.priceNative ?? property.priceAed, property.currency)}
                     </p>
                   </div>
                 </Link>

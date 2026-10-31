@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/db/prisma";
-import { cn, formatAED } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { AIChat } from "@/components/ai/ai-chat";
 import { UnitsSection } from "@/components/property/units-section";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
@@ -167,6 +167,8 @@ export default async function ProjectDetailPage({ params }: Props) {
     title: project.title,
     offPlan: isOffPlan,
     startingPriceAed: project.priceAed,
+    startingPrice: project.priceNative ?? project.priceAed,
+    currency: project.currency,
     developerName: project.developer?.name ?? null,
     handoverLabel: handover,
     paymentPlan: project.paymentPlan as {

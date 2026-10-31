@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 
 type CompareItem = {
   id: string;
   title: string;
   priceAed: number | null;
+  priceNative?: number | null;
+  currency?: string;
   bedrooms: string | null; // "1 – 3" for multi-type projects
   priceIsFrom?: boolean;
   bathrooms: number | null;
@@ -27,7 +29,11 @@ export function CompareTable({ items }: { items: CompareItem[] }) {
   );
 
   const rows: Array<[string, (item: CompareItem) => string]> = [
-    ["Price", (i) => `${i.priceIsFrom ? "from " : ""}${formatAED(i.priceAed)}`],
+    [
+      "Price",
+      (i) =>
+        `${i.priceIsFrom ? "from " : ""}${formatMoney(i.priceNative ?? i.priceAed, i.currency)}`,
+    ],
     ["Bedrooms", (i) => String(i.bedrooms ?? "—")],
     ["Bathrooms", (i) => String(i.bathrooms ?? "—")],
     [

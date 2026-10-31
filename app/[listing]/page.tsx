@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { SITE_URL } from "@/lib/data-layer/canonical";
 import { unitPath } from "@/lib/property/unit-url";
@@ -482,7 +483,7 @@ export default async function ListingLandingPage({ params }: Props) {
                   <p className="mt-1 text-sm text-muted">
                     {isRent
                       ? "Rent price on request"
-                      : `${isStartingFigure(property) ? "from " : ""}${formatAED(property.priceAed)}`}
+                      : `${isStartingFigure(property) ? "from " : ""}${formatMoney(property.priceNative ?? property.priceAed, property.currency)}`}
                   </p>
                   <p className="mt-2 text-xs text-muted">
                     {[

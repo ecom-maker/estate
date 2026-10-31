@@ -1,4 +1,4 @@
-import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import { type Faq, perSqft, joinAnd, compactFaqs } from "@/lib/seo/faq";
 
 type Nearby = { name: string; km: number };
@@ -17,6 +17,9 @@ export function buildProjectFaqs(args: {
   title: string;
   offPlan: boolean;
   startingPriceAed?: number | null;
+  /** Native starting price + currency for display (falls back to AED). */
+  startingPrice?: number | null;
+  currency?: string;
   developerName?: string | null;
   handoverLabel?: string | null; // e.g. "Sept 2027"
   paymentPlan?: PaymentPlan;
@@ -34,6 +37,8 @@ export function buildProjectFaqs(args: {
     title,
     offPlan,
     startingPriceAed,
+    startingPrice,
+    currency = "AED",
     developerName,
     handoverLabel,
     paymentPlan,
@@ -52,7 +57,10 @@ export function buildProjectFaqs(args: {
   if (typeof startingPriceAed === "number" && startingPriceAed > 0) {
     faqs.push({
       q: `What is the starting price at ${title}?`,
-      a: `Prices at ${title} start from ${formatAED(startingPriceAed)}${
+      a: `Prices at ${title} start from ${formatMoney(
+        startingPrice ?? startingPriceAed,
+        currency,
+      )}${
         offPlan ? ", on an off-plan basis" : ""
       }. This is the lowest current list price across available units.`,
     });

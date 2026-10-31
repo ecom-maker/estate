@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { effectiveOffPlan } from "@/lib/property/handover";
+import { formatMoney } from "@/lib/currency/fx";
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { extractSearchIntent, isRealEstateQuery } from "@/lib/ai/intent";
@@ -210,7 +211,7 @@ export async function POST(request: Request) {
           `Property: ${property.title}`,
           // Multi-type projects: price/area are starting figures and
           // `bedrooms` holds only the largest type — state the span.
-          `Price: ${isStartingFigure(property) ? "from " : ""}${formatAED(property.priceAed)}`,
+          `Price: ${isStartingFigure(property) ? "from " : ""}${formatMoney(property.priceNative ?? property.priceAed, property.currency)}`,
           `Specs: ${bedroomsText(property) ?? "—"} · ${property.bathrooms ?? "—"} bath · ${isStartingFigure(property) ? "from " : ""}${property.areaSqft ?? "—"} sqft`,
           property.community ? `Community: ${property.community.name}` : null,
           property.developer ? `Developer: ${property.developer.name}` : null,
@@ -396,7 +397,7 @@ export async function POST(request: Request) {
         ...(top.length ? ["Top results:"] : []),
         ...top.map(
           (p, i) =>
-            `${i + 1}. ${p.title} — ${isStartingFigure(p) ? "from " : ""}${formatAED(p.priceAed)} · ${bedroomsText(p) ?? "—"}`,
+            `${i + 1}. ${p.title} — ${isStartingFigure(p) ? "from " : ""}${formatMoney(p.priceNative ?? p.priceAed, p.currency)} · ${bedroomsText(p) ?? "—"}`,
         ),
         "",
         "You can refine with follow-ups like “only waterfront” or “under AED 25M”.",

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthLink } from "@/components/auth/auth-link";
-import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 
 type FavoriteRow = {
   id: string;
@@ -12,6 +12,8 @@ type FavoriteRow = {
     slug: string;
     title: string;
     priceAed: number | null;
+    priceNative?: number | null;
+    currency?: string;
     bedrooms: number | null;
     community?: { name: string } | null;
   };
@@ -63,7 +65,7 @@ export function FavoritesList() {
           </Link>
           <p className="mt-1 text-sm text-muted">
             {item.property.community?.name ?? "Dubai"} ·{" "}
-            {formatAED(item.property.priceAed)}
+            {formatMoney(item.property.priceNative ?? item.property.priceAed, item.property.currency)}
           </p>
         </li>
       ))}

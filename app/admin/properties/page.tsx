@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
-import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import { BackfillCommunitiesButton } from "@/components/admin/backfill-communities-button";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +56,8 @@ export default async function AdminPropertiesPage({
     type: string;
     status: string;
     priceAed: number | null;
+    priceNative: number | null;
+    currency: string;
     bedrooms: number | null;
     community: { name: string } | null;
     source: string | null;
@@ -199,7 +201,7 @@ export default async function AdminPropertiesPage({
                   <td>{property.type}</td>
                   <td>{property.community?.name ?? "—"}</td>
                   <td>{property.bedrooms ?? "—"}</td>
-                  <td>{formatAED(property.priceAed)}</td>
+                  <td>{formatMoney(property.priceNative ?? property.priceAed, property.currency)}</td>
                   <td>{property.status}</td>
                   {isPartners ? (
                     <td className="text-muted">

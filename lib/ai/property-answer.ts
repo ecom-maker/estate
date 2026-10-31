@@ -1,4 +1,5 @@
 import { formatAED } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency/fx";
 import type { MarketInsights } from "@/lib/property/market-insights";
 import {
   bedroomSpan,
@@ -11,6 +12,8 @@ type PropertyForAnswer = {
   bedrooms: number | null;
   bathrooms: number | null;
   priceAed: number | null;
+  priceNative: number | null;
+  currency: string;
   areaSqft: number | null;
   offPlan: boolean;
   rentalYield: number | null;
@@ -291,8 +294,8 @@ export function answerPropertyQuestion(
   if (has("price", "how much", "cost", "asking", "budget"))
     return p.priceAed != null
       ? isStartingFigure(p)
-        ? `Prices in ${title} start from ${formatAED(p.priceAed)}.`
-        : `${title} is priced at ${formatAED(p.priceAed)}.`
+        ? `Prices in ${title} start from ${formatMoney(p.priceNative ?? p.priceAed, p.currency)}.`
+        : `${title} is priced at ${formatMoney(p.priceNative ?? p.priceAed, p.currency)}.`
       : `The price isn't listed for ${title}.`;
 
   if (has("community", "which area", "where is", "neighbou", "located", "location"))
