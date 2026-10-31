@@ -117,6 +117,12 @@ curl ${SITE_URL}/api/v1/communities`}
 
       <div className="mt-8 flex flex-wrap gap-4 text-sm">
         <Link
+          href="/api-docs/partners"
+          className="font-medium text-accent hover:underline"
+        >
+          Partner listing API (submit listings) →
+        </Link>
+        <Link
           href="/api/v1/openapi.json"
           className="font-medium text-accent hover:underline"
         >

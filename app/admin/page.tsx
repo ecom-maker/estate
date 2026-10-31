@@ -122,6 +122,7 @@ export default async function AdminPage() {
       ? ([
           ["Developers", "/admin/developers"],
           ["MCP server", "/admin/mcp"],
+          ["Partner API", "/admin/partners"],
         ] as [string, string][])
       : []),
     ["Properties", "/admin/properties?filter=ready"],
