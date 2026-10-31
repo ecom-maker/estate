@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 import { formatMoney } from "@/lib/currency/fx";
+import { getCountryFacets } from "@/lib/property/country-facets";
+import { CountryChips } from "@/components/property/country-chips";
 import { BackfillCommunitiesButton } from "@/components/admin/backfill-communities-button";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +34,7 @@ function whereForFilter(filter: Filter): Prisma.PropertyWhereInput {
 export default async function AdminPropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; country?: string }>;
 }) {
   let session;
   try {
@@ -44,10 +46,15 @@ export default async function AdminPropertiesPage({
   const roles = (session.user as { roles?: string[] } | undefined)?.roles ?? [];
   const isSuper = roles.includes("SUPER_ADMIN");
 
-  const { filter: filterParam } = await searchParams;
+  const { filter: filterParam, country: countryParam } = await searchParams;
   const filter: Filter = FILTERS.some((f) => f.key === filterParam)
     ? (filterParam as Filter)
     : "all";
+  const country = countryParam?.toUpperCase() || null;
+  const baseWhere = whereForFilter(filter);
+  const where: Prisma.PropertyWhereInput = country
+    ? { ...baseWhere, country }
+    : baseWhere;
 
   let properties: Array<{
     id: string;
@@ -72,17 +79,20 @@ export default async function AdminPropertiesPage({
   try {
     [properties, total] = await Promise.all([
       prisma.property.findMany({
-        where: whereForFilter(filter),
+        where,
         include: { community: true },
         orderBy: { updatedAt: "desc" },
         take: 100,
       }),
-      prisma.property.count({ where: whereForFilter(filter) }),
+      prisma.property.count({ where }),
     ]);
   } catch {
     properties = [];
     total = 0;
   }
+
+  // Country chips reflect the current tab filter (not the country selection).
+  const countryFacets = await getCountryFacets(baseWhere);
 
   // Creator per listing, from the property_create audit records (no schema
   // column). Earliest log wins; map to the user's name/email for display.
@@ -165,6 +175,22 @@ export default async function AdminPropertiesPage({
           </Link>
         ))}
       </div>
+
+      {countryFacets.length > 1 ? (
+        <div className="mt-3">
+          <CountryChips
+            facets={countryFacets}
+            selected={country}
+            hrefFor={(code) => {
+              const params = new URLSearchParams();
+              if (filter !== "all") params.set("filter", filter);
+              if (code) params.set("country", code);
+              const qs = params.toString();
+              return qs ? `/admin/properties?${qs}` : "/admin/properties";
+            }}
+          />
+        </div>
+      ) : null}
 
       <div className="mt-6 overflow-x-auto rounded-sm border border-border bg-card">
         <table className="w-full min-w-[760px] text-left text-sm">

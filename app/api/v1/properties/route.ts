@@ -27,6 +27,8 @@ export async function GET(request: Request) {
   if (type && TYPES.includes(type)) {
     where.type = type.toUpperCase() as PropertyType;
   }
+  const country = searchParams.get("country");
+  if (country) where.country = country.toUpperCase();
   const community = searchParams.get("community");
   if (community) {
     where.community = { name: { contains: community, mode: "insensitive" } };

@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectBrowser } from "@/components/property/project-browser";
+import { CountryChips } from "@/components/property/country-chips";
+import { getCountryFacets } from "@/lib/property/country-facets";
 import {
   toProjectCardData,
   projectCardInclude,
@@ -21,37 +23,58 @@ const PROJECTS_WHERE: Prisma.PropertyWhereInput = {
   offPlan: true,
 };
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ country?: string }>;
+}) {
+  const { country: countryParam } = await searchParams;
+  const country = countryParam?.toUpperCase() || null;
+  const where: Prisma.PropertyWhereInput = country
+    ? { ...PROJECTS_WHERE, country }
+    : PROJECTS_WHERE;
+
   let projects: ProjectCardData[] = [];
   let total = 0;
+  let facets: Awaited<ReturnType<typeof getCountryFacets>> = [];
   try {
-    // No `take`: the off-plan catalogue is the whole point of this page, so it
-    // is listed in full. `total` is counted rather than taken from the array so
-    // the subheading stays true if a cap is ever reintroduced.
-    const [rows, count] = await Promise.all([
+    const [rows, count, countryFacets] = await Promise.all([
       prisma.property.findMany({
-        where: PROJECTS_WHERE,
+        where,
         include: projectCardInclude,
         orderBy: { createdAt: "desc" },
       }),
-      prisma.property.count({ where: PROJECTS_WHERE }),
+      prisma.property.count({ where }),
+      getCountryFacets(PROJECTS_WHERE),
     ]);
     projects = rows.map(toProjectCardData);
     total = count;
+    facets = countryFacets;
   } catch {
     projects = [];
     total = 0;
   }
 
   return (
-    <ProjectBrowser
-      initialProjects={projects}
-      eyebrowLabel="New Developments"
-      heading="Projects"
-      subheading={`${total} off-plan developments from leading developers`}
-      altLinkHref="/properties"
-      altLinkLabel="All properties"
-      chatPlaceholder="Ask about new projects..."
-    />
+    <>
+      {facets.length > 1 ? (
+        <div className="mx-auto max-w-7xl px-6 pt-24 md:px-10">
+          <CountryChips
+            facets={facets}
+            selected={country}
+            hrefFor={(code) => (code ? `/projects?country=${code}` : "/projects")}
+          />
+        </div>
+      ) : null}
+      <ProjectBrowser
+        initialProjects={projects}
+        eyebrowLabel="New Developments"
+        heading="Projects"
+        subheading={`${total} off-plan developments from leading developers`}
+        altLinkHref="/properties"
+        altLinkLabel="All properties"
+        chatPlaceholder="Ask about new projects..."
+      />
+    </>
   );
 }

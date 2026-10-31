@@ -28,6 +28,7 @@ export function GET() {
       project: `${base}/projects/{slug}`,
       developers: `${base}/developers`,
       developer: `${base}/developers/{slug}`,
+      countries: `${base}/countries`,
       communities: `${base}/communities`,
       community: `${base}/communities/{slug}`,
       locations: `${base}/locations`,

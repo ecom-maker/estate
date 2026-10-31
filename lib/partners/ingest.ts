@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Prisma, PropertyType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { communityForText } from "@/lib/communities/catalog";
-import { toAed } from "@/lib/currency/fx";
+import { toAedLive } from "@/lib/currency/rates";
 
 const TYPE_MAP: Record<string, PropertyType> = {
   villa: "VILLA",
@@ -140,7 +140,8 @@ export async function upsertListing(
     (input.price ? input.price.currency : undefined) ??
     "AED"
   ).toUpperCase();
-  const priceAed = nativeAmount != null ? toAed(nativeAmount, currency) : null;
+  const priceAed =
+    nativeAmount != null ? await toAedLive(nativeAmount, currency) : null;
   const country = (input.country ?? "AE").toUpperCase();
   const [communityId, developerId] = await Promise.all([
     resolveCommunityId(input.community, input.title),
