@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
@@ -57,16 +56,12 @@ export function ProjectBrowser({
   eyebrowLabel,
   heading,
   subheading,
-  altLinkHref,
-  altLinkLabel,
   chatPlaceholder,
 }: {
   initialProjects: ProjectCardData[];
   eyebrowLabel?: string;
   heading: string;
   subheading: string;
-  altLinkHref: string;
-  altLinkLabel: string;
   chatPlaceholder: string;
 }) {
   const [projects, setProjects] = useState<ProjectCardData[]>(initialProjects);
@@ -163,12 +158,6 @@ export function ProjectBrowser({
                 <SlidersHorizontal className="h-4 w-4" aria-hidden />
                 Search
               </button>
-              <Link
-                href={altLinkHref}
-                className="text-sm font-medium text-accent hover:underline"
-              >
-                {altLinkLabel}
-              </Link>
             </div>
           </div>
 

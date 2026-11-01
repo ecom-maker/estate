@@ -71,8 +71,6 @@ export default async function ProjectsPage({
         eyebrowLabel="New Developments"
         heading="Projects"
         subheading={`${total} off-plan developments from leading developers`}
-        altLinkHref="/properties"
-        altLinkLabel="All properties"
         chatPlaceholder="Ask about new projects..."
       />
     </>
