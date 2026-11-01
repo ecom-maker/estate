@@ -18,6 +18,8 @@ export type ProjectCardData = {
   imageAlt: string | null;
   offPlan: boolean;
   handover: string | null; // "Oct 2027"
+  handoverMs: number | null; // sortable handover timestamp
+  createdAtMs: number; // sortable "newest" timestamp
   startingPriceAed: number | null;
   startingPrice: number | null; // native amount for display
   currency: string;
@@ -41,6 +43,7 @@ type ProjectLike = {
   id: string;
   slug: string;
   title: string;
+  createdAt: Date;
   bedrooms: number | null;
   bathrooms: number | null;
   areaSqft: number | null;
@@ -78,6 +81,14 @@ function handoverLabel(metadata: unknown): string | null {
   }
   // Completed projects often carry only a human completion label.
   return meta.completionLabel?.trim() || null;
+}
+
+/** Sortable handover timestamp (ms), or null when no parseable date is on file. */
+function handoverMsValue(metadata: unknown): number | null {
+  const meta = (metadata ?? {}) as { handoverDate?: string };
+  if (!meta.handoverDate) return null;
+  const d = new Date(meta.handoverDate);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
 }
 
 export function toProjectCardData(p: ProjectLike): ProjectCardData {
@@ -174,6 +185,8 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
     imageAlt: img?.alt ?? p.title,
     offPlan: effectiveOffPlan(p.offPlan, p.metadata),
     handover: handoverLabel(p.metadata),
+    handoverMs: handoverMsValue(p.metadata),
+    createdAtMs: p.createdAt.getTime(),
     startingPriceAed,
     startingPrice,
     currency,

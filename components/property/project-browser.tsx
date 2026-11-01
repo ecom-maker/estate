@@ -9,6 +9,49 @@ import { ProjectCard } from "@/components/property/project-card";
 import type { ProjectCardData } from "@/lib/property/project-card";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
+type SortKey =
+  | "newest"
+  | "price-asc"
+  | "price-desc"
+  | "beds-asc"
+  | "beds-desc"
+  | "handover";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "newest", label: "Newest" },
+  { value: "price-asc", label: "Price: low to high" },
+  { value: "price-desc", label: "Price: high to low" },
+  { value: "beds-asc", label: "Beds: least" },
+  { value: "beds-desc", label: "Beds: most" },
+  { value: "handover", label: "Completion date" },
+];
+
+const bedNums = (p: ProjectCardData): number[] =>
+  p.beds.map((b) => b.beds).filter((n): n is number => n != null);
+
+// Sort order for a chosen key. Missing values sort last so cards with real
+// data lead the list. Returns a new array — never mutates the source.
+function sortProjects(list: ProjectCardData[], sort: SortKey): ProjectCardData[] {
+  const last = Number.POSITIVE_INFINITY;
+  const by = (f: (p: ProjectCardData) => number, dir: 1 | -1) =>
+    [...list].sort((a, b) => dir * (f(a) - f(b)));
+  switch (sort) {
+    case "price-asc":
+      return by((p) => p.startingPriceAed ?? last, 1);
+    case "price-desc":
+      return by((p) => p.startingPriceAed ?? -last, -1);
+    case "beds-asc":
+      return by((p) => Math.min(...bedNums(p), last), 1);
+    case "beds-desc":
+      return by((p) => Math.max(...bedNums(p), -last), -1);
+    case "handover":
+      return by((p) => p.handoverMs ?? last, 1);
+    case "newest":
+    default:
+      return by((p) => p.createdAtMs, -1);
+  }
+}
+
 export function ProjectBrowser({
   initialProjects,
   eyebrowLabel,
@@ -31,6 +74,7 @@ export function ProjectBrowser({
   const [searching, setSearching] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [sort, setSort] = useState<SortKey>("newest");
 
   useEffect(() => {
     if (ids === null) return; // no search yet — keep the browse view
@@ -56,6 +100,7 @@ export function ProjectBrowser({
 
   const isSearch = ids !== null;
   const busy = searching || loadingResults;
+  const sorted = sortProjects(projects, sort);
 
   return (
     <div className="mx-auto max-w-7xl px-6 pb-20 pt-10 md:px-10">
@@ -94,6 +139,21 @@ export function ProjectBrowser({
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <label className="inline-flex items-center gap-1.5 text-sm text-muted">
+                <span className="hidden sm:inline">Sort</span>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  className="rounded-sm border border-border bg-card px-2 py-1 text-sm font-medium text-primary focus:border-accent focus:outline-none"
+                  aria-label="Sort projects"
+                >
+                  {SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 onClick={() => setShowFilters((v) => !v)}
@@ -122,7 +182,7 @@ export function ProjectBrowser({
             </div>
           ) : (
             <div className="grid gap-5 lg:grid-cols-2">
-              {projects.map((p) => (
+              {sorted.map((p) => (
                 <ProjectCard key={p.id} p={p} />
               ))}
             </div>
