@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
 import { handoverLabel, effectiveOffPlan } from "@/lib/property/handover";
+import { formatMoney } from "@/lib/currency/fx";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
 import { unitMatchesDeal } from "@/lib/property/deal";
@@ -120,6 +121,9 @@ export default async function PropertiesPage({
       type: string;
       offPlan: boolean;
       metadata: Prisma.JsonValue;
+      priceAed: number | null;
+      priceNative: number | null;
+      currency: string;
       community: { name: string; emirate: string | null } | null;
       developer: { name: string } | null;
     };
@@ -149,6 +153,9 @@ export default async function PropertiesPage({
               type: true,
               offPlan: true,
               metadata: true,
+              priceAed: true,
+              priceNative: true,
+              currency: true,
               community: { select: { name: true, emirate: true } },
               developer: { select: { name: true } },
             },
@@ -296,7 +303,11 @@ export default async function PropertiesPage({
                     <p className="mt-0.5 text-xs text-muted">{u.view} view</p>
                   ) : null}
                   <p className="mt-3 font-serif text-xl text-primary">
-                    {u.priceAed ? formatAED(u.priceAed) : "Price on request"}
+                    {u.priceAed
+                      ? formatAED(u.priceAed)
+                      : u.property.priceAed
+                        ? `from ${formatMoney(u.property.priceNative ?? u.property.priceAed, u.property.currency)}`
+                        : "Price on request"}
                   </p>
                 </div>
               </Link>
