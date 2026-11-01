@@ -8,6 +8,8 @@ export function ProjectCard({ p }: { p: ProjectCardData }) {
   return (
     <Link
       href={`/projects/${p.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition hover:border-accent hover:shadow-[0_18px_50px_rgba(15,23,42,0.12)]"
     >
       {/* Image + badges */}
