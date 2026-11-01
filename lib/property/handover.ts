@@ -8,6 +8,14 @@ export function handoverLabel(metadata: unknown): string | null {
     : d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 }
 
+/** Sortable handover timestamp (ms) from metadata JSON, or null when absent/unparseable. */
+export function handoverMs(metadata: unknown): number | null {
+  const meta = (metadata ?? {}) as { handoverDate?: string };
+  if (!meta.handoverDate) return null;
+  const d = new Date(meta.handoverDate);
+  return Number.isNaN(d.getTime()) ? null : d.getTime();
+}
+
 /**
  * Whether a project should still be treated as off-plan for display and
  * classification. A stored `offPlan` flag is overridden to false once the

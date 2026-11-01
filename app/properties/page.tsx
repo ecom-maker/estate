@@ -3,7 +3,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
 import { formatAED } from "@/lib/utils";
-import { handoverLabel, effectiveOffPlan } from "@/lib/property/handover";
+import {
+  handoverLabel,
+  handoverMs,
+  effectiveOffPlan,
+} from "@/lib/property/handover";
 import { formatMoney } from "@/lib/currency/fx";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
@@ -173,6 +177,18 @@ export default async function PropertiesPage({
   if (rentOnly) {
     units = units.filter((u) => unitMatchesDeal(u.metadata, "rent"));
     total = units.length;
+  }
+
+  // Completion date lives in the parent project's JSON metadata, not a sortable
+  // column, so this sort runs in memory. Soonest handover first; units with no
+  // date on file fall to the end. (The DB order above is the newest fallback.)
+  if (sort === "completion") {
+    const last = Number.POSITIVE_INFINITY;
+    units = [...units].sort(
+      (a, b) =>
+        (handoverMs(a.property.metadata) ?? last) -
+        (handoverMs(b.property.metadata) ?? last),
+    );
   }
 
   // Each project's photos, loaded once in a fixed order (id breaks sortOrder

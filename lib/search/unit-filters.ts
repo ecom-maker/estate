@@ -44,6 +44,7 @@ export const SORT_OPTIONS = [
   { value: "price_high", label: "Price (high)" },
   { value: "beds_least", label: "Beds (least)" },
   { value: "beds_most", label: "Beds (most)" },
+  { value: "completion", label: "Completion date" },
 ] as const;
 
 export type Sort = (typeof SORT_OPTIONS)[number]["value"];
