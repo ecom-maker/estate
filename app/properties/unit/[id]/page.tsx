@@ -277,6 +277,7 @@ export default async function UnitDetailPage({
 
         <p className="mt-6 text-xs font-medium uppercase tracking-[0.25em] text-accent">
           {communityLabel(p.community?.name, p.community?.emirate)}
+          {p.developer?.name ? ` · ${p.developer.name}` : ""}
         </p>
         <div className="mt-2 flex items-start justify-between gap-4">
           <h1 className="font-serif text-4xl text-primary">
