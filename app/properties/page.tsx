@@ -241,6 +241,8 @@ export default async function PropertiesPage({
                   unitType: u.unitType,
                   property: u.property,
                 })}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group overflow-hidden rounded-xl border border-border bg-card transition hover:border-accent hover:shadow-sm"
               >
                 <div className="relative aspect-[4/3] overflow-hidden">
