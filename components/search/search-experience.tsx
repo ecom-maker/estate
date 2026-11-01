@@ -229,6 +229,8 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                 <Link
                   key={c.key}
                   href={c.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="group overflow-hidden rounded-sm border border-border bg-card transition hover:border-accent"
                 >
                   <div className="relative aspect-[4/3] bg-primary/10">
