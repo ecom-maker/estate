@@ -400,6 +400,8 @@ export default async function UnitDetailPage({
           This unit is part of{" "}
           <Link
             href={`/projects/${p.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="text-accent hover:underline"
           >
             {p.title}
