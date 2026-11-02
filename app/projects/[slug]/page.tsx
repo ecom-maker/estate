@@ -19,6 +19,7 @@ import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { ShareSaveBar } from "@/components/property/share-save-bar";
 import { effectiveOffPlan } from "@/lib/property/handover";
+import { brochureUrl } from "@/lib/property/brochure";
 import { formatMoney, countryName } from "@/lib/currency/fx";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
@@ -141,6 +142,9 @@ export default async function ProjectDetailPage({ params }: Props) {
     null;
   // NOC (No Objection Certificate) document, shown as a link when uploaded.
   const nocUrl = project.documents[0]?.url ?? null;
+  // Brochure: lives on the media server by convention (not in the DB), linked
+  // only when the file actually exists there.
+  const brochure = await brochureUrl(project.slug);
   // Developer contact, surfaced when the developer has email/phone on file.
   const devEmail = project.developer?.email?.trim() || null;
   const devPhone = project.developer?.phone?.trim() || null;
@@ -341,28 +345,56 @@ export default async function ProjectDetailPage({ params }: Props) {
         ) : null}
       </p>
 
-      {nocUrl ? (
-        <a
-          href={nocUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary transition hover:border-primary/40 hover:bg-background"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <path d="M14 2v6h6" />
-          </svg>
-          No Objection Certificate (NOC)
-        </a>
+      {brochure || nocUrl ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {brochure ? (
+            <a
+              href={brochure}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground transition hover:bg-accent/90"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M12 15V3" />
+              </svg>
+              Download brochure
+            </a>
+          ) : null}
+          {nocUrl ? (
+            <a
+              href={nocUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary transition hover:border-primary/40 hover:bg-background"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+              </svg>
+              No Objection Certificate (NOC)
+            </a>
+          ) : null}
+        </div>
       ) : null}
 
       {project.developer && (devEmail || devPhone) ? (
