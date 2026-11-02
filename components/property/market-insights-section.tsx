@@ -96,7 +96,12 @@ export async function MarketInsightsSection({
                   </span>
                   <h3 className="mt-2 font-serif text-xl text-primary">
                     {property.title}
-                    {property.developer ? ` by ${property.developer.name}` : ""}
+                    {property.developer &&
+                    !property.title
+                      .toLowerCase()
+                      .includes(property.developer.name.toLowerCase())
+                      ? ` by ${property.developer.name}`
+                      : ""}
                   </h3>
                   <p className="mt-0.5 text-sm text-muted">
                     {bedroomsLabel ?? `${property.bedrooms ?? "—"} bedrooms`}
