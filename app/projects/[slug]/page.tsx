@@ -7,6 +7,7 @@ import { UnitsSection } from "@/components/property/units-section";
 import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { JsonLd } from "@/components/seo/json-ld";
 import { propertyJsonLd } from "@/lib/data-layer/jsonld";
+import { SITE_URL } from "@/lib/data-layer/canonical";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import {
   buildListingSlug,
@@ -211,6 +212,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         })}
       />
       <Breadcrumbs
+        currentUrl={`${SITE_URL}/projects/${project.slug}`}
         items={[
           { label: "Home", href: "/" },
           { label: "Projects", href: "/projects" },

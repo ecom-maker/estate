@@ -4,8 +4,22 @@ import { SITE_URL } from "@/lib/data-layer/canonical";
 
 export type Crumb = { label: string; href?: string };
 
-/** Accessible breadcrumb trail + schema.org BreadcrumbList for crawlers. */
-export function Breadcrumbs({ items }: { items: Crumb[] }) {
+/**
+ * Accessible breadcrumb trail + schema.org BreadcrumbList for crawlers.
+ *
+ * Every ListItem carries an `item` URL — Google rejects a BreadcrumbList when
+ * any entry is missing it ("Missing field 'item' in itemListElement"). Crumbs
+ * without their own href (the current page, or an unlinked level like the
+ * developer name) fall back to `currentUrl`, the canonical URL of the page the
+ * trail is rendered on.
+ */
+export function Breadcrumbs({
+  items,
+  currentUrl,
+}: {
+  items: Crumb[];
+  currentUrl: string;
+}) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -13,7 +27,7 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
       "@type": "ListItem",
       position: i + 1,
       name: c.label,
-      ...(c.href ? { item: `${SITE_URL}${c.href}` } : {}),
+      item: c.href ? `${SITE_URL}${c.href}` : currentUrl,
     })),
   };
 
