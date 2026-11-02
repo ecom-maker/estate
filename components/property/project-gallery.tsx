@@ -10,9 +10,11 @@ import {
   MapPin,
   LayoutGrid,
   Download,
+  Map as MapIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRequireAuth } from "@/components/auth/sign-in-gate";
+import { isMasterplanImage } from "@/lib/property/masterplan";
 
 type Img = { url: string; alt?: string | null };
 
@@ -22,17 +24,29 @@ export function ProjectGallery({
   mapQuery,
   coords,
   brochureUrl,
+  masterplanUrl,
 }: {
   images: Img[];
   title: string;
   mapQuery?: string;
   coords?: { lat: number; lng: number } | null;
   brochureUrl?: string | null;
+  masterplanUrl?: string | null;
 }) {
   const [index, setIndex] = useState<number | null>(null);
-  const count = images.length;
   // Downloading the brochure requires a signed-in visitor (same gate as search).
   const requireAuth = useRequireAuth();
+  const [view, setView] = useState<"photos" | "masterplan">("photos");
+  // The masterplan has its own tab, so it never sits among the photos.
+  const photos = images.filter((img) => img.url !== masterplanUrl && !isMasterplanImage(img));
+  const plans: Img[] = masterplanUrl ? [{ url: masterplanUrl, alt: `${title} masterplan` }] : [];
+  const shown = view === "masterplan" ? plans : photos;
+  const count = shown.length;
+
+  const open = (tab: "photos" | "masterplan", i = 0) => {
+    setView(tab);
+    setIndex(i);
+  };
 
   const close = useCallback(() => setIndex(null), []);
   const prev = useCallback(
@@ -59,10 +73,10 @@ export function ProjectGallery({
     };
   }, [index, close, prev, next]);
 
-  if (!count) return null;
+  if (!photos.length) return null;
 
-  const hero = images[0];
-  const side = images.slice(1, 5);
+  const hero = photos[0];
+  const side = photos.slice(1, 5);
 
   return (
     <>
@@ -75,7 +89,7 @@ export function ProjectGallery({
       >
         <button
           type="button"
-          onClick={() => setIndex(0)}
+          onClick={() => open("photos")}
           className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-primary/10"
         >
           <Image
@@ -128,6 +142,19 @@ export function ProjectGallery({
             >
               <LayoutGrid className="h-3.5 w-3.5" /> Floor plans
             </span>
+            {plans.length ? (
+              <span
+                role="link"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  open("masterplan");
+                }}
+                className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary shadow-sm"
+              >
+                <MapIcon className="h-3.5 w-3.5" /> Master plan
+              </span>
+            ) : null}
             {mapQuery ? (
               <span
                 role="link"
@@ -176,7 +203,7 @@ export function ProjectGallery({
                 <button
                   key={i}
                   type="button"
-                  onClick={() => setIndex(i + 1)}
+                  onClick={() => open("photos", i + 1)}
                   className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-primary/10"
                 >
                   <Image
@@ -186,10 +213,10 @@ export function ProjectGallery({
                     sizes="25vw"
                     className="object-cover transition duration-500 group-hover:scale-[1.03]"
                   />
-                  {isLast && count > 5 ? (
+                  {isLast && photos.length > 5 ? (
                     <span className="absolute inset-0 flex items-center justify-center bg-primary/55 text-sm font-semibold text-white">
                       <Camera className="mr-1.5 h-4 w-4" />
-                      {count}
+                      {photos.length}
                     </span>
                   ) : null}
                 </button>
@@ -202,7 +229,32 @@ export function ProjectGallery({
       {/* Lightbox */}
       {index !== null ? (
         <div className="fixed inset-0 z-[70] flex flex-col bg-black/95">
-          <div className="flex items-center justify-end p-4">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex gap-2">
+              {plans.length
+                ? (
+                    [
+                      ["photos", `Photos (${photos.length})`],
+                      ["masterplan", `Master plan (${plans.length})`],
+                    ] as const
+                  ).map(([tab, label]) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => open(tab)}
+                      aria-pressed={view === tab}
+                      className={cn(
+                        "rounded-full px-4 py-1.5 text-sm font-medium transition",
+                        view === tab
+                          ? "bg-white text-primary"
+                          : "text-white/80 hover:bg-white/10 hover:text-white",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))
+                : null}
+            </div>
             <button
               type="button"
               onClick={close}
@@ -227,8 +279,8 @@ export function ProjectGallery({
 
             <div className="relative h-full max-h-[70vh] w-full max-w-4xl">
               <Image
-                src={images[index].url}
-                alt={images[index].alt ?? title}
+                src={shown[index].url}
+                alt={shown[index].alt ?? title}
                 fill
                 sizes="90vw"
                 className="object-contain"
@@ -253,7 +305,7 @@ export function ProjectGallery({
 
           {/* Thumbnail strip */}
           <div className="flex gap-2 overflow-x-auto px-4 pb-5">
-            {images.map((img, i) => (
+            {shown.map((img, i) => (
               <button
                 key={i}
                 type="button"

@@ -20,6 +20,7 @@ import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { ShareSaveBar } from "@/components/property/share-save-bar";
 import { effectiveOffPlan } from "@/lib/property/handover";
 import { brochureUrl } from "@/lib/property/brochure";
+import { masterplanImageOf } from "@/lib/property/masterplan";
 import { formatMoney, countryName } from "@/lib/currency/fx";
 import { PropertyDescription } from "@/components/property/property-description";
 import { metaDescription } from "@/lib/property/description";
@@ -129,17 +130,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     (
       (project.metadata as { parking?: string | null } | null)?.parking ?? ""
     ).trim() || null;
-  // Masterplan image: an admin-set URL (metadata.masterplanImageUrl), else a
-  // gallery image whose caption marks it as the masterplan / site plan.
-  const masterplanImage =
-    (
-      (project.metadata as { masterplanImageUrl?: string | null } | null)
-        ?.masterplanImageUrl ?? ""
-    ).trim() ||
-    project.images.find((img) =>
-      /master\s?-?\s?plan|site\s?-?\s?plan/i.test(img.alt ?? ""),
-    )?.url ||
-    null;
+  const masterplanImage = masterplanImageOf(project);
   // NOC (No Objection Certificate) document, shown as a link when uploaded.
   const nocUrl = project.documents[0]?.url ?? null;
   // Brochure: lives on the media server by convention (not in the DB), linked
@@ -398,6 +389,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         images={project.images}
         title={project.title}
         brochureUrl={brochure}
+        masterplanUrl={masterplanImage}
         mapQuery={
           project.latitude != null && project.longitude != null
             ? `${project.latitude},${project.longitude}`

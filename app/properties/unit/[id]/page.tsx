@@ -5,6 +5,7 @@ import {
 import { FileText } from "lucide-react";
 import { descriptionSections } from "@/lib/property/description";
 import { floorplanMatcher, isRealUnitNumber } from "@/lib/property/unit-groups";
+import { masterplanImageOf } from "@/lib/property/masterplan";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -358,6 +359,7 @@ export default async function UnitDetailPage({
           <ProjectGallery
             images={p.images}
             title={p.title}
+            masterplanUrl={masterplanImageOf(p)}
             mapQuery={
               p.latitude != null && p.longitude != null
                 ? `${p.latitude},${p.longitude}`
