@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
@@ -11,24 +12,45 @@ import {
 import { formatMoney } from "@/lib/currency/fx";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
-import { unitMatchesDeal } from "@/lib/property/deal";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import {
+  DEFAULT_SORT,
   hasUnitFilters,
   parseSort,
   parseUnitFilters,
+  unitFiltersToSearch,
   unitFiltersWhere,
   unitSortOrderBy,
 } from "@/lib/search/unit-filters";
 
+const PAGE_SIZE = 48;
+
+/** Clamp a ?page param to a positive integer (defaults to 1). */
+function parsePage(v: string | string[] | undefined): number {
+  const raw = Array.isArray(v) ? v[0] : v;
+  const n = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
 export const dynamic = "force-dynamic";
+
 // Self-canonical to the clean path: every filter/sort query-string variant
-// (?type, ?beds, ?sort, ?furnishing, ?deal, ?min, ?max…) points here, so Google
-// treats them as one page instead of "Duplicate without user-selected canonical".
-export const metadata = {
-  title: "Properties",
-  alternates: { canonical: "/properties" },
-};
+// (?type, ?beds, ?sort, ?furnishing, ?deal, ?min, ?max…) collapses to
+// /properties, so Google treats them as one page instead of "Duplicate without
+// user-selected canonical". Pagination is the exception: each page beyond the
+// first is its own canonical (?page=N) so the deeper inventory gets indexed and
+// internally linked, rather than all folding into page one.
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const page = parsePage((await searchParams).page);
+  return {
+    title: page > 1 ? `Properties – Page ${page}` : "Properties",
+    alternates: { canonical: page > 1 ? `/properties?page=${page}` : "/properties" },
+  };
+}
 
 type Photo = { url: string; alt: string | null };
 
@@ -65,6 +87,29 @@ function bedLabel(beds: number | null): string {
   return beds === 0 ? "Studio" : `${beds} Bed`;
 }
 
+/** Compact page list for the pager: 1 … c-1 c c+1 … last, gaps as "…". */
+function pageWindow(current: number, totalPages: number): (number | "…")[] {
+  const keep = new Set<number>([1, totalPages]);
+  for (let n = current - 1; n <= current + 1; n++) {
+    if (n >= 1 && n <= totalPages) keep.add(n);
+  }
+  const out: (number | "…")[] = [];
+  let prev = 0;
+  for (const n of [...keep].sort((a, b) => a - b)) {
+    if (n - prev > 1) out.push("…");
+    out.push(n);
+    prev = n;
+  }
+  return out;
+}
+
+const pagerBtn =
+  "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-border bg-card px-3 text-sm font-medium text-primary transition hover:border-accent";
+const pagerActive =
+  "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-accent bg-accent/10 px-3 text-sm font-medium text-accent";
+const pagerDisabled =
+  "inline-flex h-9 min-w-9 cursor-not-allowed items-center justify-center rounded-full border border-border/60 bg-card px-3 text-sm font-medium text-muted/50";
+
 function statusStyle(status: string | null): string {
   const s = (status ?? "").toLowerCase();
   if (s === "sold") return "bg-primary/70 text-white";
@@ -97,16 +142,62 @@ export default async function PropertiesPage({
   // Plain database filters from the filter bar (no AI).
   const filters = parseUnitFilters(params);
   const sort = parseSort(params.sort);
+  const requestedPage = parsePage(params.page);
   const dealParam = Array.isArray(params.deal) ? params.deal[0] : params.deal;
   const rentOnly = dealParam === "rent";
   const filtered = hasUnitFilters(filters) || rentOnly;
 
   const live = { deletedAt: null, status: "ACTIVE" as const };
+  // "For rent" is derived from each unit's metadata.listing (rent | both). It
+  // used to be filtered in memory, but pagination needs the count and the
+  // skip/take to reflect it, so it's a DB clause now.
+  const rentWhere: Prisma.PropertyUnitWhereInput[] = rentOnly
+    ? [
+        {
+          OR: [
+            { metadata: { path: ["listing"], equals: "rent" } },
+            { metadata: { path: ["listing"], equals: "both" } },
+          ],
+        },
+      ]
+    : [];
   const where: Prisma.PropertyUnitWhereInput = {
     hidden: false,
     property: live,
-    AND: unitFiltersWhere(filters),
+    AND: [...unitFiltersWhere(filters), ...rentWhere],
   };
+
+  // Completion date lives in the parent project's JSON metadata, not a sortable
+  // column, so that sort can't be pushed to the DB. For it we load every match,
+  // sort in memory, then slice the page; all other sorts paginate in the DB.
+  const isCompletionSort = sort === "completion";
+
+  const unitSelect = {
+    id: true,
+    bedrooms: true,
+    bathrooms: true,
+    areaSqft: true,
+    priceAed: true,
+    view: true,
+    status: true,
+    unitType: true,
+    metadata: true,
+    property: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        type: true,
+        offPlan: true,
+        metadata: true,
+        priceAed: true,
+        priceNative: true,
+        currency: true,
+        community: { select: { name: true, emirate: true } },
+        developer: { select: { name: true } },
+      },
+    },
+  } satisfies Prisma.PropertyUnitSelect;
 
   let units: Array<{
     id: string;
@@ -134,62 +225,53 @@ export default async function PropertiesPage({
   }> = [];
   let total = 0;
   try {
-    [units, total] = await Promise.all([
-      prisma.propertyUnit.findMany({
+    total = await prisma.propertyUnit.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const page = Math.min(requestedPage, totalPages);
+    const skip = (page - 1) * PAGE_SIZE;
+
+    if (isCompletionSort) {
+      // Soonest handover first; units with no date on file fall to the end.
+      // The DB order is the newest-first fallback for ties. Sorting is global,
+      // so the whole result set is loaded, ordered, then sliced to the page.
+      const all = await prisma.propertyUnit.findMany({
         where,
         orderBy: unitSortOrderBy(sort),
-        take: 300,
-        select: {
-          id: true,
-          bedrooms: true,
-          bathrooms: true,
-          areaSqft: true,
-          priceAed: true,
-          view: true,
-          status: true,
-          unitType: true,
-          metadata: true,
-          property: {
-            select: {
-              id: true,
-              title: true,
-              slug: true,
-              type: true,
-              offPlan: true,
-              metadata: true,
-              priceAed: true,
-              priceNative: true,
-              currency: true,
-              community: { select: { name: true, emirate: true } },
-              developer: { select: { name: true } },
-            },
-          },
-        },
-      }),
-      prisma.propertyUnit.count({ where }),
-    ]);
+        select: unitSelect,
+      });
+      const last = Number.POSITIVE_INFINITY;
+      all.sort(
+        (a, b) =>
+          (handoverMs(a.property.metadata) ?? last) -
+          (handoverMs(b.property.metadata) ?? last),
+      );
+      units = all.slice(skip, skip + PAGE_SIZE);
+    } else {
+      units = await prisma.propertyUnit.findMany({
+        where,
+        orderBy: unitSortOrderBy(sort),
+        skip,
+        take: PAGE_SIZE,
+        select: unitSelect,
+      });
+    }
   } catch {
     units = [];
     total = 0;
   }
 
-  // "For rent" tab: keep only units offered for rent (per-unit metadata.listing).
-  if (rentOnly) {
-    units = units.filter((u) => unitMatchesDeal(u.metadata, "rent"));
-    total = units.length;
-  }
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
 
-  // Completion date lives in the parent project's JSON metadata, not a sortable
-  // column, so this sort runs in memory. Soonest handover first; units with no
-  // date on file fall to the end. (The DB order above is the newest fallback.)
-  if (sort === "completion") {
-    const last = Number.POSITIVE_INFINITY;
-    units = [...units].sort(
-      (a, b) =>
-        (handoverMs(a.property.metadata) ?? last) -
-        (handoverMs(b.property.metadata) ?? last),
-    );
-  }
+  // Preserves the active filters, sort and deal while moving between pages.
+  const pageHref = (p: number) => {
+    const sp = new URLSearchParams(unitFiltersToSearch(filters));
+    if (sort !== DEFAULT_SORT) sp.set("sort", sort);
+    if (rentOnly) sp.set("deal", "rent");
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `/properties?${qs}` : "/properties";
+  };
 
   // Each project's photos, loaded once in a fixed order (id breaks sortOrder
   // ties) with duplicate URLs removed, so cards can rotate through them.
@@ -234,8 +316,9 @@ export default async function PropertiesPage({
             Available units
           </h1>
           <p className="mt-2 text-sm text-muted">
-            {total} {total === 1 ? "unit" : "units"}{" "}
+            {total.toLocaleString()} {total === 1 ? "unit" : "units"}{" "}
             {filtered ? "match your filters" : "across our projects"}
+            {totalPages > 1 ? ` · Page ${page} of ${totalPages}` : ""}
           </p>
         </div>
       </div>
@@ -333,6 +416,44 @@ export default async function PropertiesPage({
           })}
         </div>
       )}
+
+      {totalPages > 1 ? (
+        <nav
+          aria-label="Pagination"
+          className="mt-12 flex flex-wrap items-center justify-center gap-1.5"
+        >
+          {page > 1 ? (
+            <Link rel="prev" href={pageHref(page - 1)} className={pagerBtn}>
+              Prev
+            </Link>
+          ) : (
+            <span className={pagerDisabled}>Prev</span>
+          )}
+          {pageWindow(page, totalPages).map((p, i) =>
+            p === "…" ? (
+              <span key={`gap-${i}`} className="px-1.5 text-sm text-muted">
+                …
+              </span>
+            ) : (
+              <Link
+                key={p}
+                href={pageHref(p)}
+                aria-current={p === page ? "page" : undefined}
+                className={p === page ? pagerActive : pagerBtn}
+              >
+                {p}
+              </Link>
+            ),
+          )}
+          {page < totalPages ? (
+            <Link rel="next" href={pageHref(page + 1)} className={pagerBtn}>
+              Next
+            </Link>
+          ) : (
+            <span className={pagerDisabled}>Next</span>
+          )}
+        </nav>
+      ) : null}
     </div>
   );
 }
