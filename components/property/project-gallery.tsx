@@ -12,6 +12,7 @@ import {
   Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useRequireAuth } from "@/components/auth/sign-in-gate";
 
 type Img = { url: string; alt?: string | null };
 
@@ -30,6 +31,8 @@ export function ProjectGallery({
 }) {
   const [index, setIndex] = useState<number | null>(null);
   const count = images.length;
+  // Downloading the brochure requires a signed-in visitor (same gate as search).
+  const requireAuth = useRequireAuth();
 
   const close = useCallback(() => setIndex(null), []);
   const prev = useCallback(
@@ -91,9 +94,23 @@ export function ProjectGallery({
                 tabIndex={-1}
                 onClick={(e) => {
                   e.stopPropagation();
-                  window.open(brochureUrl, "_blank", "noopener");
+                  if (!brochureUrl) return;
+                  const url = brochureUrl;
+                  // Open after sign-in; fall back to same-tab if a new tab is
+                  // blocked (the post-login open isn't a direct user gesture).
+                  void requireAuth(
+                    () => {
+                      const w = window.open(url, "_blank", "noopener");
+                      if (!w) window.location.href = url;
+                    },
+                    {
+                      title: "Sign in to download",
+                      message:
+                        "Sign in to download the brochure for this project.",
+                    },
+                  );
                 }}
-                className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground shadow-sm"
+                className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-primary shadow-sm"
               >
                 <Download className="h-3.5 w-3.5" /> Download brochure
               </span>
