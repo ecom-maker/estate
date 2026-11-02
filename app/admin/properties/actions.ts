@@ -90,6 +90,14 @@ function parseForm(formData: FormData) {
   };
 }
 
+/** Parse the handover date into the sortable `handoverAt` column (null if blank
+ *  or unparseable). Keeps the column in sync with metadata.handoverDate. */
+function handoverAtValue(handoverDate: string | null): Date | null {
+  if (!handoverDate) return null;
+  const d = new Date(handoverDate);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /** Produce a slug unique across properties (optionally excluding one id). */
 async function uniqueSlug(base: string, excludeId?: string) {
   const root = base || `property-${nanoid(6)}`;
@@ -592,6 +600,7 @@ export async function createProperty(
         ready: input.ready,
         waterfront: input.waterfront,
         furnished: input.furnished,
+        handoverAt: handoverAtValue(input.handoverDate),
         metadata: {
           dealType: input.dealType,
           forRent: !input.offPlan && input.forRent,
@@ -720,6 +729,7 @@ export async function updateProperty(
         ready: input.ready,
         waterfront: input.waterfront,
         furnished: input.furnished,
+        handoverAt: handoverAtValue(input.handoverDate),
         metadata: metadata as Prisma.InputJsonValue,
         community: input.communityId
           ? { connect: { id: input.communityId } }

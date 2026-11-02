@@ -13,6 +13,7 @@ import { formatMoney } from "@/lib/currency/fx";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
+import { Pager } from "@/components/property/pager";
 import {
   DEFAULT_SORT,
   hasUnitFilters,
@@ -86,29 +87,6 @@ function bedLabel(beds: number | null): string {
   if (beds == null) return "—";
   return beds === 0 ? "Studio" : `${beds} Bed`;
 }
-
-/** Compact page list for the pager: 1 … c-1 c c+1 … last, gaps as "…". */
-function pageWindow(current: number, totalPages: number): (number | "…")[] {
-  const keep = new Set<number>([1, totalPages]);
-  for (let n = current - 1; n <= current + 1; n++) {
-    if (n >= 1 && n <= totalPages) keep.add(n);
-  }
-  const out: (number | "…")[] = [];
-  let prev = 0;
-  for (const n of [...keep].sort((a, b) => a - b)) {
-    if (n - prev > 1) out.push("…");
-    out.push(n);
-    prev = n;
-  }
-  return out;
-}
-
-const pagerBtn =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-border bg-card px-3 text-sm font-medium text-primary transition hover:border-accent";
-const pagerActive =
-  "inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-accent bg-accent/10 px-3 text-sm font-medium text-accent";
-const pagerDisabled =
-  "inline-flex h-9 min-w-9 cursor-not-allowed items-center justify-center rounded-full border border-border/60 bg-card px-3 text-sm font-medium text-muted/50";
 
 function statusStyle(status: string | null): string {
   const s = (status ?? "").toLowerCase();
@@ -417,43 +395,7 @@ export default async function PropertiesPage({
         </div>
       )}
 
-      {totalPages > 1 ? (
-        <nav
-          aria-label="Pagination"
-          className="mt-12 flex flex-wrap items-center justify-center gap-1.5"
-        >
-          {page > 1 ? (
-            <Link rel="prev" href={pageHref(page - 1)} className={pagerBtn}>
-              Prev
-            </Link>
-          ) : (
-            <span className={pagerDisabled}>Prev</span>
-          )}
-          {pageWindow(page, totalPages).map((p, i) =>
-            p === "…" ? (
-              <span key={`gap-${i}`} className="px-1.5 text-sm text-muted">
-                …
-              </span>
-            ) : (
-              <Link
-                key={p}
-                href={pageHref(p)}
-                aria-current={p === page ? "page" : undefined}
-                className={p === page ? pagerActive : pagerBtn}
-              >
-                {p}
-              </Link>
-            ),
-          )}
-          {page < totalPages ? (
-            <Link rel="next" href={pageHref(page + 1)} className={pagerBtn}>
-              Next
-            </Link>
-          ) : (
-            <span className={pagerDisabled}>Next</span>
-          )}
-        </nav>
-      ) : null}
+      <Pager page={page} totalPages={totalPages} hrefFor={pageHref} />
     </div>
   );
 }

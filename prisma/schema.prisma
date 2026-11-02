@@ -279,6 +279,10 @@ model Property {
   metadata            Json?          @map("metadata_json")
   rentalYield         Float?         @map("rental_yield")
   reraStatus          String?        @map("rera_status")
+  /// Sortable handover date, denormalized from metadata.handoverDate so the
+  /// projects listing can order by completion date in the DB (the JSON field
+  /// can't be an orderBy). Kept in sync on create/update; null when unknown.
+  handoverAt          DateTime?      @map("handover_at")
   developerId         String?        @map("developer_id")
   communityId         String?        @map("community_id")
   createdAt           DateTime       @default(now()) @map("created_at")
@@ -307,6 +311,7 @@ model Property {
   @@index([developerId])
   @@index([waterfront, offPlan, ready])
   @@index([deletedAt])
+  @@index([offPlan, status, handoverAt])
   @@map("properties")
 }
 

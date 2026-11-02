@@ -1,36 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { ProjectCard } from "@/components/property/project-card";
+import { Pager } from "@/components/property/pager";
 import type { ProjectCardData } from "@/lib/property/project-card";
+import {
+  PROJECT_SORT_OPTIONS,
+  type ProjectSortKey,
+} from "@/lib/property/project-sort";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
-
-type SortKey =
-  | "newest"
-  | "price-asc"
-  | "price-desc"
-  | "beds-asc"
-  | "beds-desc"
-  | "handover";
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "newest", label: "Newest" },
-  { value: "price-asc", label: "Price: low to high" },
-  { value: "price-desc", label: "Price: high to low" },
-  { value: "beds-asc", label: "Beds: least" },
-  { value: "beds-desc", label: "Beds: most" },
-  { value: "handover", label: "Completion date" },
-];
 
 const bedNums = (p: ProjectCardData): number[] =>
   p.beds.map((b) => b.beds).filter((n): n is number => n != null);
 
 // Sort order for a chosen key. Missing values sort last so cards with real
-// data lead the list. Returns a new array — never mutates the source.
-function sortProjects(list: ProjectCardData[], sort: SortKey): ProjectCardData[] {
+// data lead the list. Returns a new array — never mutates the source. Used only
+// for the AI-search result set (a bounded list); browse mode is sorted by the
+// server.
+function sortProjects(
+  list: ProjectCardData[],
+  sort: ProjectSortKey,
+): ProjectCardData[] {
   const last = Number.POSITIVE_INFINITY;
   const by = (f: (p: ProjectCardData) => number, dir: 1 | -1) =>
     [...list].sort((a, b) => dir * (f(a) - f(b)));
@@ -57,19 +51,33 @@ export function ProjectBrowser({
   heading,
   subheading,
   chatPlaceholder,
+  country,
+  sort,
+  defaultSort,
+  page,
+  totalPages,
 }: {
   initialProjects: ProjectCardData[];
   eyebrowLabel?: string;
   heading: string;
   subheading: string;
   chatPlaceholder: string;
+  country: string | null;
+  sort: ProjectSortKey;
+  defaultSort: ProjectSortKey;
+  page: number;
+  totalPages: number;
 }) {
-  const [projects, setProjects] = useState<ProjectCardData[]>(initialProjects);
+  const router = useRouter();
+  const [searchResults, setSearchResults] = useState<ProjectCardData[] | null>(
+    null,
+  );
   const [ids, setIds] = useState<string[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [sort, setSort] = useState<SortKey>("newest");
+  // Client-side sort applies only to AI-search results; browse is server-sorted.
+  const [searchSort, setSearchSort] = useState<ProjectSortKey>(sort);
 
   useEffect(() => {
     if (ids === null) return; // no search yet — keep the browse view
@@ -80,10 +88,10 @@ export function ProjectBrowser({
         const res = await fetch(`/api/projects/cards?ids=${ids.join(",")}`);
         const json = await res.json();
         if (!cancelled) {
-          setProjects(json.success ? (json.data as ProjectCardData[]) : []);
+          setSearchResults(json.success ? (json.data as ProjectCardData[]) : []);
         }
       } catch {
-        if (!cancelled) setProjects([]);
+        if (!cancelled) setSearchResults([]);
       } finally {
         if (!cancelled) setLoadingResults(false);
       }
@@ -95,7 +103,23 @@ export function ProjectBrowser({
 
   const isSearch = ids !== null;
   const busy = searching || loadingResults;
-  const sorted = sortProjects(projects, sort);
+
+  // Keeps country + sort + page in the URL when navigating browse mode.
+  const hrefFor = (next: { sort?: ProjectSortKey; page?: number }) => {
+    const sp = new URLSearchParams();
+    if (country) sp.set("country", country);
+    const s = next.sort ?? sort;
+    if (s !== defaultSort) sp.set("sort", s);
+    const p = next.page ?? page;
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `/projects?${qs}` : "/projects";
+  };
+
+  const cards = isSearch
+    ? sortProjects(searchResults ?? [], searchSort)
+    : initialProjects;
+  const selectValue = isSearch ? searchSort : sort;
 
   return (
     <div className="mx-auto max-w-7xl px-6 pb-20 pt-10 md:px-10">
@@ -129,20 +153,24 @@ export function ProjectBrowser({
                 {busy
                   ? "Searching inventory…"
                   : isSearch
-                    ? `${projects.length} matching · from your search`
-                    : subheading}
+                    ? `${searchResults?.length ?? 0} matching · from your search`
+                    : `${subheading}${totalPages > 1 ? ` · Page ${page} of ${totalPages}` : ""}`}
               </p>
             </div>
             <div className="flex items-center gap-4">
               <label className="inline-flex items-center gap-1.5 text-sm text-muted">
                 <span className="hidden sm:inline">Sort</span>
                 <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  value={selectValue}
+                  onChange={(e) => {
+                    const v = e.target.value as ProjectSortKey;
+                    if (isSearch) setSearchSort(v);
+                    else router.push(hrefFor({ sort: v, page: 1 }));
+                  }}
                   className="rounded-sm border border-border bg-card px-2 py-1 text-sm font-medium text-primary focus:border-accent focus:outline-none"
                   aria-label="Sort projects"
                 >
-                  {SORT_OPTIONS.map((o) => (
+                  {PROJECT_SORT_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
                     </option>
@@ -165,16 +193,27 @@ export function ProjectBrowser({
             <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
               Finding the best matches for your request…
             </div>
-          ) : projects.length === 0 ? (
+          ) : cards.length === 0 ? (
             <div className="rounded-sm border border-border bg-card p-6 text-sm text-muted">
-              No matches. Ask the assistant to broaden your search.
+              {isSearch
+                ? "No matches. Ask the assistant to broaden your search."
+                : "No projects to show."}
             </div>
           ) : (
-            <div className="grid gap-5 lg:grid-cols-2">
-              {sorted.map((p) => (
-                <ProjectCard key={p.id} p={p} />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-5 lg:grid-cols-2">
+                {cards.map((p) => (
+                  <ProjectCard key={p.id} p={p} />
+                ))}
+              </div>
+              {!isSearch ? (
+                <Pager
+                  page={page}
+                  totalPages={totalPages}
+                  hrefFor={(p) => hrefFor({ page: p })}
+                />
+              ) : null}
+            </>
           )}
         </section>
       </div>
