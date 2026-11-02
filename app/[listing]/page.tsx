@@ -215,7 +215,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!resolved) return { title: "Not found" };
 
   const { parsed, localityName, properties } = resolved;
-  const title = `${listingTitle(parsed, localityName)} | DM Global`;
+  // Brand suffix comes from the root layout's title template ("%s · DM Global"),
+  // so it must not be repeated here or the title reads "… | DM Global · DM Global".
+  const title = listingTitle(parsed, localityName);
   const count = properties.length;
   const description =
     `${count > 0 ? `${count}+ ` : ""}${parsed.typeDef.label.toLowerCase()} ` +
@@ -227,8 +229,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description,
     alternates: { canonical },
-    openGraph: { title, description, url: canonical, type: "website" },
-    twitter: { card: "summary_large_image", title, description },
+    openGraph: {
+      title: `${title} · DM Global`,
+      description,
+      url: canonical,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} · DM Global`,
+      description,
+    },
   };
 }
 
