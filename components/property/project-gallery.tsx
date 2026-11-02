@@ -96,12 +96,18 @@ export function ProjectGallery({
                   e.stopPropagation();
                   if (!brochureUrl) return;
                   const url = brochureUrl;
-                  // Open after sign-in; fall back to same-tab if a new tab is
-                  // blocked (the post-login open isn't a direct user gesture).
+                  // Open in a new tab only, never the current one. An anchor
+                  // click is used instead of window.open(..., "noopener"),
+                  // which returns null on success and so can't be branched on.
                   void requireAuth(
                     () => {
-                      const w = window.open(url, "_blank", "noopener");
-                      if (!w) window.location.href = url;
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.target = "_blank";
+                      a.rel = "noopener noreferrer";
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
                     },
                     {
                       title: "Sign in to download",
