@@ -4,7 +4,7 @@ import {
 } from "@/components/property/payment-timeline";
 import { FileText } from "lucide-react";
 import { descriptionSections } from "@/lib/property/description";
-import { floorplanMatcher } from "@/lib/property/unit-groups";
+import { floorplanMatcher, isRealUnitNumber } from "@/lib/property/unit-groups";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -343,7 +343,7 @@ export default async function UnitDetailPage({
               Parking · {parking}
             </span>
           ) : null}
-          {isAdminViewer ? (
+          {isAdminViewer && isRealUnitNumber(unit.unitNumber) ? (
             <span className="inline-flex flex-wrap items-center gap-2 rounded-sm border border-accent/30 bg-accent/5 px-2.5 py-0.5 text-xs text-primary">
               <span className="font-medium">Unit {unit.unitNumber}</span>
               {unit.floor != null ? (

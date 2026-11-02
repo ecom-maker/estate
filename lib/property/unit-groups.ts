@@ -2,6 +2,11 @@ import type { UnitGroup, UnitRow } from "@/components/property/units-section";
 
 export const PLACEHOLDER_PLAN = "/floorplan-placeholder.svg";
 
+/** Feeds give no unit numbers, so imports store a bed label ("3BR", "1BR-2") in that field. */
+export function isRealUnitNumber(unitNumber: string) {
+  return !/^(studio|unit|\d+\s*br)(-\d+)?$/i.test(unitNumber.trim());
+}
+
 type FloorplanLike = {
   url: string;
   title: string;
