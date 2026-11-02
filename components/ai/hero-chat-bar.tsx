@@ -19,7 +19,8 @@ const SUGGESTIONS = [
 type Mode = "rent" | "buy" | "sell" | "projects" | "ai";
 
 const MODES: { id: Mode; label: string; icon?: boolean }[] = [
-  { id: "rent", label: "Rent" },
+  // Rent is hidden for now — re-add this entry to bring the tab back.
+  // { id: "rent", label: "Rent" },
   { id: "buy", label: "Buy" },
   { id: "sell", label: "Sell" },
   { id: "projects", label: "New projects" },
