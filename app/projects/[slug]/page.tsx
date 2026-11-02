@@ -148,6 +148,30 @@ export default async function ProjectDetailPage({ params }: Props) {
     ...(parking ? ([["Parking", parking]] as [string, string][]) : []),
   ];
 
+  // Masterplan: frames the project within its master development (the
+  // community). Narrative comes from the community's own description; the
+  // fact grid leans on the community/setting rather than repeating the unit
+  // highlights above.
+  const setting = project.waterfront
+    ? "Waterfront"
+    : project.privateBeach
+      ? "Private beach"
+      : null;
+  const homesInProject = project.units.filter((u) => !u.hidden).length;
+  const masterplanFacts: [string, string][] = [
+    ["Master community", project.community?.name ?? "—"],
+    ["Developer", project.developer?.name ?? "—"],
+    ["Project type", typeDefForType(project.type).label],
+    ...(setting ? ([["Setting", setting]] as [string, string][]) : []),
+    ...(homesInProject
+      ? ([["Homes in this project", String(homesInProject)]] as [
+          string,
+          string,
+        ][])
+      : []),
+    ["Handover", handover ?? "TBA"],
+  ];
+
   // Nearby data: served from the DB (metadata.nearbyData) after the first
   // compute; the APIs are only called when it isn't stored yet.
   const {
@@ -545,6 +569,40 @@ export default async function ProjectDetailPage({ params }: Props) {
               metadata: project.metadata,
             }}
           />
+
+          {/* Masterplan — the master development this project sits within */}
+          {project.community ? (
+            <section className="mt-16">
+              <h2 className="font-serif text-2xl text-primary">Masterplan</h2>
+              <p className="mt-1 text-sm text-muted">
+                {project.title} within{" "}
+                {communityLabel(
+                  project.community.name,
+                  project.community.emirate,
+                )}
+              </p>
+              {project.community.description ? (
+                <p className="mt-4 text-sm leading-relaxed text-primary/80">
+                  {project.community.description}
+                </p>
+              ) : null}
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {masterplanFacts.map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl border border-border bg-card p-4"
+                  >
+                    <p className="text-[11px] uppercase tracking-wider text-muted">
+                      {label}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-primary">
+                      {value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           {project.latitude != null && project.longitude != null ? (
             <section className="mt-16">
