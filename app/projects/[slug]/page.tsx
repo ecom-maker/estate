@@ -42,10 +42,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const project = await prisma.property.findFirst({
       where: { slug, deletedAt: null },
-      include: { developer: true },
+      include: { developer: true, community: true },
     });
     if (!project) return { title: "Project" };
-    const title = `${project.title}${project.developer ? ` by ${project.developer.name}` : ""}`;
+    // Enriched, search-intent title: "<Project> by <Developer> — <Type> for Sale
+    // in <Community>". The brand suffix is added by the layout template, so it's
+    // left off here. "by <Developer>" is skipped when the project name already
+    // contains it (e.g. "Legado by Prescott"), to avoid "… by Prescott by Prescott".
+    const devName = project.developer?.name ?? "";
+    const hasDevInTitle =
+      devName && project.title.toLowerCase().includes(devName.toLowerCase());
+    const byDev = devName && !hasDevInTitle ? ` by ${devName}` : "";
+    const locBit = project.community
+      ? ` — ${typeDefForType(project.type).label} for Sale in ${project.community.name}`
+      : "";
+    const title = `${project.title}${byDev}${locBit}`;
     const canonical = `/projects/${project.slug}`;
     return {
       title,
@@ -554,6 +565,63 @@ export default async function ProjectDetailPage({ params }: Props) {
                   referrerPolicy="no-referrer-when-downgrade"
                   className="h-[360px] w-full border-0"
                 />
+              </div>
+            </section>
+          ) : null}
+
+          {/* Internal-linking block: pushes authority to the locality landing
+              pages (the pages we want ranking for "<type> for sale in <area>")
+              with descriptive anchor text, from every project page. */}
+          {project.community?.slug ? (
+            <section className="mt-16">
+              <h2 className="font-serif text-2xl text-primary">
+                Explore{" "}
+                {communityLabel(
+                  project.community.name,
+                  project.community.emirate,
+                )}
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Browse more homes and new developments in the area.
+              </p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {(() => {
+                  const td = typeDefForType(project.type);
+                  const commSlug = project.community.slug;
+                  const emirate = project.community.emirate;
+                  const links: { label: string; href: string }[] = [
+                    {
+                      label: `${td.label} for sale in ${project.community.name}`,
+                      href: `/${buildListingSlug(td.token, "sale", commSlug)}`,
+                    },
+                    {
+                      label: `All properties for sale in ${project.community.name}`,
+                      href: `/${buildListingSlug("properties", "sale", commSlug)}`,
+                    },
+                    ...(emirate
+                      ? [
+                          {
+                            label: `Properties for sale in ${emirate}`,
+                            href: `/${buildListingSlug("properties", "sale", slugifyLocality(emirate))}`,
+                          },
+                        ]
+                      : []),
+                  ];
+                  // De-dupe in case community slug equals the emirate slug.
+                  const seen = new Set<string>();
+                  return links
+                    .filter((l) => !seen.has(l.href) && seen.add(l.href))
+                    .map((l) => (
+                      <a
+                        key={l.href}
+                        href={l.href}
+                        className="flex items-center justify-between rounded-sm border border-border bg-card px-4 py-3 text-sm text-primary transition hover:border-accent"
+                      >
+                        <span>{l.label}</span>
+                        <span className="text-accent">→</span>
+                      </a>
+                    ));
+                })()}
               </div>
             </section>
           ) : null}

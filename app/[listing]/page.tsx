@@ -17,6 +17,7 @@ import {
   humanizeSlug,
   listingTitle,
   DEAL_LABELS,
+  PROPERTY_TYPES,
   type ParsedListingSlug,
 } from "@/lib/seo/listing-slug";
 import { buildListingFaqs } from "@/lib/seo/listing-faqs";
@@ -64,6 +65,14 @@ type ListingUnit = Prisma.PropertyUnitGetPayload<{
   };
 }>;
 
+interface PriceStats {
+  count: number;
+  min: number;
+  max: number;
+  avg: number;
+  avgPerSqft: number | null;
+}
+
 interface ResolvedListing {
   parsed: ParsedListingSlug;
   localityName: string;
@@ -71,6 +80,8 @@ interface ResolvedListing {
   properties: ListingProperty[];
   units: ListingUnit[];
   nearby: { name: string; slug: string }[];
+  priceStats: PriceStats | null;
+  siblingTypes: { label: string; href: string }[];
 }
 
 type Photo = { url: string; alt: string | null };
@@ -136,7 +147,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
       ];
     }
 
-    const [propertiesRaw, unitsRaw, nearby] = await Promise.all([
+    const [propertiesRaw, unitsRaw, nearby, typeGroups] = await Promise.all([
       prisma.property.findMany({
         where,
         include: {
@@ -185,17 +196,82 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
         orderBy: { name: "asc" },
         take: 6,
       }),
+      // Which property types actually have inventory in this community, so the
+      // sibling-type links below never point at an empty landing page.
+      community
+        ? prisma.property.groupBy({
+            by: ["type"],
+            where: {
+              deletedAt: null,
+              status: { in: ["ACTIVE", "RESERVED"] },
+              communityId: community.id,
+            },
+          })
+        : Promise.resolve([] as { type: string }[]),
     ]);
 
     // Keep only inventory offered for this page's deal (sale or rent).
-    const units = unitsRaw
-      .filter((u) => unitMatchesDeal(u.metadata, parsed.deal))
-      .slice(0, 24);
+    const dealUnits = unitsRaw.filter((u) =>
+      unitMatchesDeal(u.metadata, parsed.deal),
+    );
+    const units = dealUnits.slice(0, 24);
     const properties = propertiesRaw
       .filter((p) => developmentMatchesDeal(p, parsed.deal))
       .slice(0, 24);
 
-    return { parsed, localityName, localityCity, properties, units, nearby };
+    // Price insights over the full deal-filtered set (not just the shown 24),
+    // for sale pages only — rent asking prices aren't captured yet.
+    const priceStats = parsed.deal === "sale"
+      ? (() => {
+          const prices = dealUnits
+            .map((u) => u.priceAed)
+            .filter((n): n is number => n != null && n > 0);
+          if (prices.length < 2) return null;
+          const perSqft = dealUnits
+            .map((u) =>
+              u.priceAed && u.areaSqft && u.areaSqft > 0
+                ? u.priceAed / u.areaSqft
+                : null,
+            )
+            .filter((n): n is number => n != null);
+          return {
+            count: prices.length,
+            min: Math.min(...prices),
+            max: Math.max(...prices),
+            avg: Math.round(prices.reduce((a, b) => a + b, 0) / prices.length),
+            avgPerSqft: perSqft.length
+              ? Math.round(perSqft.reduce((a, b) => a + b, 0) / perSqft.length)
+              : null,
+          };
+        })()
+      : null;
+
+    // Sibling-type links for the same locality (e.g. villas / townhouses when
+    // you're on the apartments page), limited to types with real inventory.
+    const presentTypes = new Set(typeGroups.map((g) => g.type));
+    const siblingTypes = community
+      ? PROPERTY_TYPES.filter(
+          (td) =>
+            td.token !== parsed.typeDef.token &&
+            (td.enums.length === 0
+              ? presentTypes.size > 0 // "properties" catch-all
+              : td.enums.some((e) => presentTypes.has(e))),
+        ).map((td) => ({
+          label: `${td.label} ${DEAL_LABELS[parsed.deal].toLowerCase()} in ${localityName}`,
+          href: `/${buildListingSlug(td.token, parsed.deal, community.slug)}`,
+        }))
+      : [];
+
+    return {
+      parsed,
+      localityName,
+      localityCity,
+      properties,
+      units,
+      nearby,
+      priceStats,
+      siblingTypes,
+    };
   } catch {
     // DB unavailable — still render an indexable shell rather than 500.
     return {
@@ -205,6 +281,8 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
       properties: [],
       units: [],
       nearby: [],
+      priceStats: null,
+      siblingTypes: [],
     };
   }
 }
@@ -248,8 +326,16 @@ export default async function ListingLandingPage({ params }: Props) {
   const resolved = await resolveListing(listing);
   if (!resolved) notFound();
 
-  const { parsed, localityName, localityCity, properties, units, nearby } =
-    resolved;
+  const {
+    parsed,
+    localityName,
+    localityCity,
+    properties,
+    units,
+    nearby,
+    priceStats,
+    siblingTypes,
+  } = resolved;
   const heading = listingTitle(parsed, localityName);
   const dealLower = DEAL_LABELS[parsed.deal].toLowerCase();
   const typeLower = parsed.typeDef.label.toLowerCase();
@@ -364,6 +450,52 @@ export default async function ListingLandingPage({ params }: Props) {
       <h1 className="mt-3 font-serif text-4xl text-primary md:text-5xl">{heading}</h1>
 
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted">{intro}</p>
+
+      {/* Price insights — unique, data-driven content for this locality + type. */}
+      {priceStats ? (
+        <section className="mt-8">
+          <h2 className="sr-only">
+            {heading} price guide
+          </h2>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Listings", value: priceStats.count.toLocaleString() },
+              { label: "From", value: formatAED(priceStats.min) },
+              { label: "Average", value: formatAED(priceStats.avg) },
+              ...(priceStats.avgPerSqft
+                ? [
+                    {
+                      label: "Avg price / sqft",
+                      value: formatAED(priceStats.avgPerSqft),
+                    },
+                  ]
+                : [{ label: "Up to", value: formatAED(priceStats.max) }]),
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-sm border border-border bg-card px-4 py-3"
+              >
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-muted">
+                  {s.label}
+                </dt>
+                <dd className="mt-1 font-serif text-lg text-primary">
+                  {s.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted">
+            {typeLower.charAt(0).toUpperCase() + typeLower.slice(1)} for sale in{" "}
+            {localityName} range from {formatAED(priceStats.min)} to{" "}
+            {formatAED(priceStats.max)}, averaging {formatAED(priceStats.avg)}
+            {priceStats.avgPerSqft
+              ? ` (about ${formatAED(priceStats.avgPerSqft)} per sqft)`
+              : ""}{" "}
+            across {priceStats.count} live listings. Prices update as new
+            inventory is added.
+          </p>
+        </section>
+      ) : null}
 
       {/* Individual unit listings */}
       {units.length > 0 ? (
@@ -514,6 +646,27 @@ export default async function ListingLandingPage({ params }: Props) {
           </div>
         </section>
       )}
+
+      {/* More property types in this locality — internal linking for SEO. */}
+      {siblingTypes.length > 0 ? (
+        <section className="mt-16">
+          <h2 className="font-serif text-2xl text-primary">
+            More in {localityName}
+          </h2>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {siblingTypes.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="flex items-center justify-between rounded-sm border border-border bg-card px-4 py-3 text-sm text-primary transition hover:border-accent"
+              >
+                <span>{l.label}</span>
+                <span className="text-accent">→</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Nearby localities — internal linking for SEO */}
       {nearby.length > 0 ? (
