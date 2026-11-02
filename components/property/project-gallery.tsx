@@ -9,6 +9,7 @@ import {
   Camera,
   MapPin,
   LayoutGrid,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,11 +20,13 @@ export function ProjectGallery({
   title,
   mapQuery,
   coords,
+  brochureUrl,
 }: {
   images: Img[];
   title: string;
   mapQuery?: string;
   coords?: { lat: number; lng: number } | null;
+  brochureUrl?: string | null;
 }) {
   const [index, setIndex] = useState<number | null>(null);
   const count = images.length;
@@ -80,8 +83,21 @@ export function ProjectGallery({
             sizes="(max-width:768px) 100vw, 50vw"
             className="object-cover transition duration-500 group-hover:scale-[1.02]"
           />
-          {/* Floor plans / Map overlay */}
-          <span className="pointer-events-none absolute bottom-3 left-3 flex gap-2">
+          {/* Brochure / Floor plans / Map overlay */}
+          <span className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-2">
+            {brochureUrl ? (
+              <span
+                role="link"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(brochureUrl, "_blank", "noopener");
+                }}
+                className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground shadow-sm"
+              >
+                <Download className="h-3.5 w-3.5" /> Download brochure
+              </span>
+            ) : null}
             <span
               role="link"
               tabIndex={-1}

@@ -345,56 +345,28 @@ export default async function ProjectDetailPage({ params }: Props) {
         ) : null}
       </p>
 
-      {brochure || nocUrl ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {brochure ? (
-            <a
-              href={brochure}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-1.5 text-sm font-medium text-accent-foreground transition hover:bg-accent/90"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <path d="M7 10l5 5 5-5" />
-                <path d="M12 15V3" />
-              </svg>
-              Download brochure
-            </a>
-          ) : null}
-          {nocUrl ? (
-            <a
-              href={nocUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary transition hover:border-primary/40 hover:bg-background"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <path d="M14 2v6h6" />
-              </svg>
-              No Objection Certificate (NOC)
-            </a>
-          ) : null}
-        </div>
+      {nocUrl ? (
+        <a
+          href={nocUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-medium text-primary transition hover:border-primary/40 hover:bg-background"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <path d="M14 2v6h6" />
+          </svg>
+          No Objection Certificate (NOC)
+        </a>
       ) : null}
 
       {project.developer && (devEmail || devPhone) ? (
@@ -425,6 +397,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       <ProjectGallery
         images={project.images}
         title={project.title}
+        brochureUrl={brochure}
         mapQuery={
           project.latitude != null && project.longitude != null
             ? `${project.latitude},${project.longitude}`
