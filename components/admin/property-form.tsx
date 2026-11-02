@@ -26,6 +26,7 @@ type PropertyDefaults = {
   handoverDate?: string | null;
   serviceCharge?: string | null;
   parking?: string | null;
+  masterplanImageUrl?: string | null;
   nocUrl?: string | null;
 };
 
@@ -312,6 +313,25 @@ export function PropertyForm({
         <p className="mt-1.5 text-xs text-muted">
           Optional. Shown in the overview on the project and unit pages when
           set. Leave blank to hide.
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="masterplanImageUrl" className={labelClass}>
+          Masterplan image URL
+        </label>
+        <input
+          id="masterplanImageUrl"
+          name="masterplanImageUrl"
+          type="url"
+          defaultValue={property?.masterplanImageUrl ?? ""}
+          placeholder="https://…/masterplan.jpg"
+          className={fieldClass}
+        />
+        <p className="mt-1.5 text-xs text-muted">
+          Optional. Shown in the Masterplan section on the project page. Leave
+          blank to fall back to a gallery image whose caption mentions
+          &ldquo;masterplan&rdquo; or &ldquo;site plan&rdquo;.
         </p>
       </div>
 

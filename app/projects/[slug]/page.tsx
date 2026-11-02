@@ -128,6 +128,17 @@ export default async function ProjectDetailPage({ params }: Props) {
     (
       (project.metadata as { parking?: string | null } | null)?.parking ?? ""
     ).trim() || null;
+  // Masterplan image: an admin-set URL (metadata.masterplanImageUrl), else a
+  // gallery image whose caption marks it as the masterplan / site plan.
+  const masterplanImage =
+    (
+      (project.metadata as { masterplanImageUrl?: string | null } | null)
+        ?.masterplanImageUrl ?? ""
+    ).trim() ||
+    project.images.find((img) =>
+      /master\s?-?\s?plan|site\s?-?\s?plan/i.test(img.alt ?? ""),
+    )?.url ||
+    null;
   // NOC (No Objection Certificate) document, shown as a link when uploaded.
   const nocUrl = project.documents[0]?.url ?? null;
   // Developer contact, surfaced when the developer has email/phone on file.
@@ -585,6 +596,20 @@ export default async function ProjectDetailPage({ params }: Props) {
                 <p className="mt-4 text-sm leading-relaxed text-primary/80">
                   {project.community.description}
                 </p>
+              ) : null}
+              {masterplanImage ? (
+                <figure className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={masterplanImage}
+                    alt={`${project.title} masterplan`}
+                    loading="lazy"
+                    className="w-full object-contain"
+                  />
+                  <figcaption className="px-4 py-3 text-xs text-muted">
+                    {project.title} masterplan
+                  </figcaption>
+                </figure>
               ) : null}
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {masterplanFacts.map(([label, value]) => (

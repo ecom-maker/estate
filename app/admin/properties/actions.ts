@@ -80,6 +80,8 @@ function parseForm(formData: FormData) {
     handoverDate: String(formData.get("handoverDate") ?? "").trim() || null,
     serviceCharge: String(formData.get("serviceCharge") ?? "").trim() || null,
     parking: String(formData.get("parking") ?? "").trim() || null,
+    masterplanImageUrl:
+      String(formData.get("masterplanImageUrl") ?? "").trim() || null,
     dealType:
       String(formData.get("dealType") ?? "sale") === "rent" ? "rent" : "sale",
     // Completed properties can be offered for rent alongside sale (admin-set).
@@ -596,6 +598,9 @@ export async function createProperty(
           ...(input.handoverDate ? { handoverDate: input.handoverDate } : {}),
           ...(input.serviceCharge ? { serviceCharge: input.serviceCharge } : {}),
           ...(input.parking ? { parking: input.parking } : {}),
+          ...(input.masterplanImageUrl
+            ? { masterplanImageUrl: input.masterplanImageUrl }
+            : {}),
         },
         ...(input.communityId
           ? { community: { connect: { id: input.communityId } } }
@@ -685,6 +690,9 @@ export async function updateProperty(
     else delete metadata.serviceCharge;
     if (input.parking) metadata.parking = input.parking;
     else delete metadata.parking;
+    if (input.masterplanImageUrl)
+      metadata.masterplanImageUrl = input.masterplanImageUrl;
+    else delete metadata.masterplanImageUrl;
     metadata.dealType = input.dealType;
     metadata.forRent = !input.offPlan && input.forRent;
     await prisma.property.update({
@@ -743,6 +751,11 @@ export async function updateProperty(
         ["handover date", oldMeta.handoverDate ?? null, metadata.handoverDate ?? null],
         ["service charge", oldMeta.serviceCharge ?? null, metadata.serviceCharge ?? null],
         ["parking", oldMeta.parking ?? null, metadata.parking ?? null],
+        [
+          "masterplan image",
+          oldMeta.masterplanImageUrl ?? null,
+          metadata.masterplanImageUrl ?? null,
+        ],
         ["deal type", oldMeta.dealType ?? null, metadata.dealType ?? null],
         ["description", existing?.description, input.description],
         ...(slug

@@ -116,6 +116,7 @@ export default async function EditPropertyPage({
     parking?: string;
     dealType?: string;
     forRent?: boolean;
+    masterplanImageUrl?: string;
   };
 
   // Projects (off-plan) and ready properties share this edit route; label it
@@ -153,6 +154,7 @@ export default async function EditPropertyPage({
             handoverDate: meta.handoverDate ?? null,
             serviceCharge: meta.serviceCharge ?? null,
             parking: meta.parking ?? null,
+            masterplanImageUrl: meta.masterplanImageUrl ?? null,
             nocUrl: property.documents[0]?.url ?? null,
             dealType: meta.dealType ?? "sale",
             forRent: meta.forRent ?? false,
