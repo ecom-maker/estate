@@ -154,30 +154,6 @@ export default async function ProjectDetailPage({ params }: Props) {
     ...(parking ? ([["Parking", parking]] as [string, string][]) : []),
   ];
 
-  // Masterplan: frames the project within its master development (the
-  // community). Narrative comes from the community's own description; the
-  // fact grid leans on the community/setting rather than repeating the unit
-  // highlights above.
-  const setting = project.waterfront
-    ? "Waterfront"
-    : project.privateBeach
-      ? "Private beach"
-      : null;
-  const homesInProject = project.units.filter((u) => !u.hidden).length;
-  const masterplanFacts: [string, string][] = [
-    ["Master community", project.community?.name ?? "—"],
-    ["Developer", project.developer?.name ?? "—"],
-    ["Project type", typeDefForType(project.type).label],
-    ...(setting ? ([["Setting", setting]] as [string, string][]) : []),
-    ...(homesInProject
-      ? ([["Homes in this project", String(homesInProject)]] as [
-          string,
-          string,
-        ][])
-      : []),
-    ["Handover", handover ?? "TBA"],
-  ];
-
   // Nearby data: served from the DB (metadata.nearbyData) after the first
   // compute; the APIs are only called when it isn't stored yet.
   const {
@@ -608,21 +584,6 @@ export default async function ProjectDetailPage({ params }: Props) {
                   </figcaption>
                 </figure>
               ) : null}
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {masterplanFacts.map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="rounded-xl border border-border bg-card p-4"
-                  >
-                    <p className="text-[11px] uppercase tracking-wider text-muted">
-                      {label}
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-primary">
-                      {value}
-                    </p>
-                  </div>
-                ))}
-              </div>
             </section>
           ) : null}
 
