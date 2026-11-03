@@ -554,36 +554,36 @@ export default async function ProjectDetailPage({ params }: Props) {
             }}
           />
 
-          {/* Masterplan — the master development this project sits within */}
-          {project.community ? (
+          {/* Masterplan — shown only when a masterplan image exists */}
+          {masterplanImage ? (
             <section className="mt-16">
               <h2 className="font-serif text-2xl text-primary">Masterplan</h2>
-              <p className="mt-1 text-sm text-muted">
-                {project.title} within{" "}
-                {communityLabel(
-                  project.community.name,
-                  project.community.emirate,
-                )}
-              </p>
-              {project.community.description ? (
+              {project.community ? (
+                <p className="mt-1 text-sm text-muted">
+                  {project.title} within{" "}
+                  {communityLabel(
+                    project.community.name,
+                    project.community.emirate,
+                  )}
+                </p>
+              ) : null}
+              {project.community?.description ? (
                 <p className="mt-4 text-sm leading-relaxed text-primary/80">
                   {project.community.description}
                 </p>
               ) : null}
-              {masterplanImage ? (
-                <figure className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={masterplanImage}
-                    alt={`${project.title} masterplan`}
-                    loading="lazy"
-                    className="w-full object-contain"
-                  />
-                  <figcaption className="px-4 py-3 text-xs text-muted">
-                    {project.title} masterplan
-                  </figcaption>
-                </figure>
-              ) : null}
+              <figure className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={masterplanImage}
+                  alt={`${project.title} masterplan`}
+                  loading="lazy"
+                  className="w-full object-contain"
+                />
+                <figcaption className="px-4 py-3 text-xs text-muted">
+                  {project.title} masterplan
+                </figcaption>
+              </figure>
             </section>
           ) : null}
 
