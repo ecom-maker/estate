@@ -124,6 +124,10 @@ export default async function UnitDetailPage({
 
   const nearby = await getNearbyBundle(p);
 
+  // Masterplan image (admin-set URL or a captioned gallery image). The
+  // Masterplan section is shown only when one exists.
+  const masterplanImg = masterplanImageOf(p);
+
   // Delivery badge: off-plan with handover date, or completed with the
   // completion date when it's on file (metadata.handoverDate / completionLabel).
   // Past handover ⇒ completed, even if a stale import still flags it off-plan.
@@ -513,6 +517,36 @@ export default async function UnitDetailPage({
             metadata: p.metadata,
           }}
         />
+
+        {/* Masterplan — shown only when a masterplan image exists */}
+        {masterplanImg ? (
+          <section className="mt-16">
+            <h2 className="font-serif text-2xl text-primary">Masterplan</h2>
+            {p.community ? (
+              <p className="mt-1 text-sm text-muted">
+                {p.title} within{" "}
+                {communityLabel(p.community.name, p.community.emirate)}
+              </p>
+            ) : null}
+            {p.community?.description ? (
+              <p className="mt-4 text-sm leading-relaxed text-primary/80">
+                {p.community.description}
+              </p>
+            ) : null}
+            <figure className="mt-6 overflow-hidden rounded-xl border border-border bg-card">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={masterplanImg}
+                alt={`${p.title} masterplan`}
+                loading="lazy"
+                className="w-full object-contain"
+              />
+              <figcaption className="px-4 py-3 text-xs text-muted">
+                {p.title} masterplan
+              </figcaption>
+            </figure>
+          </section>
+        ) : null}
 
         {p.latitude != null && p.longitude != null ? (
           <section className="mt-16">
