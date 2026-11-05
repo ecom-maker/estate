@@ -102,7 +102,7 @@ export default async function ProjectsPage({
   return (
     <>
       {facets.length > 1 ? (
-        <div className="mx-auto max-w-7xl px-6 pt-24 md:px-10">
+        <div className="mx-auto max-w-7xl px-6 pt-8 md:px-10">
           <CityChips
             facets={facets}
             selected={city}
