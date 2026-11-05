@@ -301,3 +301,23 @@ export function projectNameCandidates(title: string | null | undefined): string[
   if (!out.includes(full)) out.unshift(full);
   return [...new Set(out)].slice(0, 6);
 }
+
+/**
+ * The exact query string the site sends to the dld-transactions Worker for a
+ * property. Shared by lib/property/market-data.ts and
+ * scripts/warm-dld-cache.ts so the pre-filled answers match the site's keys.
+ */
+export function dldInsightsQuery(property: {
+  bedrooms: number | null;
+  community?: { name: string } | null;
+  building?: string | null;
+}): string | null {
+  const scope = dldScopeFor(property.community?.name);
+  if (!scope) return null;
+  const params = new URLSearchParams({ labels: scope.labels.join("|") });
+  if (scope.sub) params.set("sub", scope.sub);
+  if (property.bedrooms !== null) params.set("beds", String(property.bedrooms));
+  const names = projectNameCandidates(property.building?.trim() || null);
+  if (names.length) params.set("names", names.join("|"));
+  return params.toString();
+}

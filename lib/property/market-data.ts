@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { kvGet } from "@/lib/settings/kv";
-import { dldScopeFor, projectNameCandidates } from "@/lib/property/dld-communities";
+import { dldInsightsQuery } from "@/lib/property/dld-communities";
 import type { MarketInsights, Txn } from "@/lib/property/market-insights";
 
 /**
@@ -371,18 +371,12 @@ function d1Months(rows: D1Month[]): Map<string, number> {
 
 async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Promise<MarketInsights | null> {
   const community = property.community?.name;
-  const scope = dldScopeFor(community);
-  if (!community || !scope) return null;
+  const query = dldInsightsQuery(property);
+  if (!community || !query) return null;
 
   const beds = property.bedrooms === null ? null : String(property.bedrooms);
   const building = property.building?.trim() || null;
-  const params = new URLSearchParams({ labels: scope.labels.join("|") });
-  if (scope.sub) params.set("sub", scope.sub);
-  if (beds !== null) params.set("beds", beds);
-  const names = projectNameCandidates(building);
-  if (names.length) params.set("names", names.join("|"));
-
-  const data = await fetchD1(worker.url, worker.secret, params.toString());
+  const data = await fetchD1(worker.url, worker.secret, query);
 
   const useBuilding = (data.project?.sales.count ?? 0) >= MIN_TXNS;
   const sameBedOk = data.sameBed.sales.count >= MIN_TXNS;
