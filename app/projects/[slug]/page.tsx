@@ -197,7 +197,8 @@ export default async function ProjectDetailPage({ params }: Props) {
     unitLayouts: unitGroups.map((g) => g.label),
     schools: nearbySchools,
     hospitals: nearbyHospitals,
-    transactionCount: insights?.sold.length ?? null,
+    transactionCount: insights?.salesCount ?? insights?.sold.length ?? null,
+    transactionsYears: insights?.salesCount ? 5 : null,
     avgPerSqft,
     trendDirection,
     comparablesLabel: insights?.comparablesLabel ?? null,
@@ -370,8 +371,8 @@ export default async function ProjectDetailPage({ params }: Props) {
           project.latitude != null && project.longitude != null
             ? `${project.latitude},${project.longitude}`
             : project.community
-              ? `${project.community.name}, Dubai`
-              : `${project.title}, Dubai`
+              ? `${project.community.name}, ${project.community.city ?? "Dubai"}`
+              : `${project.title}, ${project.country && project.country !== "AE" ? countryName(project.country) : "Dubai"}`
         }
         coords={
           project.latitude != null && project.longitude != null

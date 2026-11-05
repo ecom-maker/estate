@@ -29,6 +29,8 @@ export function buildProjectFaqs(args: {
   hospitals?: Nearby[];
   /** Recorded comparable transactions near the project. */
   transactionCount?: number | null;
+  /** Period transactionCount covers, in years (full D1 data); null = the rows shown. */
+  transactionsYears?: number | null;
   avgPerSqft?: number | null;
   trendDirection?: "rising" | "softening" | "stable" | null;
   comparablesLabel?: string | null; // e.g. "2 bedroom in Downtown Dubai"
@@ -46,6 +48,7 @@ export function buildProjectFaqs(args: {
     schools = [],
     hospitals = [],
     transactionCount,
+    transactionsYears,
     avgPerSqft,
     trendDirection,
     comparablesLabel,
@@ -138,9 +141,13 @@ export function buildProjectFaqs(args: {
       : "";
     faqs.push({
       q: `What are recent sale prices near ${title}?`,
-      a: `${transactionCount} comparable transactions${scope} are recorded on DM Global, averaging ${perSqft(
-        avgPerSqft,
-      )}${trend}.`,
+      a: transactionsYears
+        ? `${transactionCount.toLocaleString("en-US")} comparable transactions${scope} are recorded on DM Global in the last ${transactionsYears} years, with recent sales averaging ${perSqft(
+            avgPerSqft,
+          )}${trend}.`
+        : `${transactionCount} comparable transactions${scope} are recorded on DM Global, averaging ${perSqft(
+            avgPerSqft,
+          )}${trend}.`,
     });
   }
 

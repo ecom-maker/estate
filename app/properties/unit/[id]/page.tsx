@@ -33,6 +33,7 @@ import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { ShareSaveBar } from "@/components/property/share-save-bar";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
+import { countryName } from "@/lib/currency/fx";
 
 export const dynamic = "force-dynamic";
 
@@ -368,8 +369,8 @@ export default async function UnitDetailPage({
               p.latitude != null && p.longitude != null
                 ? `${p.latitude},${p.longitude}`
                 : p.community
-                  ? `${p.community.name}, Dubai`
-                  : `${p.title}, Dubai`
+                  ? `${p.community.name}, ${p.community.city ?? "Dubai"}`
+                  : `${p.title}, ${p.country && p.country !== "AE" ? countryName(p.country) : "Dubai"}`
             }
             coords={
               p.latitude != null && p.longitude != null

@@ -21,6 +21,9 @@ export type MarketInsights = {
    *  transactions table heading so it never claims "this building" for what are
    *  actually area comparables (e.g. an off-plan tower with no sales yet). */
   scope?: "building" | "area";
+  /** Recorded sales behind the headline scope over the last five years (full
+   *  D1 data only). The table shows the latest 14 of them. */
+  salesCount?: number;
   /**
    * null when the comparables exist but span too few months to call a trend.
    * The transactions table is still shown in that case — it is a list of real

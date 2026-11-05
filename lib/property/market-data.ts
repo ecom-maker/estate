@@ -1,4 +1,7 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
+import { kvGet } from "@/lib/settings/kv";
+import { dldScopeFor, projectNameCandidates } from "@/lib/property/dld-communities";
 import type { MarketInsights, Txn } from "@/lib/property/market-insights";
 
 /**
@@ -116,14 +119,33 @@ function buildSeries(
   return months.length >= MIN_TREND_MONTHS ? { months, primary, secondary } : null;
 }
 
-export async function getMarketInsights(property: {
+type InsightsInput = {
   bedrooms: number | null;
   community?: { name: string } | null;
   /** The project/building name — used to draw a building-specific line when the
    *  DLD records name it. Off-plan towers have no transactions, so this is
    *  usually absent and the chart falls back to community comparables. */
   building?: string | null;
-}): Promise<MarketInsights | null> {
+};
+
+/**
+ * Full 10-year DLD data (Cloudflare D1, 8M records) through the
+ * `dld-transactions` Worker when the `dld_worker` setting is present; the
+ * older Supabase `market_transactions` table otherwise, or if the Worker fails.
+ */
+export async function getMarketInsights(property: InsightsInput): Promise<MarketInsights | null> {
+  const worker = await dldWorker();
+  if (worker) {
+    try {
+      return await getD1Insights(worker, property);
+    } catch (error) {
+      console.error("[market-data] D1 worker failed, using Supabase table", error);
+    }
+  }
+  return getSupabaseInsights(property);
+}
+
+async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsights | null> {
   const community = property.community?.name;
   if (!community) return null;
 
@@ -297,5 +319,134 @@ export async function getMarketInsights(property: {
     comparablesLabel,
     scope: useBuilding ? "building" : "area",
     trend,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Full DLD data: Cloudflare D1 through the `dld-transactions` Worker
+// (infra/cloudflare/dld-transactions/worker.js).
+// ---------------------------------------------------------------------------
+
+type WorkerConfig = { url: string; secret: string };
+
+async function dldWorker(): Promise<WorkerConfig | null> {
+  const cfg = await kvGet<WorkerConfig | null>("dld_worker", null);
+  return cfg?.url && cfg?.secret ? cfg : null;
+}
+
+type D1Row = { d: string; a: number | null; s: number | null; r: number | null };
+type D1Month = { m: string; n: number; v: number };
+type D1Side = { latest: D1Row[]; monthly: D1Month[]; count: number };
+type D1Scope = { sales: D1Side; rentals: D1Side };
+type D1Response = { since: string; sameBed: D1Scope; all: D1Scope; project: D1Scope | null };
+
+/** Cached for a day per (community, beds, project): the D1 data changes only on a monthly top-up. */
+const fetchD1 = unstable_cache(
+  async (url: string, secret: string, query: string): Promise<D1Response> => {
+    const res = await fetch(`${url}/insights?${query}`, {
+      headers: { "x-dld-secret": secret },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) throw new Error(`dld worker ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    return (await res.json()) as D1Response;
+  },
+  ["dld-insights-v1"],
+  { revalidate: 86_400, tags: ["dld"] },
+);
+
+function d1Rows(rows: D1Row[]): Row[] {
+  return rows.map((r) => ({
+    transactedOn: new Date(`${r.d}T00:00:00Z`),
+    amountAed: r.a,
+    amountPerSqm: null,
+    areaSqm: r.s,
+    monthlyRentAed: r.r,
+    bedrooms: null,
+  }));
+}
+
+function d1Months(rows: D1Month[]): Map<string, number> {
+  return new Map(rows.map((r) => [r.m, r.v]));
+}
+
+async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Promise<MarketInsights | null> {
+  const community = property.community?.name;
+  const scope = dldScopeFor(community);
+  if (!community || !scope) return null;
+
+  const beds = property.bedrooms === null ? null : String(property.bedrooms);
+  const building = property.building?.trim() || null;
+  const params = new URLSearchParams({ labels: scope.labels.join("|") });
+  if (scope.sub) params.set("sub", scope.sub);
+  if (beds !== null) params.set("beds", beds);
+  const names = projectNameCandidates(building);
+  if (names.length) params.set("names", names.join("|"));
+
+  const data = await fetchD1(worker.url, worker.secret, params.toString());
+
+  const useBuilding = (data.project?.sales.count ?? 0) >= MIN_TXNS;
+  const sameBedOk = data.sameBed.sales.count >= MIN_TXNS;
+  const salesScope = useBuilding ? data.project! : sameBedOk ? data.sameBed : data.all;
+  const rentalScope = useBuilding
+    ? data.project!
+    : data.sameBed.rentals.count >= MIN_TXNS
+      ? data.sameBed
+      : data.all;
+
+  if (salesScope.sales.count < MIN_TXNS) return null;
+
+  const sold = d1Rows(salesScope.sales.latest)
+    .map((r) => toTxn(r))
+    .filter((t): t is Txn => t !== null)
+    .slice(0, 14);
+  const rented = d1Rows(rentalScope.rentals.latest)
+    .map((r) => toTxn(r, true))
+    .filter((t): t is Txn => t !== null)
+    .slice(0, 14);
+  if (sold.length < MIN_TXNS) return null;
+
+  const bedWord =
+    beds === null ? "Similar properties" : beds === "0" ? "Studios" : `${beds} bedroom`;
+  const comparablesLabel = useBuilding
+    ? `${bedWord} at ${building}`
+    : sameBedOk
+      ? `${bedWord} in ${community}`
+      : `Similar properties in ${community}`;
+  const segWord =
+    beds === null ? "Similar homes" : beds === "0" ? "Studio" : `${beds}-bedroom`;
+  const areaAvgLabel = `${community} average (all sizes)`;
+
+  const scopes: { s: D1Scope; label: string; kind: string }[] = [];
+  if (useBuilding) scopes.push({ s: data.project!, label: `${segWord} at ${building}`, kind: "building" });
+  if (sameBedOk) scopes.push({ s: data.sameBed, label: `${segWord} average`, kind: "sameBed" });
+  scopes.push({ s: data.all, label: areaAvgLabel, kind: "all" });
+
+  const mAllSales = d1Months(data.all.sales.monthly);
+  const mAllRentals = d1Months(data.all.rentals.monthly);
+  let trend: MarketInsights["trend"] = null;
+  for (const sc of scopes) {
+    const saleTrend = buildSeries(d1Months(sc.s.sales.monthly), sc.kind === "all" ? null : mAllSales);
+    if (!saleTrend) continue;
+    const rentTrend = buildSeries(d1Months(sc.s.rentals.monthly), sc.kind === "all" ? null : mAllRentals);
+    trend = {
+      months: saleTrend.months,
+      sale: { primary: saleTrend.primary, secondary: saleTrend.secondary },
+      rent:
+        rentTrend && rentTrend.months.length === saleTrend.months.length
+          ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
+          : { primary: [], secondary: [] },
+      primaryLabel: sc.label,
+      secondaryLabel: sc.kind === "all" ? "" : areaAvgLabel,
+    };
+    break;
+  }
+
+  return {
+    sold,
+    rented,
+    comparablesLabel,
+    scope: useBuilding ? "building" : "area",
+    trend,
+    salesCount: salesScope.sales.count,
   };
 }

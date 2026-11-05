@@ -26,6 +26,7 @@ export const FX_TO_AED: Record<string, number> = {
   CHF: 4.12,
   SGD: 2.73,
   THB: 0.103,
+  IDR: 0.000225,
 };
 
 export const SUPPORTED_CURRENCIES = Object.keys(FX_TO_AED);
@@ -77,6 +78,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
   AU: "Australia",
   SG: "Singapore",
   TH: "Thailand",
+  ID: "Indonesia",
   CH: "Switzerland",
   FR: "France",
   ES: "Spain",
