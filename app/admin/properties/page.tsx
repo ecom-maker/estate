@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { assertPermission } from "@/lib/rbac/guards";
 import { formatMoney } from "@/lib/currency/fx";
 import { getCountryFacets } from "@/lib/property/country-facets";
+import { countryWhere } from "@/lib/property/country-filter";
 import { CountryChips } from "@/components/property/country-chips";
 import { BackfillCommunitiesButton } from "@/components/admin/backfill-communities-button";
 
@@ -53,7 +54,7 @@ export default async function AdminPropertiesPage({
   const country = countryParam?.toUpperCase() || null;
   const baseWhere = whereForFilter(filter);
   const where: Prisma.PropertyWhereInput = country
-    ? { ...baseWhere, country }
+    ? { AND: [baseWhere, countryWhere(country)] }
     : baseWhere;
 
   let properties: Array<{

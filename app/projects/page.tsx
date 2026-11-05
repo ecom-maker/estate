@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { ProjectBrowser } from "@/components/property/project-browser";
 import { CountryChips } from "@/components/property/country-chips";
 import { getCountryFacets } from "@/lib/property/country-facets";
+import { countryWhere } from "@/lib/property/country-filter";
 import {
   toProjectCardData,
   projectCardInclude,
@@ -66,7 +67,7 @@ export default async function ProjectsPage({
   const sort = parseProjectSort(params.sort);
   const requestedPage = parsePage(params.page);
   const where: Prisma.PropertyWhereInput = country
-    ? { ...PROJECTS_WHERE, country }
+    ? { AND: [PROJECTS_WHERE, countryWhere(country)] }
     : PROJECTS_WHERE;
 
   let projects: ProjectCardData[] = [];

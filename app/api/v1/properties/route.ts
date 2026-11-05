@@ -6,6 +6,7 @@ import {
   toCanonicalPropertySummary,
   SITE_URL,
 } from "@/lib/data-layer/canonical";
+import { countryWhere } from "@/lib/property/country-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     where.type = type.toUpperCase() as PropertyType;
   }
   const country = searchParams.get("country");
-  if (country) where.country = country.toUpperCase();
+  if (country) where.AND = [countryWhere(country)];
   const community = searchParams.get("community");
   if (community) {
     where.community = { name: { contains: community, mode: "insensitive" } };

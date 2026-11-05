@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { countryName } from "@/lib/currency/fx";
+import { mergeCountryCounts } from "@/lib/property/country-filter";
 
 export type CountryFacet = { code: string; name: string | null; count: number };
 
@@ -19,13 +20,9 @@ export async function getCountryFacets(
       where,
       _count: { _all: true },
     });
-    return groups
-      .map((g) => ({
-        code: g.country ?? "AE",
-        name: countryName(g.country ?? "AE"),
-        count: g._count._all,
-      }))
-      .sort((a, b) => b.count - a.count);
+    return mergeCountryCounts(
+      groups.map((g) => ({ country: g.country, count: g._count._all })),
+    ).map((g) => ({ code: g.code, name: countryName(g.code), count: g.count }));
   } catch {
     return [];
   }
