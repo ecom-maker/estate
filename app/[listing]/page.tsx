@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { formatAED } from "@/lib/utils";
-import { formatMoney } from "@/lib/currency/fx";
+import { formatMoney, formatUnitPrice } from "@/lib/currency/fx";
 import { bedroomsText, isStartingFigure } from "@/lib/property/bedrooms";
 import { SITE_URL } from "@/lib/data-layer/canonical";
 import { unitPath } from "@/lib/property/unit-url";
@@ -58,6 +58,7 @@ type ListingUnit = Prisma.PropertyUnitGetPayload<{
         slug: true;
         title: true;
         type: true;
+        currency: true;
         community: { select: { name: true; emirate: true } };
         images: { select: { url: true; alt: true } };
       };
@@ -178,6 +179,7 @@ async function resolveListing(slug: string): Promise<ResolvedListing | null> {
               slug: true,
               title: true,
               type: true,
+              currency: true,
               community: { select: { name: true, emirate: true } },
               images: {
                 orderBy: { sortOrder: "asc" },
@@ -556,7 +558,7 @@ export default async function ListingLandingPage({ params }: Props) {
                               : "Rent price on request";
                           })()
                         : u.priceAed
-                          ? formatAED(u.priceAed)
+                          ? formatUnitPrice(u.priceAed, u.property.currency)
                           : "Price on request"}
                     </p>
                     <p className="mt-2 text-xs text-muted">

@@ -1,5 +1,6 @@
 import { buildUnitGroups } from "@/lib/property/unit-groups";
 import { effectiveOffPlan } from "@/lib/property/handover";
+import { aedToNative } from "@/lib/currency/fx";
 
 export type ProjectBedConfig = {
   label: string; // "1 Bed", "Studio"
@@ -168,10 +169,13 @@ export function toProjectCardData(p: ProjectLike): ProjectCardData {
   const startingPriceAed = unitPrices.length
     ? Math.min(...unitPrices)
     : p.priceAed;
-  // Unit-derived prices are AED; a standalone listing shows its own currency.
-  const currency = unitPrices.length ? "AED" : p.currency ?? "AED";
+  // Unit prices are stored in AED; show them in the listing's own currency
+  // (USD for Bali), converted back at the same rate they were stored with.
+  const currency = (p.currency ?? "AED").toUpperCase();
   const startingPrice = unitPrices.length
-    ? startingPriceAed
+    ? currency === "AED"
+      ? startingPriceAed
+      : aedToNative(startingPriceAed as number, currency)
     : p.priceNative ?? p.priceAed;
 
   return {

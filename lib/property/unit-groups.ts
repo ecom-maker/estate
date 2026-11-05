@@ -1,4 +1,5 @@
-import type { UnitGroup, UnitRow } from "@/components/property/units-section";
+
+import { aedToNative } from "@/lib/currency/fx";import type { UnitGroup, UnitRow } from "@/components/property/units-section";
 
 export const PLACEHOLDER_PLAN = "/floorplan-placeholder.svg";
 
@@ -35,6 +36,8 @@ type PropertyLike = {
   bathrooms: number | null;
   areaSqft: number | null;
   priceAed: number | null;
+  /** Listing currency; unit prices are AED and are shown converted back. */
+  currency?: string | null;
   units: UnitLike[];
   floorplans: FloorplanLike[];
 };
@@ -42,12 +45,16 @@ type PropertyLike = {
 const bedLabel = (b: number | null) =>
   b == null ? "Other" : b === 0 ? "Studio" : `${b} Bed`;
 
-const fromLabel = (price: number | null) =>
-  price == null
-    ? ""
-    : price >= 1_000_000
-      ? `from ${(price / 1_000_000).toFixed(1)}M AED`
-      : `from ${price.toLocaleString()} AED`;
+/** Unit prices are stored in AED; a listing priced in another currency
+ *  (USD for Bali) is labelled in that currency. */
+const fromLabel = (priceAed: number | null, currency?: string | null) => {
+  if (priceAed == null) return "";
+  const code = (currency || "AED").toUpperCase();
+  const price = code === "AED" ? priceAed : aedToNative(priceAed, code);
+  return price >= 1_000_000
+    ? `from ${(price / 1_000_000).toFixed(1)}M ${code}`
+    : `from ${price.toLocaleString("en-US")} ${code}`;
+};
 
 /**
  * Group a property's units by bedroom type for the developer-style Units view.
@@ -140,7 +147,7 @@ export function buildUnitGroups(property: PropertyLike): UnitGroup[] {
     .map(([key, g]) => ({
       key,
       label: g.label,
-      fromLabel: fromLabel(g.prices.length ? Math.min(...g.prices) : null),
+      fromLabel: fromLabel(g.prices.length ? Math.min(...g.prices) : null, property.currency),
       bathrooms: g.bath,
       units: g.units,
     }));

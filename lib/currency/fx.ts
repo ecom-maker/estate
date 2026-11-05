@@ -41,7 +41,11 @@ export function toAed(amount: number, currency: string): number {
   return Math.round(amount * rate);
 }
 
-/** Format an amount in its own currency, e.g. "£450,000" or "AED 2,650,000". */
+/**
+ * Format an amount in its own currency with the ISO code, e.g. "USD 748,000"
+ * or "AED 2,650,000". The code (not "$") keeps a USD price from being read as
+ * AED, or as another dollar, on a site where most prices are in AED.
+ */
 export function formatMoney(
   amount: number | null | undefined,
   currency: string = "AED",
@@ -52,12 +56,33 @@ export function formatMoney(
     return new Intl.NumberFormat("en-AE", {
       style: "currency",
       currency: code,
+      currencyDisplay: "code",
       maximumFractionDigits: 0,
     }).format(amount);
   } catch {
     // Unknown currency code — fall back to "<CODE> <amount>".
     return `${code} ${Math.round(amount).toLocaleString()}`;
   }
+}
+
+/** Convert an AED-normalized amount back to its native currency. */
+export function aedToNative(amountAed: number, currency: string): number {
+  const rate = FX_TO_AED[currency.toUpperCase()] ?? 1;
+  return Math.round(amountAed / rate);
+}
+
+/**
+ * A unit's price for display. Unit prices are stored in AED (priceAed); for a
+ * listing priced in another currency (e.g. USD for Bali) show it in that
+ * currency, the way the seller lists it, instead of the AED conversion.
+ */
+export function formatUnitPrice(
+  priceAed: number | null | undefined,
+  currency: string | null | undefined,
+): string {
+  if (priceAed == null) return "Price on request";
+  const code = (currency || "AED").toUpperCase();
+  return code === "AED" ? formatMoney(priceAed, "AED") : formatMoney(aedToNative(priceAed, code), code);
 }
 
 /** Common country names for display (ISO-3166 alpha-2). Extend as needed. */

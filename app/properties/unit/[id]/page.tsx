@@ -33,7 +33,7 @@ import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { ShareSaveBar } from "@/components/property/share-save-bar";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
-import { countryName } from "@/lib/currency/fx";
+import { countryName, formatUnitPrice } from "@/lib/currency/fx";
 
 export const dynamic = "force-dynamic";
 
@@ -298,9 +298,7 @@ export default async function UnitDetailPage({
             )} · ${
               listing === "rent"
                 ? rentText
-                : unit.priceAed
-                  ? formatAED(unit.priceAed)
-                  : "Price on request"
+                : formatUnitPrice(unit.priceAed, p.currency)
             }`}
             imageUrl={p.images[0]?.url ?? null}
             path={`/properties/unit/${canonical}`}
@@ -312,9 +310,7 @@ export default async function UnitDetailPage({
           <p className="text-lg text-muted">
             {listing === "rent"
               ? rentText
-              : unit.priceAed
-                ? formatAED(unit.priceAed)
-                : "Price on request"}
+              : formatUnitPrice(unit.priceAed, p.currency)}
           </p>
           {listing === "both" ? (
             <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-[11px] font-medium text-accent">

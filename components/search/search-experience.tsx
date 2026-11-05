@@ -7,11 +7,12 @@ import { useEffect, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { AIChat } from "@/components/ai/ai-chat";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
-import { cn, formatAED } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { unitPath } from "@/lib/property/unit-url";
 import { unitMatchesDeal } from "@/lib/property/deal";
 import { communityLabel } from "@/lib/property/location";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
+import { formatUnitPrice } from "@/lib/currency/fx";
 
 type Unit = {
   id: string;
@@ -35,6 +36,8 @@ type PropertyCard = {
   bathrooms: number | null;
   areaSqft: number | null;
   offPlan?: boolean | null;
+  /** Listing currency; prices are AED and shown converted back (USD for Bali). */
+  currency?: string | null;
   score?: number;
   images?: Array<{ url: string; alt: string | null }>;
   community?: { name: string; emirate?: string | null } | null;
@@ -177,6 +180,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                   ),
                   image: imgs[0] ?? null,
                   offPlan: p.offPlan ?? false,
+                  currency: p.currency ?? "AED",
                 };
                 // Only the units offered for this search's deal (sale/rent).
                 const matched = (p.units ?? []).filter((u) =>
@@ -262,7 +266,7 @@ export function SearchExperience({ initialQuery }: { initialQuery: string }) {
                     </p>
                     <div className="mt-3 flex items-center gap-2">
                       <p className="text-sm font-medium text-primary">
-                        {formatAED(c.priceAed)}
+                        {formatUnitPrice(c.priceAed, c.currency)}
                       </p>
                       {c.status ? (
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide capitalize text-primary">

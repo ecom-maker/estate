@@ -3,13 +3,12 @@ import type { Metadata } from "next";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectImage } from "@/components/property/project-image";
-import { formatAED } from "@/lib/utils";
 import {
   handoverLabel,
   handoverMs,
   effectiveOffPlan,
 } from "@/lib/property/handover";
-import { formatMoney } from "@/lib/currency/fx";
+import { formatMoney, formatUnitPrice } from "@/lib/currency/fx";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
@@ -383,7 +382,7 @@ export default async function PropertiesPage({
                   ) : null}
                   <p className="mt-3 font-serif text-xl text-primary">
                     {u.priceAed
-                      ? formatAED(u.priceAed)
+                      ? formatUnitPrice(u.priceAed, u.property.currency)
                       : u.property.priceAed
                         ? `from ${formatMoney(u.property.priceNative ?? u.property.priceAed, u.property.currency)}`
                         : "Price on request"}
