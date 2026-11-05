@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ProjectBrowser } from "@/components/property/project-browser";
-import { CountryChips } from "@/components/property/country-chips";
-import { getCountryFacets } from "@/lib/property/country-facets";
-import { countryWhere } from "@/lib/property/country-filter";
+import { CityChips } from "@/components/property/city-chips";
+import { getCityFacets } from "@/lib/property/city-facets";
+import { cityWhere } from "@/lib/property/city-filter";
 import {
   toProjectCardData,
   projectCardInclude,
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 24;
 
 type ProjectsParams = {
-  country?: string;
+  city?: string;
   sort?: string;
   page?: string;
 };
@@ -63,24 +63,24 @@ export default async function ProjectsPage({
   searchParams: Promise<ProjectsParams>;
 }) {
   const params = await searchParams;
-  const country = params.country?.toUpperCase() || null;
+  const city = params.city?.trim() || null;
   const sort = parseProjectSort(params.sort);
   const requestedPage = parsePage(params.page);
-  const where: Prisma.PropertyWhereInput = country
-    ? { AND: [PROJECTS_WHERE, countryWhere(country)] }
+  const where: Prisma.PropertyWhereInput = city
+    ? { AND: [PROJECTS_WHERE, cityWhere(city)] }
     : PROJECTS_WHERE;
 
   let projects: ProjectCardData[] = [];
   let total = 0;
-  let facets: Awaited<ReturnType<typeof getCountryFacets>> = [];
+  let facets: Awaited<ReturnType<typeof getCityFacets>> = [];
   let page = 1;
   try {
-    const [count, countryFacets] = await Promise.all([
+    const [count, cityFacets] = await Promise.all([
       prisma.property.count({ where }),
-      getCountryFacets(PROJECTS_WHERE),
+      getCityFacets(PROJECTS_WHERE),
     ]);
     total = count;
-    facets = countryFacets;
+    facets = cityFacets;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     page = Math.min(requestedPage, totalPages);
     const rows = await prisma.property.findMany({
@@ -103,10 +103,12 @@ export default async function ProjectsPage({
     <>
       {facets.length > 1 ? (
         <div className="mx-auto max-w-7xl px-6 pt-24 md:px-10">
-          <CountryChips
+          <CityChips
             facets={facets}
-            selected={country}
-            hrefFor={(code) => (code ? `/projects?country=${code}` : "/projects")}
+            selected={city}
+            hrefFor={(name) =>
+              name ? `/projects?city=${encodeURIComponent(name)}` : "/projects"
+            }
           />
         </div>
       ) : null}
@@ -116,7 +118,7 @@ export default async function ProjectsPage({
         heading="Projects"
         subheading={`${total.toLocaleString()} off-plan developments from leading developers`}
         chatPlaceholder="Ask about new projects..."
-        country={country}
+        city={city}
         sort={sort}
         defaultSort={DEFAULT_PROJECT_SORT}
         page={page}

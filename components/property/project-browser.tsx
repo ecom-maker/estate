@@ -51,7 +51,7 @@ export function ProjectBrowser({
   heading,
   subheading,
   chatPlaceholder,
-  country,
+  city,
   sort,
   defaultSort,
   page,
@@ -62,7 +62,7 @@ export function ProjectBrowser({
   heading: string;
   subheading: string;
   chatPlaceholder: string;
-  country: string | null;
+  city: string | null;
   sort: ProjectSortKey;
   defaultSort: ProjectSortKey;
   page: number;
@@ -104,10 +104,10 @@ export function ProjectBrowser({
   const isSearch = ids !== null;
   const busy = searching || loadingResults;
 
-  // Keeps country + sort + page in the URL when navigating browse mode.
+  // Keeps city + sort + page in the URL when navigating browse mode.
   const hrefFor = (next: { sort?: ProjectSortKey; page?: number }) => {
     const sp = new URLSearchParams();
-    if (country) sp.set("country", country);
+    if (city) sp.set("city", city);
     const s = next.sort ?? sort;
     if (s !== defaultSort) sp.set("sort", s);
     const p = next.page ?? page;
