@@ -2,14 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { AuthLink } from "@/components/auth/auth-link";
+import { isNavActive } from "@/components/layout/nav-links";
 
 type NavItem = { href: string; label: string };
 
 export function MobileNav({ nav }: { nav: NavItem[] }) {
   const { data: session, status } = useSession();
+  const pathname = usePathname();
   const authed = Boolean(session?.user);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -54,17 +57,25 @@ export function MobileNav({ nav }: { nav: NavItem[] }) {
           className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-md border border-border bg-card shadow-[0_20px_60px_rgba(15,23,42,0.25)]"
         >
           <nav className="py-1" aria-label="Site">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="block px-4 py-2.5 text-sm font-medium text-primary transition hover:bg-accent/10"
-              >
-                {item.label}
-              </Link>
-            ))}
+            {nav.map((item) => {
+              const active = isNavActive(item.href, pathname);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  role="menuitem"
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setOpen(false)}
+                  className={`block border-l-2 px-4 py-2.5 text-sm font-medium transition ${
+                    active
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-transparent text-primary hover:bg-accent/10"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Auth actions live here only when signed out; signed-in users use

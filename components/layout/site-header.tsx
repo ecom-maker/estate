@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HeaderAuth } from "@/components/layout/header-auth";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { NavLinks } from "@/components/layout/nav-links";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/lib/rbac/check";
 
@@ -35,15 +36,7 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-sm font-medium text-muted transition hover:text-primary"
-            >
-              {item.label}
-            </Link>
-          ))}
+          <NavLinks nav={nav} />
           <HeaderAuth variant="desktop" />
         </nav>
 
