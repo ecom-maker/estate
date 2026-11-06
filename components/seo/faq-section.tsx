@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import type { Faq } from "@/lib/seo/faq";
 
 /**
@@ -52,8 +53,12 @@ export function FaqSection({
       <div className="mt-6 divide-y divide-border border-y border-border">
         {faqs.map((f) => (
           <details key={f.q} className="group py-4">
-            <summary className="cursor-pointer list-none text-sm font-medium text-primary">
-              {f.q}
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-sm font-medium text-primary">
+              <span>{f.q}</span>
+              <ChevronDown
+                className="h-4 w-4 flex-shrink-0 text-muted transition-transform duration-200 group-open:rotate-180"
+                aria-hidden
+              />
             </summary>
             <p className="mt-2 text-sm leading-relaxed text-muted">{f.a}</p>
           </details>
