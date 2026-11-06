@@ -8,7 +8,13 @@
  * estimated: when there is too little real data, the section is not rendered.
  */
 
-export type Txn = { date: string; aed: number; area: number };
+export type Txn = {
+  date: string;
+  aed: number;
+  area: number;
+  /** Bedroom count for the unit (0 = studio), null when the record omits it. */
+  beds: number | null;
+};
 
 export type MarketInsights = {
   sold: Txn[];

@@ -8,6 +8,11 @@ function perSqft(r: Txn) {
   return Math.round(r.aed / Math.max(1, r.area)).toLocaleString();
 }
 
+function bedsLabel(beds: number): string {
+  if (beds <= 0) return "Studio";
+  return `${beds} bed${beds === 1 ? "" : "s"}`;
+}
+
 function TxnTable({
   title,
   unit,
@@ -43,6 +48,11 @@ function TxnTable({
                 </td>
                 <td className="px-4 py-2.5 text-right text-muted">
                   {r.area.toLocaleString()}
+                  {r.beds != null ? (
+                    <span className="block text-[11px] text-muted/70">
+                      {bedsLabel(r.beds)}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="px-4 py-2.5 text-right text-muted">
                   {perSqft(r)}

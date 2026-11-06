@@ -43,13 +43,24 @@ function fmtDate(d: Date): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+function parseBeds(raw: string | null): number | null {
+  if (raw == null || raw.trim() === "") return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 function toTxn(r: Row, annualRent = false): Txn | null {
   const area = Math.round((r.areaSqm ?? 0) * SQFT_PER_SQM);
   const aed = annualRent
     ? (r.amountAed ?? (r.monthlyRentAed ? r.monthlyRentAed * 12 : null))
     : r.amountAed;
   if (!aed || area <= 0) return null;
-  return { date: fmtDate(r.transactedOn), aed: Math.round(aed), area };
+  return {
+    date: fmtDate(r.transactedOn),
+    aed: Math.round(aed),
+    area,
+    beds: parseBeds(r.bedrooms),
+  };
 }
 
 /**
@@ -334,7 +345,14 @@ async function dldWorker(): Promise<WorkerConfig | null> {
   return cfg?.url && cfg?.secret ? cfg : null;
 }
 
-type D1Row = { d: string; a: number | null; s: number | null; r: number | null };
+type D1Row = {
+  d: string;
+  a: number | null;
+  s: number | null;
+  r: number | null;
+  /** Bedrooms as stored by DLD ("0" = studio); absent on older worker builds. */
+  b?: string | null;
+};
 type D1Month = { m: string; n: number; v: number };
 type D1Side = { latest: D1Row[]; monthly: D1Month[]; count: number };
 type D1Scope = { sales: D1Side; rentals: D1Side };
@@ -350,7 +368,8 @@ const fetchD1 = unstable_cache(
     if (!res.ok) throw new Error(`dld worker ${res.status}: ${(await res.text()).slice(0, 200)}`);
     return (await res.json()) as D1Response;
   },
-  ["dld-insights-v1"],
+  // v2: latest rows now carry bedrooms; bump so cached v1 shapes aren't reused.
+  ["dld-insights-v2"],
   { revalidate: 86_400, tags: ["dld"] },
 );
 
@@ -361,7 +380,7 @@ function d1Rows(rows: D1Row[]): Row[] {
     amountPerSqm: null,
     areaSqm: r.s,
     monthlyRentAed: r.r,
-    bedrooms: null,
+    bedrooms: r.b ?? null,
   }));
 }
 

@@ -45,7 +45,7 @@ function statements(db, where, args, since) {
   const latest = (purpose) =>
     db
       .prepare(
-        `SELECT transacted_on d, amount_aed a, area_sqm s, monthly_rent_aed r
+        `SELECT transacted_on d, amount_aed a, area_sqm s, monthly_rent_aed r, bedrooms b
            FROM market_transactions
           WHERE ${where} AND purpose = ? AND area_sqm > 0
                 AND (amount_aed > 0 OR monthly_rent_aed > 0)
