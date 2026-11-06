@@ -4,7 +4,7 @@ import { getMarketInsights } from "@/lib/property/market-data";
 import { PriceTrendChart } from "@/components/property/price-trend-chart";
 import { TransactionsBlock } from "@/components/property/transactions-block";
 import { cn } from "@/lib/utils";
-import { completionLabelOf } from "@/lib/property/handover";
+import { completionLabelOf, handoverLabel } from "@/lib/property/handover";
 
 type PropertyInput = {
   id: string;
@@ -31,7 +31,11 @@ function deliveryLabel(
   handoverDate?: string,
   completionLabel?: string | null,
 ): string {
-  if (!offPlan) return "Ready";
+  if (!offPlan) {
+    // Finished listings still show when they were completed ("Ready · 2025").
+    const done = handoverLabel({ handoverDate }) ?? completionLabel;
+    return done ? `Ready · ${done}` : "Ready";
+  }
   if (!handoverDate) return completionLabel || "TBA";
   const d = new Date(handoverDate);
   if (Number.isNaN(d.getTime())) return handoverDate;

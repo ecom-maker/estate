@@ -86,8 +86,12 @@ export function buildProjectFaqs(args: {
   // 3) Handover.
   if (handoverLabel) {
     faqs.push({
-      q: `When does ${title} hand over?`,
-      a: `${title} is scheduled for handover in ${handoverLabel}.`,
+      q: offPlan
+        ? `When does ${title} hand over?`
+        : `When was ${title} completed?`,
+      a: offPlan
+        ? `${title} is scheduled for handover in ${handoverLabel}.`
+        : `${title} was completed in ${handoverLabel}.`,
     });
   }
 
