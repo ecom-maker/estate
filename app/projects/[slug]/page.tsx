@@ -18,7 +18,10 @@ import { communityLabel } from "@/lib/property/location";
 import { ProjectGallery } from "@/components/property/project-gallery";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { ShareSaveBar } from "@/components/property/share-save-bar";
-import { effectiveOffPlan } from "@/lib/property/handover";
+import {
+  effectiveOffPlan,
+  handoverOrCompletionLabel,
+} from "@/lib/property/handover";
 import { brochureUrl } from "@/lib/property/brochure";
 import { masterplanImageOf } from "@/lib/property/masterplan";
 import { formatMoney, countryName } from "@/lib/currency/fx";
@@ -71,15 +74,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-function handoverLabel(metadata: unknown): string | null {
-  const meta = (metadata ?? {}) as { handoverDate?: string };
-  if (!meta.handoverDate) return null;
-  const d = new Date(meta.handoverDate);
-  return Number.isNaN(d.getTime())
-    ? null
-    : d.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-}
-
 export default async function ProjectDetailPage({ params }: Props) {
   const { slug } = await params;
 
@@ -104,7 +98,8 @@ export default async function ProjectDetailPage({ params }: Props) {
 
   if (!project) notFound();
   const unitGroups = buildUnitGroups(project);
-  const handover = handoverLabel(project.metadata);
+  // Exact handover date, else the source's own label ("Q3 2026") — not "TBA".
+  const handover = handoverOrCompletionLabel(project.metadata);
   // Off-plan only while the handover is still ahead; a past handover means the
   // project is completed, even if a stale import still flags it off-plan.
   const isOffPlan = effectiveOffPlan(project.offPlan, project.metadata);
@@ -113,6 +108,11 @@ export default async function ProjectDetailPage({ params }: Props) {
     project.priceNative ?? project.priceAed,
     project.currency,
   );
+  // "from AED 1.2M", but plain "Price on request" when there is no price.
+  const fromPrice =
+    (project.priceNative ?? project.priceAed ?? 0) > 0
+      ? `from ${priceLabel}`
+      : priceLabel;
   // Country shown only for non-UAE listings (existing stock is UAE/implicit).
   const countryLabel =
     project.country && project.country !== "AE"
@@ -148,7 +148,7 @@ export default async function ProjectDetailPage({ params }: Props) {
     ["Developer", project.developer?.name ?? "—"],
     ["Location", communityLabel(project.community?.name, project.community?.emirate)],
     ["Handover", handover ?? "TBA"],
-    ["Starting price", `from ${priceLabel}`],
+    ["Starting price", fromPrice],
     ["Unit types", bedSummary],
     ["Status", isOffPlan ? "Off-plan" : "Ready"],
     ...(parking ? ([["Parking", parking]] as [string, string][]) : []),
@@ -292,7 +292,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-lg text-muted">
         <span>
           {communityLabel(project.community?.name, project.community?.emirate)}
-          {countryLabel ? `, ${countryLabel}` : ""} · from {priceLabel}
+          {countryLabel ? `, ${countryLabel}` : ""} · {fromPrice}
           {serviceCharge ? ` · Service charge ${serviceCharge}` : ""}
           {handover ? ` · Handover ${handover}` : ""}
         </span>

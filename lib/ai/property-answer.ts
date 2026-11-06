@@ -1,6 +1,7 @@
 import { formatAED } from "@/lib/utils";
 import { formatMoney } from "@/lib/currency/fx";
 import type { MarketInsights } from "@/lib/property/market-insights";
+import { completionLabelOf } from "@/lib/property/handover";
 import {
   bedroomSpan,
   bedroomsText,
@@ -335,7 +336,8 @@ export function answerPropertyQuestion(
     const tl = meta.timeline ?? {};
     // Only dates on file — no assumed construction/handover dates.
     const construction = fmtDate(tl.constructionStart);
-    const completion = fmtDate(tl.completion ?? meta.handoverDate);
+    const completion =
+      fmtDate(tl.completion ?? meta.handoverDate) ?? completionLabelOf(p.metadata);
     const parts: string[] = [];
     if (fmtDate(tl.announced)) parts.push(`announced ${fmtDate(tl.announced)}`);
     if (construction) parts.push(`construction started ${construction}`);

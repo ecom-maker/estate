@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { cn } from "@/lib/utils";
+import { completionLabelOf } from "@/lib/property/handover";
 
 /**
  * Payment plan and project timeline for a project, shared by the project page
@@ -73,12 +74,14 @@ export function ProjectTimelineSection({ project }: { project: ProjectFacts }) {
   const completionRaw = isCompleted
     ? meta.handoverDate ?? tl.completion
     : tl.completion ?? meta.handoverDate;
+  // No exact date: show the source's own label ("Q3 2026") as written.
+  const completion = fmtLong(completionRaw) ?? completionLabelOf(project.metadata);
   const milestones = [
     { title: "Project announcement", date: fmtLong(tl.announced), done: true },
     { title: "Construction started", date: fmtLong(tl.constructionStart), done: true },
     isCompleted
-      ? { title: "Completed", date: fmtLong(completionRaw), done: true }
-      : { title: "Expected completion", date: fmtLong(completionRaw), done: false },
+      ? { title: "Completed", date: completion, done: true }
+      : { title: "Expected completion", date: completion, done: false },
   ].filter((m) => m.date);
   if (!milestones.length) return null;
 

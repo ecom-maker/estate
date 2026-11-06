@@ -4,6 +4,7 @@ import { getMarketInsights } from "@/lib/property/market-data";
 import { PriceTrendChart } from "@/components/property/price-trend-chart";
 import { TransactionsBlock } from "@/components/property/transactions-block";
 import { cn } from "@/lib/utils";
+import { completionLabelOf } from "@/lib/property/handover";
 
 type PropertyInput = {
   id: string;
@@ -25,9 +26,13 @@ function titleCase(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-function deliveryLabel(offPlan: boolean, handoverDate?: string): string {
+function deliveryLabel(
+  offPlan: boolean,
+  handoverDate?: string,
+  completionLabel?: string | null,
+): string {
   if (!offPlan) return "Ready";
-  if (!handoverDate) return "TBA";
+  if (!handoverDate) return completionLabel || "TBA";
   const d = new Date(handoverDate);
   if (Number.isNaN(d.getTime())) return handoverDate;
   return `Q${Math.floor(d.getMonth() / 3) + 1} ${d.getFullYear()}`;
@@ -124,14 +129,19 @@ export async function MarketInsightsSection({
                 <div className="flex justify-between gap-4 sm:block">
                   <dt className="text-muted">Delivery date</dt>
                   <dd className="font-medium text-primary">
-                    {deliveryLabel(property.offPlan, meta.handoverDate)}
+                    {deliveryLabel(
+                      property.offPlan,
+                      meta.handoverDate,
+                      completionLabelOf(property.metadata),
+                    )}
                   </dd>
                 </div>
-                {property.offPlan ? (
+                {/* Only a down payment on file; never a typical 20% stand-in. */}
+                {property.offPlan && pp.downPaymentPct != null ? (
                   <div className="flex justify-between gap-4 sm:block">
                     <dt className="text-muted">Down payment</dt>
                     <dd className="font-medium text-primary">
-                      {pp.downPaymentPct ?? 20}%
+                      {pp.downPaymentPct}%
                     </dd>
                   </div>
                 ) : null}

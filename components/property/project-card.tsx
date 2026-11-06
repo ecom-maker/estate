@@ -76,7 +76,7 @@ export function ProjectCard({ p }: { p: ProjectCardData }) {
               Starting from
             </p>
             <p className="mt-0.5 font-serif text-xl text-primary">
-              {p.startingPrice != null
+              {p.startingPrice != null && p.startingPrice > 0
                 ? formatMoney(p.startingPrice, p.currency)
                 : "—"}
             </p>

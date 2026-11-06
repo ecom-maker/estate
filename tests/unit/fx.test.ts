@@ -29,6 +29,9 @@ describe("formatMoney", () => {
   it("handles null", () => {
     expect(formatMoney(null)).toBe("Price on request");
   });
+  it("treats 0 as no price, never 'AED 0'", () => {
+    expect(formatMoney(0, "AED")).toBe("Price on request");
+  });
 });
 
 describe("formatUnitPrice", () => {

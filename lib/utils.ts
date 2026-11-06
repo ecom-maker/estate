@@ -6,7 +6,8 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatAED(value: number | null | undefined) {
-  if (value == null) return "Price on request";
+  // 0 means no price on file, never "AED 0".
+  if (value == null || !(value > 0)) return "Price on request";
   return new Intl.NumberFormat("en-AE", {
     style: "currency",
     currency: "AED",

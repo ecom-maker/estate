@@ -50,7 +50,8 @@ export function formatMoney(
   amount: number | null | undefined,
   currency: string = "AED",
 ): string {
-  if (amount == null) return "Price on request";
+  // 0 means the source gave no price (Property Finder sends 0), never "AED 0".
+  if (amount == null || !(amount > 0)) return "Price on request";
   const code = currency.toUpperCase();
   try {
     return new Intl.NumberFormat("en-AE", {
