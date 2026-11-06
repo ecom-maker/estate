@@ -101,12 +101,16 @@ function statusStyle(status: string | null): string {
 function deliveryBadge(
   offPlan: boolean,
   metadata: unknown,
-): { label: string; date: string | null } {
+): { label: string; date: string | null; offPlan: boolean } {
   const meta = (metadata ?? {}) as { completionLabel?: string | null };
   const date = handoverLabel(metadata) ?? meta.completionLabel?.trim() ?? null;
+  // Use the effective state (a past handover counts as completed) for BOTH the
+  // label and the colour below, so a "Completed" badge is never styled off-plan.
+  const effectivelyOffPlan = effectiveOffPlan(offPlan, metadata);
   return {
-    label: effectiveOffPlan(offPlan, metadata) ? "Off-plan" : "Completed",
+    label: effectivelyOffPlan ? "Off-plan" : "Completed",
     date,
+    offPlan: effectivelyOffPlan,
   };
 }
 
@@ -336,7 +340,7 @@ export default async function PropertiesPage({
                   ) : null}
                   <span
                     className={`absolute right-3 top-3 rounded-full px-2.5 py-0.5 text-[11px] font-medium shadow-sm ${
-                      u.property.offPlan
+                      delivery.offPlan
                         ? "bg-accent/90 text-white"
                         : "bg-white/95 text-primary"
                     }`}
