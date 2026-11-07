@@ -11,6 +11,7 @@ import {
 import { formatMoney, formatUnitPrice } from "@/lib/currency/fx";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
+import { cn } from "@/lib/utils";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { Pager } from "@/components/property/pager";
 import { getUnitCityFacets } from "@/lib/property/unit-city-facets";
@@ -259,6 +260,25 @@ export default async function PropertiesPage({
     return qs ? `/properties?${qs}` : "/properties";
   };
 
+  // City pills filter the list by setting the `q` search (which matches the
+  // community's city / emirate), keeping every other active filter and the
+  // sort. `city=""` clears it (used to toggle the active pill off). Page resets
+  // to 1, since the result set changes.
+  const activeCity = filters.q.trim().toLowerCase();
+  const cityHref = (city: string) => {
+    const sp = new URLSearchParams(unitFiltersToSearch({ ...filters, q: city }));
+    if (sort !== DEFAULT_SORT) sp.set("sort", sort);
+    if (rentOnly) sp.set("deal", "rent");
+    const qs = sp.toString();
+    return qs ? `/properties?${qs}` : "/properties";
+  };
+  // Show the breakdown when there's more than one city, or when the lone
+  // remaining city is the one currently selected (so its pill stays visible to
+  // toggle off).
+  const showCityFacets =
+    cityFacets.length > 1 ||
+    cityFacets.some((c) => c.city.toLowerCase() === activeCity);
+
   // Each project's photos, loaded once in a fixed order (id breaks sortOrder
   // ties) with duplicate URLs removed, so cards can rotate through them.
   const photos = new Map<string, Photo[]>();
@@ -307,17 +327,30 @@ export default async function PropertiesPage({
             {totalPages > 1 ? ` · Page ${page} of ${totalPages}` : ""}
           </p>
         </div>
-        {cityFacets.length > 1 ? (
+        {showCityFacets ? (
           <div className="flex flex-wrap items-center gap-2">
-            {cityFacets.map((c) => (
-              <span
-                key={c.city}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-sm text-primary"
-              >
-                {c.city}
-                <span className="text-muted">{c.count.toLocaleString()}</span>
-              </span>
-            ))}
+            {cityFacets.map((c) => {
+              const active = c.city.toLowerCase() === activeCity;
+              return (
+                <Link
+                  key={c.city}
+                  href={active ? cityHref("") : cityHref(c.city)}
+                  scroll={false}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition",
+                    active
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-border bg-card text-primary hover:border-accent",
+                  )}
+                >
+                  {c.city}
+                  <span className={active ? "text-accent/70" : "text-muted"}>
+                    {c.count.toLocaleString()}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         ) : null}
       </div>
