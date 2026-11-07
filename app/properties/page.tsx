@@ -13,6 +13,7 @@ import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { Pager } from "@/components/property/pager";
+import { getUnitCityFacets } from "@/lib/property/unit-city-facets";
 import {
   DEFAULT_SORT,
   hasUnitFilters,
@@ -244,6 +245,10 @@ export default async function PropertiesPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(requestedPage, totalPages);
 
+  // City breakdown of the current result set (same `where` as the count, so the
+  // numbers add up to the "Available units" total). Shown next to the heading.
+  const cityFacets = await getUnitCityFacets(where);
+
   // Preserves the active filters, sort and deal while moving between pages.
   const pageHref = (p: number) => {
     const sp = new URLSearchParams(unitFiltersToSearch(filters));
@@ -302,6 +307,19 @@ export default async function PropertiesPage({
             {totalPages > 1 ? ` · Page ${page} of ${totalPages}` : ""}
           </p>
         </div>
+        {cityFacets.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {cityFacets.map((c) => (
+              <span
+                key={c.city}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-sm text-primary"
+              >
+                {c.city}
+                <span className="text-muted">{c.count.toLocaleString()}</span>
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
 
