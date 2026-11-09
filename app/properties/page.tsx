@@ -328,7 +328,9 @@ export default async function PropertiesPage({
           </p>
         </div>
         {showCityFacets ? (
-          <div className="flex flex-wrap items-center gap-2">
+          // Mobile: a single row that scrolls sideways (bleeds to the screen
+          // edges, scrollbar hidden). Desktop: wraps normally.
+          <div className="-mx-6 flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:flex-wrap md:px-0">
             {cityFacets.map((c) => {
               const active = c.city.toLowerCase() === activeCity;
               return (
@@ -338,7 +340,7 @@ export default async function PropertiesPage({
                   scroll={false}
                   aria-pressed={active}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition",
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition",
                     active
                       ? "border-accent bg-accent/10 text-accent"
                       : "border-border bg-card text-primary hover:border-accent",
