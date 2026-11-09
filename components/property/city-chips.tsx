@@ -23,7 +23,9 @@ export function CityChips({ chips }: { chips: CityChip[] }) {
   return (
     <div
       className={cn(
-        "flex flex-wrap gap-2 transition-opacity",
+        // Mobile: a single row that scrolls sideways (bleeds to the px-6 gutter
+        // edges, scrollbar hidden). Desktop: wraps normally.
+        "-mx-6 flex max-w-full flex-nowrap gap-2 overflow-x-auto px-6 transition-opacity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:flex-wrap md:px-0",
         pending && "opacity-60",
       )}
     >
@@ -47,7 +49,7 @@ export function CityChips({ chips }: { chips: CityChip[] }) {
             startTransition(() => router.push(c.href, { scroll: false }));
           }}
           className={cn(
-            "touch-manipulation rounded-full border px-4 py-1.5 text-xs font-medium transition active:scale-95",
+            "shrink-0 touch-manipulation rounded-full border px-4 py-1.5 text-xs font-medium transition active:scale-95",
             c.active
               ? "border-accent bg-accent/10 text-accent"
               : "border-border text-muted hover:border-accent hover:text-primary",
