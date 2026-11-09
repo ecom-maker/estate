@@ -11,9 +11,9 @@ import {
 import { formatMoney, formatUnitPrice } from "@/lib/currency/fx";
 import { unitPath } from "@/lib/property/unit-url";
 import { communityLabel } from "@/lib/property/location";
-import { cn } from "@/lib/utils";
 import { PropertyFilterBar } from "@/components/search/property-filter-bar";
 import { Pager } from "@/components/property/pager";
+import { CityPills } from "@/components/property/city-pills";
 import { getUnitCityFacets } from "@/lib/property/unit-city-facets";
 import {
   DEFAULT_SORT,
@@ -278,6 +278,15 @@ export default async function PropertiesPage({
   const showCityFacets =
     cityFacets.length > 1 ||
     cityFacets.some((c) => c.city.toLowerCase() === activeCity);
+  const cityPills = cityFacets.map((c) => {
+    const active = c.city.toLowerCase() === activeCity;
+    return {
+      city: c.city,
+      count: c.count,
+      active,
+      href: active ? cityHref("") : cityHref(c.city),
+    };
+  });
 
   // Each project's photos, loaded once in a fixed order (id breaks sortOrder
   // ties) with duplicate URLs removed, so cards can rotate through them.
@@ -327,34 +336,7 @@ export default async function PropertiesPage({
             {totalPages > 1 ? ` · Page ${page} of ${totalPages}` : ""}
           </p>
         </div>
-        {showCityFacets ? (
-          // Mobile: a single row that scrolls sideways (bleeds to the screen
-          // edges, scrollbar hidden). Desktop: wraps normally.
-          <div className="-mx-6 flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:flex-wrap md:px-0">
-            {cityFacets.map((c) => {
-              const active = c.city.toLowerCase() === activeCity;
-              return (
-                <Link
-                  key={c.city}
-                  href={active ? cityHref("") : cityHref(c.city)}
-                  scroll={false}
-                  aria-pressed={active}
-                  className={cn(
-                    "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition",
-                    active
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-border bg-card text-primary hover:border-accent",
-                  )}
-                >
-                  {c.city}
-                  <span className={active ? "text-accent/70" : "text-muted"}>
-                    {c.count.toLocaleString()}
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        ) : null}
+        {showCityFacets ? <CityPills pills={cityPills} /> : null}
       </div>
 
 
