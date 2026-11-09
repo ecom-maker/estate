@@ -104,11 +104,14 @@ export default async function ProjectsPage({
       {facets.length > 1 ? (
         <div className="mx-auto max-w-7xl px-6 pt-8 md:px-10">
           <CityChips
-            facets={facets}
-            selected={city}
-            hrefFor={(name) =>
-              name ? `/projects?city=${encodeURIComponent(name)}` : "/projects"
-            }
+            chips={[
+              { label: "All cities", href: "/projects", active: city == null },
+              ...facets.map((f) => ({
+                label: `${f.city} (${f.count})`,
+                href: `/projects?city=${encodeURIComponent(f.city)}`,
+                active: city?.toLowerCase() === f.city.toLowerCase(),
+              })),
+            ]}
           />
         </div>
       ) : null}
