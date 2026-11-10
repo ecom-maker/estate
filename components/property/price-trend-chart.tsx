@@ -47,8 +47,12 @@ export function PriceTrendChart({
     const s = slice(series.secondary);
     const m = slice(months);
     const all = [...p, ...s];
-    const min = Math.min(...all);
-    const max = Math.max(...all);
+    // No data for the selected deal (e.g. Rent with no recorded rent trend):
+    // keep a safe 0–1 domain so nothing computes to Infinity / NaN, and flag it
+    // so the chart renders an empty state instead of broken axes.
+    const hasData = all.length > 0;
+    const min = hasData ? Math.min(...all) : 0;
+    const max = hasData ? Math.max(...all) : 1;
     const pad = (max - min) * 0.15 || max * 0.1;
     const lo = Math.max(0, min - pad);
     const hi = max + pad;
@@ -68,15 +72,18 @@ export function PriceTrendChart({
       .map((label, i) => ({ label, i }))
       .filter(({ i }) => i % step === 0 || i === m.length - 1);
 
-    return { p, s, m, x, y, toPath, ticks, xlabels };
+    return { p, s, m, x, y, toPath, ticks, xlabels, hasData };
   }, [range, deal, months, sale, rent]);
 
   const fmtK = (v: number) =>
     v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${Math.round(v)}`;
 
   // Clamp in case the range/deal toggle shrank the series since last hover.
+  // Never index an empty series (that fed undefined into the tooltip and threw).
   const hoverIdx =
-    hover !== null ? Math.min(hover, view.p.length - 1) : null;
+    hover !== null && view.p.length > 0
+      ? Math.min(hover, view.p.length - 1)
+      : null;
 
   // Thin data can leave only the community line (no narrower baseline).
   const hasSecondary = view.s.length > 0 && Boolean(secondaryLabel);
@@ -135,6 +142,14 @@ export function PriceTrendChart({
       </div>
 
       <div className="relative">
+      {!view.hasData ? (
+        <div
+          className="flex items-center justify-center rounded-md border border-dashed border-border text-sm text-muted"
+          style={{ aspectRatio: `${W} / ${H}` }}
+        >
+          No {deal === "sale" ? "sale" : "rental"} price trend on record yet.
+        </div>
+      ) : (
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
@@ -237,6 +252,7 @@ export function PriceTrendChart({
           </g>
         ) : null}
       </svg>
+      )}
 
       {hoverIdx !== null ? (
         <div
