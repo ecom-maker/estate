@@ -1,15 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Heart, X } from "lucide-react";
-import {
-  SAVED_EVENT,
-  SAVED_KEY,
-  readSaved,
-  removeSaved,
-  type SavedItem,
-} from "@/lib/property/saved-store";
+import { useSaved, type SavedEntry } from "@/lib/property/use-saved";
 
 function savedDateLabel(iso: string): string | null {
   if (!iso) return null;
@@ -23,7 +16,7 @@ function savedDateLabel(iso: string): string | null {
 }
 
 /** Newest-saved first; un-dated (legacy) entries fall to the end. */
-function sortBySaved(items: SavedItem[]): SavedItem[] {
+function sortBySaved(items: SavedEntry[]): SavedEntry[] {
   return [...items].sort((a, b) => {
     const ta = a.savedAt ? Date.parse(a.savedAt) : 0;
     const tb = b.savedAt ? Date.parse(b.savedAt) : 0;
@@ -32,27 +25,13 @@ function sortBySaved(items: SavedItem[]): SavedItem[] {
 }
 
 export function SavedPropertiesList() {
-  // `null` until mounted, so the server/first paint doesn't assume empty.
-  const [items, setItems] = useState<SavedItem[] | null>(null);
+  const { entries, loading, remove } = useSaved();
 
-  useEffect(() => {
-    const sync = () => setItems(sortBySaved(readSaved()));
-    sync();
-    // Same-tab saves dispatch SAVED_EVENT; other tabs fire the storage event.
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === null || e.key === SAVED_KEY) sync();
-    };
-    window.addEventListener(SAVED_EVENT, sync);
-    window.addEventListener("storage", onStorage);
-    return () => {
-      window.removeEventListener(SAVED_EVENT, sync);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  if (items === null) {
+  if (loading) {
     return <p className="text-sm text-muted">Loading your saved properties…</p>;
   }
+
+  const items = sortBySaved(entries ?? []);
 
   if (!items.length) {
     return (
@@ -107,7 +86,7 @@ export function SavedPropertiesList() {
 
         return (
           <li
-            key={item.id}
+            key={item.ref}
             className="group relative rounded-lg border border-border bg-card p-4 transition hover:border-accent"
           >
             {item.path ? (
@@ -119,7 +98,7 @@ export function SavedPropertiesList() {
             )}
             <button
               type="button"
-              onClick={() => removeSaved(item.id)}
+              onClick={() => void remove(item.ref)}
               aria-label={`Remove ${item.title} from saved`}
               className="absolute right-3 top-3 rounded-full p-1 text-muted transition hover:bg-accent/10 hover:text-primary"
             >

@@ -88,6 +88,11 @@ export function removeSaved(id: string) {
   writeSaved(readSaved().filter((i) => i.id !== id));
 }
 
+/** Clear the whole local list (e.g. after migrating it into the account). */
+export function clearSaved() {
+  writeSaved([]);
+}
+
 /**
  * Fill in missing metadata (path/title/date) on an already-saved entry without
  * changing its saved order. Lets legacy bare-id entries become linkable once

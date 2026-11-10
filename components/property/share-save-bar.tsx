@@ -13,12 +13,7 @@ import {
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { cn } from "@/lib/utils";
-import {
-  backfillSavedMeta,
-  isSaved,
-  removeSaved,
-  saveItem,
-} from "@/lib/property/saved-store";
+import { useSaved } from "@/lib/property/use-saved";
 
 /** Facebook brand mark (lucide dropped logo icons). */
 function FacebookIcon({ className }: { className?: string }) {
@@ -64,23 +59,17 @@ export function ShareSaveBar({
   entityLabel = "project",
   className,
 }: ShareSaveBarProps) {
-  const [saved, setSaved] = useState(false);
+  const { isSaved, toggle } = useSaved();
+  const saved = isSaved(shareId);
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [url, setUrl] = useState(path);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Hydrate saved state and the absolute share URL on the client. If this item
-  // was already saved (possibly as a legacy bare id), fill in its metadata so
-  // the Saved Properties page can link and date it.
+  // Absolute share URL, resolved on the client.
   useEffect(() => {
-    const already = isSaved(shareId);
-    setSaved(already);
-    if (already) {
-      backfillSavedMeta({ id: shareId, path, title, subtitle, image: imageUrl });
-    }
     setUrl(window.location.origin + path);
-  }, [shareId, path, title, subtitle, imageUrl]);
+  }, [path]);
 
   // Close the share sheet on Escape.
   useEffect(() => {
@@ -99,13 +88,7 @@ export function ShareSaveBar({
   }, []);
 
   function toggleSave() {
-    const next = !saved;
-    setSaved(next);
-    if (next) {
-      saveItem({ id: shareId, path, title, subtitle, image: imageUrl });
-    } else {
-      removeSaved(shareId);
-    }
+    void toggle({ id: shareId, path, title, subtitle, image: imageUrl });
   }
 
   function copyLink() {

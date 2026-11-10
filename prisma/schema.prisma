@@ -87,6 +87,7 @@ model User {
   searchHistory SearchHistory[]
   savedSearches SavedSearch[]
   favorites     Favorite[]
+  savedListings SavedListing[]
   notifications Notification[]
   auditLogs     AuditLog[]
   aiLogs        AiLog[]
@@ -620,6 +621,28 @@ model Favorite {
 
   @@unique([userId, propertyId])
   @@map("favorites")
+}
+
+/// A visitor's saved listings, tied to their account so they follow the user
+/// across devices. Unlike Favorite (project-level), this stores a stable share
+/// `ref` (project slug or unit canonical slug) plus the display metadata needed
+/// to render the Saved Properties list, so it covers both units and projects
+/// uniformly. Mirrors the signed-out localStorage store (lib/property/saved-store).
+model SavedListing {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  ref       String
+  kind      String   @default("property")
+  path      String
+  title     String
+  subtitle  String?
+  image     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ref])
+  @@index([userId])
+  @@map("saved_listings")
 }
 
 model KnowledgeDocument {
