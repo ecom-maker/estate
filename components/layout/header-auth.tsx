@@ -9,6 +9,7 @@ import {
   Sparkles,
   ShieldCheck,
   MessageSquare,
+  Heart,
 } from "lucide-react";
 import { isAdmin } from "@/lib/rbac/check";
 import { AuthLink } from "@/components/auth/auth-link";
@@ -134,6 +135,10 @@ export function HeaderAuth({ variant }: HeaderAuthProps) {
               <MenuLink href="/account" onClick={() => setOpen(false)}>
                 <UserIcon className="h-4 w-4" aria-hidden />
                 My profile
+              </MenuLink>
+              <MenuLink href="/saved-properties" onClick={() => setOpen(false)}>
+                <Heart className="h-4 w-4" aria-hidden />
+                Saved Properties
               </MenuLink>
               <MenuLink href="/account/llm" onClick={() => setOpen(false)}>
                 <Sparkles className="h-4 w-4" aria-hidden />

@@ -13,6 +13,12 @@ import {
 } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { cn } from "@/lib/utils";
+import {
+  backfillSavedMeta,
+  isSaved,
+  removeSaved,
+  saveItem,
+} from "@/lib/property/saved-store";
 
 /** Facebook brand mark (lucide dropped logo icons). */
 function FacebookIcon({ className }: { className?: string }) {
@@ -49,26 +55,6 @@ type ShareSaveBarProps = {
   className?: string;
 };
 
-const SAVED_KEY = "dmg:saved";
-
-function readSaved(): string[] {
-  try {
-    const raw = localStorage.getItem(SAVED_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeSaved(ids: string[]) {
-  try {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(ids));
-  } catch {
-    /* private mode / blocked storage — ignore */
-  }
-}
-
 export function ShareSaveBar({
   shareId,
   title,
@@ -84,11 +70,17 @@ export function ShareSaveBar({
   const [url, setUrl] = useState(path);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Hydrate saved state and the absolute share URL on the client.
+  // Hydrate saved state and the absolute share URL on the client. If this item
+  // was already saved (possibly as a legacy bare id), fill in its metadata so
+  // the Saved Properties page can link and date it.
   useEffect(() => {
-    setSaved(readSaved().includes(shareId));
+    const already = isSaved(shareId);
+    setSaved(already);
+    if (already) {
+      backfillSavedMeta({ id: shareId, path, title, subtitle, image: imageUrl });
+    }
     setUrl(window.location.origin + path);
-  }, [shareId, path]);
+  }, [shareId, path, title, subtitle, imageUrl]);
 
   // Close the share sheet on Escape.
   useEffect(() => {
@@ -107,12 +99,13 @@ export function ShareSaveBar({
   }, []);
 
   function toggleSave() {
-    setSaved((prev) => {
-      const next = !prev;
-      const ids = readSaved();
-      writeSaved(next ? [...new Set([...ids, shareId])] : ids.filter((id) => id !== shareId));
-      return next;
-    });
+    const next = !saved;
+    setSaved(next);
+    if (next) {
+      saveItem({ id: shareId, path, title, subtitle, image: imageUrl });
+    } else {
+      removeSaved(shareId);
+    }
   }
 
   function copyLink() {
