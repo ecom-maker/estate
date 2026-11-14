@@ -7,10 +7,11 @@ import {
   availability,
   developerInfo,
   findAnyProperty,
-  loadInventory,
+  loadIndex,
   propertyDetails,
-  searchInventory,
+  searchProperties,
   type AgentProperty,
+  type IndexRow,
   type SearchCriteria,
 } from "./inventory";
 
@@ -207,11 +208,11 @@ export type ToolContext = {
   shownPropertyIds?: string[];
   lastSearch?: SearchCriteria;
   leadIds?: string[];
-  /** Loaded once per turn and shared by every tool call in it. */
-  inventory?: Promise<AgentProperty[]>;
+  /** The light index of every live listing, shared by every tool call in a turn. */
+  index?: Promise<IndexRow[]>;
 };
 
-const inventoryOf = (ctx: ToolContext) => (ctx.inventory ??= loadInventory());
+const indexOf = (ctx: ToolContext) => (ctx.index ??= loadIndex());
 
 const str = z.string().trim().min(1).max(500);
 const contact = {
@@ -245,10 +246,10 @@ const searchArgs = z.object({
 
 /** Resolve a property reference to exactly one row, or explain why not. */
 async function oneProperty(ctx: ToolContext, ref: string): Promise<AgentProperty | { error: string; candidates?: string[] }> {
-  const hits = await findAnyProperty(await inventoryOf(ctx), ref);
-  if (hits.length === 1) return hits[0];
-  if (!hits.length) return { error: `No property called "${ref}" in the inventory.` };
-  return { error: `"${ref}" matches several properties — ask which one.`, candidates: hits.slice(0, 6).map((p) => p.title) };
+  const hit = await findAnyProperty(await indexOf(ctx), ref);
+  if ("property" in hit) return hit.property;
+  if (!hit.candidates.length) return { error: `No property called "${ref}" in the inventory.` };
+  return { error: `"${ref}" matches several properties — ask which one.`, candidates: hit.candidates.slice(0, 6) };
 }
 
 const digits = (s?: string | null) => (s ?? "").replace(/\D/g, "");
@@ -312,7 +313,7 @@ export async function runTool(name: string, rawArgs: unknown, ctx: ToolContext):
   switch (name) {
     case "search_properties": {
       const c = searchArgs.parse(args);
-      const { result, shownIds } = searchInventory(await inventoryOf(ctx), c);
+      const { result, shownIds } = await searchProperties(c, indexOf(ctx));
       ctx.shownPropertyIds = shownIds;
       ctx.lastSearch = c;
       return result;
@@ -329,7 +330,7 @@ export async function runTool(name: string, rawArgs: unknown, ctx: ToolContext):
     case "get_developer":
       return developerInfo(z.object({ name: str }).parse(args).name);
     case "list_areas":
-      return areaOverview(await inventoryOf(ctx));
+      return areaOverview(await indexOf(ctx));
     case "request_brochure": {
       const a = z.object({ property: str, ...contact }).parse(args);
       const p = await oneProperty(ctx, a.property);

@@ -110,6 +110,17 @@ export function fuzzyPhrase(text: string, term: string): boolean {
   );
 }
 
+/** The fields the name / area / type / completion checks read. A full row and
+ *  a light index row both have them, so one set of checks serves both. */
+type Listing = {
+  title: string;
+  type: string;
+  offPlan: boolean;
+  metadata: unknown;
+  community: { name: string; emirate: string | null; city: string | null } | null;
+  developer: { name: string } | null;
+};
+
 export function projectUrl(p: { slug: string; source: string | null; offPlan: boolean; units?: unknown[] }) {
   const isProject = p.source === "reelly" || p.offPlan || (p.units?.length ?? 0) > 0;
   // Customer-facing share links must use the canonical public domain (same as
@@ -120,12 +131,12 @@ export function projectUrl(p: { slug: string; source: string | null; offPlan: bo
 
 /** Location matching uses the community, its emirate and the project district —
  *  never the description or the feed's "sector", which name-drop nearby areas. */
-export function matchesLocation(p: AgentProperty, term: string): boolean {
+export function matchesLocation(p: Listing, term: string): boolean {
   const fields = [p.community?.name, p.community?.emirate, p.community?.city, meta(p).district, p.title];
   return fields.some((f) => f && fuzzyPhrase(f, term));
 }
 
-function propertyTypes(p: AgentProperty): string[] {
+function propertyTypes(p: Listing): string[] {
   const types = new Set<string>([p.type.toLowerCase()]);
   for (const t of meta(p).unitTypes ?? []) {
     const n = norm(t).replace(/s$/, "");
@@ -253,7 +264,7 @@ export function paymentPlans(p: AgentProperty): { name: string; schedule: string
   return schedule ? [{ name: pp.planName ?? "Payment plan", schedule }] : [];
 }
 
-function completion(p: AgentProperty) {
+function completion(p: Pick<Listing, "offPlan" | "metadata">) {
   const m = meta(p);
   const status = m.constructionStatus ?? (p.offPlan ? "under_construction" : null);
   const ready = status === "completed" || (!p.offPlan && status == null);
@@ -267,29 +278,112 @@ function completion(p: AgentProperty) {
 }
 
 /** Properties the agent may offer: live, not sold, not withdrawn. */
+const LIVE: Prisma.PropertyWhereInput = { deletedAt: null, status: { in: ["ACTIVE", "RESERVED"] } };
+
+/**
+ * A light row per live property: names, area, type and completion only, with
+ * no units, documents or text. ~0.3 MB for ~930 properties (the full rows are
+ * ~10 MB), so every property can take part in name and area matching — with
+ * typo tolerance, which a plain SQL "contains" can't give. Prices, bedrooms
+ * and sizes are filtered by the database instead (see unitWhere).
+ */
+export type IndexRow = Listing & { id: string; slug: string; priceAed: number | null; waterfront: boolean };
+
+type IndexSqlRow = {
+  id: string;
+  slug: string;
+  title: string;
+  type: string;
+  offPlan: boolean;
+  priceAed: number | null;
+  waterfront: boolean;
+  metadata: unknown;
+  communityName: string | null;
+  emirate: string | null;
+  city: string | null;
+  developerName: string | null;
+};
+
 /**
  * Cached per server instance for a short while: the database can be far from
- * the functions (Singapore DB, US functions = ~1-2s per load), and listings
- * change rarely. Edits and syncs show up within INVENTORY_TTL_MS.
+ * the functions (Singapore DB, US functions), and listings change rarely.
+ * Edits and syncs show up within INDEX_TTL_MS; full rows are always read fresh.
  */
-const INVENTORY_TTL_MS = 120_000;
-let inventoryCache: { at: number; rows: Promise<AgentProperty[]> } | null = null;
+const INDEX_TTL_MS = 120_000;
+let indexCache: { at: number; rows: Promise<IndexRow[]> } | null = null;
 
-export function loadInventory(): Promise<AgentProperty[]> {
-  if (!inventoryCache || Date.now() - inventoryCache.at > INVENTORY_TTL_MS) {
-    const rows = prisma.property.findMany({
-      where: { deletedAt: null, status: { in: ["ACTIVE", "RESERVED"] } },
-      include: agentInclude,
-      orderBy: { updatedAt: "desc" },
-      take: 500,
-    });
-    inventoryCache = { at: Date.now(), rows };
+export function loadIndex(): Promise<IndexRow[]> {
+  if (!indexCache || Date.now() - indexCache.at > INDEX_TTL_MS) {
+    // Only the metadata keys the checks read (meta(): district, unitTypes,
+    // completion fields) — the whole column is ~2 KB per property.
+    const rows = prisma.$queryRaw<IndexSqlRow[]>`
+      SELECT p.id, p.slug, p.title, p.type::text AS type, p.off_plan AS "offPlan",
+             p.price_aed AS "priceAed", p.waterfront,
+             jsonb_strip_nulls(jsonb_build_object(
+               'district', p.metadata_json->'district',
+               'unitTypes', p.metadata_json->'unitTypes',
+               'constructionStatus', p.metadata_json->'constructionStatus',
+               'handoverDate', p.metadata_json->'handoverDate',
+               'completionLabel', p.metadata_json->'completionLabel',
+               'readinessProgress', p.metadata_json->'readinessProgress'
+             )) AS metadata,
+             c.name AS "communityName", c.emirate, c.city, d.name AS "developerName"
+      FROM properties p
+      LEFT JOIN communities c ON c.id = p.community_id
+      LEFT JOIN developers d ON d.id = p.developer_id
+      WHERE p.deleted_at IS NULL AND p.status IN ('ACTIVE', 'RESERVED')
+      ORDER BY p.updated_at DESC
+    `.then((list) =>
+      list.map((r) => ({
+        id: r.id,
+        slug: r.slug,
+        title: r.title,
+        type: r.type,
+        offPlan: r.offPlan,
+        priceAed: r.priceAed,
+        waterfront: r.waterfront,
+        metadata: r.metadata,
+        community: r.communityName ? { name: r.communityName, emirate: r.emirate, city: r.city } : null,
+        developer: r.developerName ? { name: r.developerName } : null,
+      })),
+    );
+    indexCache = { at: Date.now(), rows };
     // A failed load must not be served from the cache.
     rows.catch(() => {
-      inventoryCache = null;
+      indexCache = null;
     });
   }
-  return inventoryCache.rows;
+  return indexCache.rows;
+}
+
+/**
+ * Full rows by id, in the order given. A full read costs one database round
+ * trip per relation (~7), which adds up with the DB far from the functions, so
+ * rows read in the last ROW_TTL_MS are reused: a search, then "tell me about
+ * the second one", reads that property once. Only rows actually searched or
+ * asked about are kept — never the whole inventory.
+ */
+const ROW_TTL_MS = 120_000;
+const rowCache = new Map<string, { at: number; row: AgentProperty }>();
+
+async function fullRows(ids: string[]): Promise<AgentProperty[]> {
+  const now = Date.now();
+  const fresh = (id: string) => {
+    const hit = rowCache.get(id);
+    return hit && now - hit.at <= ROW_TTL_MS ? hit.row : null;
+  };
+  const missing = ids.filter((id) => !fresh(id));
+  if (missing.length) {
+    const rows = await prisma.property.findMany({
+      where: { id: { in: missing }, deletedAt: null },
+      include: agentInclude,
+    });
+    for (const row of rows) rowCache.set(row.id, { at: now, row });
+  }
+  if (rowCache.size > 2000) {
+    for (const [id, hit] of rowCache) if (now - hit.at > ROW_TTL_MS) rowCache.delete(id);
+  }
+  return ids.map((id) => rowCache.get(id)?.row).filter((r): r is AgentProperty => r != null);
 }
 
 // ---------------------------------------------------------------- search
@@ -324,26 +418,14 @@ function bedsOk(c: SearchCriteria, b: number | null): boolean {
   return true;
 }
 
-function evaluate(p: AgentProperty, c: SearchCriteria): Scored | null {
-  const m = meta(p);
+/**
+ * Location, developer, type and completion: the checks that need only names
+ * and a few metadata fields. The search runs them on the light index to pick
+ * candidates, and evaluate() runs the same function on full rows, so the two
+ * can never disagree. Returns the reasons to show, or null when it fails.
+ */
+function listingChecks(p: Listing, c: SearchCriteria): string[] | null {
   const reasons: string[] = [];
-  let soft = 0;
-
-  // Deal is per-unit (metadata.listing: sale/rent/both); fall back to the
-  // project-level dealType/forRent when a property has no units.
-  {
-    const want = c.dealType ?? "sale";
-    const visible = p.units.filter((u) => !u.hidden);
-    const deals = visible.map((u) => unitListing(u.metadata));
-    const offersRent = visible.length
-      ? deals.some((l) => l === "rent" || l === "both")
-      : m.dealType === "rent" || (m as { forRent?: boolean }).forRent === true;
-    const offersSale = visible.length
-      ? deals.some((l) => l === "sale" || l === "both")
-      : m.dealType !== "rent";
-    if (want === "rent" ? !offersRent : !offersSale) return null;
-  }
-
   if (c.locations?.length) {
     const hit = c.locations.find((l) => matchesLocation(p, l));
     if (!hit) return null;
@@ -367,6 +449,33 @@ function evaluate(p: AgentProperty, c: SearchCriteria): Scored | null {
     if (!done.ready && !(year > 0 && year <= c.handoverByYear)) return null;
     reasons.push(done.ready ? "already completed" : `handover ${done.handover}`);
   }
+  return reasons;
+}
+
+function evaluate(p: AgentProperty, c: SearchCriteria): Scored | null {
+  const m = meta(p);
+  const reasons: string[] = [];
+  let soft = 0;
+
+  // Deal is per-unit (metadata.listing: sale/rent/both); fall back to the
+  // project-level dealType/forRent when a property has no units.
+  {
+    const want = c.dealType ?? "sale";
+    const visible = p.units.filter((u) => !u.hidden);
+    const deals = visible.map((u) => unitListing(u.metadata));
+    const offersRent = visible.length
+      ? deals.some((l) => l === "rent" || l === "both")
+      : m.dealType === "rent" || (m as { forRent?: boolean }).forRent === true;
+    const offersSale = visible.length
+      ? deals.some((l) => l === "sale" || l === "both")
+      : m.dealType !== "rent";
+    if (want === "rent" ? !offersRent : !offersSale) return null;
+  }
+
+  const listing = listingChecks(p, c);
+  if (!listing) return null;
+  reasons.push(...listing);
+
   if (c.postHandoverPlan) {
     if (!m.postHandover && !paymentPlans(p).some((pl) => /post/i.test(pl.schedule))) return null;
     reasons.push("has a post-handover payment plan");
@@ -483,14 +592,58 @@ export function summarize(s: Scored | { p: AgentProperty; units?: UnitType[]; re
   };
 }
 
-export function searchInventory(inventory: AgentProperty[], c: SearchCriteria) {
+/**
+ * Budget, bedrooms and size, checked by the database. These are exactly the
+ * per-unit rules in evaluate() — one visible unit must meet all of them, and a
+ * project with no visible units is checked on its own price and size — so the
+ * database never drops a property evaluate() would keep. The min-price /
+ * min-size rules and the no-unit bedroom range stay in evaluate() only.
+ */
+function unitWhere(c: SearchCriteria): Prisma.PropertyWhereInput | null {
+  const beds = c.bedrooms?.length ? { in: c.bedrooms } : c.minBedrooms != null ? { gte: c.minBedrooms } : undefined;
+  const price = c.maxPriceAed != null ? { gt: 0, lte: c.maxPriceAed } : undefined;
+  const size = c.maxSizeSqft != null ? { gt: 0, lte: c.maxSizeSqft } : undefined;
+  if (!beds && !price && !size) return null;
+  return {
+    OR: [
+      { units: { some: { hidden: false, bedrooms: beds, priceAed: price, areaSqft: size } } },
+      { units: { none: { hidden: false } }, priceAed: price, areaSqft: size },
+    ],
+  };
+}
+
+/**
+ * Every live property that meets all the hard requirements, best first.
+ * Names/areas/types are matched on the light index (typo-tolerant), budget /
+ * bedrooms / size by the database, and only the rows that pass both are read
+ * in full and given the final check — never a capped "first N" list.
+ */
+async function matching(index: IndexRow[], c: SearchCriteria): Promise<Scored[]> {
+  const where: Prisma.PropertyWhereInput[] = [LIVE];
+  const ids = index.filter((p) => listingChecks(p, c)).map((p) => p.id);
+  if (!ids.length) return [];
+  // Nothing narrowed by name/area/type: skip the id list (it would name every
+  // property) — this also lets a listing newer than the index through.
+  if (ids.length < index.length) where.push({ id: { in: ids } });
+  const units = unitWhere(c);
+  if (units) where.push(units);
+  // One round trip for the ids that pass; full rows only for those.
+  const found = await prisma.property.findMany({
+    where: { AND: where },
+    select: { id: true },
+    // Same tie order as before: most recently updated first.
+    orderBy: { updatedAt: "desc" },
+  });
+  const rows = await fullRows(found.map((r) => r.id));
+  return rank(rows.map((p) => evaluate(p, c)).filter((x): x is Scored => x != null), c);
+}
+
+export async function searchProperties(c: SearchCriteria, indexRows?: Promise<IndexRow[]>) {
+  const index = await (indexRows ?? loadIndex());
   const limit = Math.min(Math.max(c.limit ?? 4, 1), 8);
-  const matches = rank(
-    inventory.map((p) => evaluate(p, c)).filter((x): x is Scored => x != null),
-    c,
-  );
+  const matches = await matching(index, c);
   const notes: string[] = [];
-  if (c.waterfront && !inventory.some((p) => p.waterfront))
+  if (c.waterfront && !index.some((p) => p.waterfront))
     notes.push("No listing in the data is tagged waterfront, so that could not be checked — do not claim any result is waterfront.");
   if (c.dealType === "rent" && !matches.length)
     notes.push("There are no rental listings in the current inventory — everything listed is for sale.");
@@ -512,8 +665,11 @@ export function searchInventory(inventory: AgentProperty[], c: SearchCriteria) {
       ["completion / handover", { ...c, completion: undefined, handoverByYear: undefined }],
     ];
     const alternatives: unknown[] = [];
-    for (const [relaxed, cc] of relaxations) {
-      const alt = rank(inventory.map((p) => evaluate(p, cc)).filter((x): x is Scored => x != null), cc);
+    // All at once (one wait instead of five); the first two that find
+    // something are used, in this order, as before.
+    const found = await Promise.all(relaxations.map(([, cc]) => matching(index, cc)));
+    for (const [i, [relaxed]] of relaxations.entries()) {
+      const alt = found[i];
       if (alt.length) {
         alternatives.push({ relaxed, totalMatches: alt.length, examples: alt.slice(0, 3).map(summarize) });
       }
@@ -532,25 +688,40 @@ export function searchInventory(inventory: AgentProperty[], c: SearchCriteria) {
 
 // ---------------------------------------------------------------- lookups
 
-/** Resolve a property by id, slug or (fuzzy) name. Returns several when ambiguous. */
-export function findProperty(inventory: AgentProperty[], ref: string): AgentProperty[] {
+/**
+ * Resolve a property by id, slug or name: exact, then "name contains" either
+ * way ("lunaya" → every Lunaya project), then one typo per long word ("mason"
+ * → the Maison projects). Returns several when ambiguous.
+ */
+export function findProperty<T extends { id: string; slug: string; title: string }>(list: T[], ref: string): T[] {
   const r = ref.trim();
-  const exact = inventory.find((p) => p.id === r || p.slug === r || norm(p.title) === norm(r));
+  const exact = list.find((p) => p.id === r || p.slug === r || norm(p.title) === norm(r));
   if (exact) return [exact];
-  const contains = inventory.filter((p) => norm(p.title).includes(norm(r)) || norm(r).includes(norm(p.title)));
+  const contains = list.filter((p) => norm(p.title).includes(norm(r)) || norm(r).includes(norm(p.title)));
   if (contains.length) return contains;
-  return inventory.filter((p) => fuzzyPhrase(p.title, r));
+  return list.filter((p) => fuzzyPhrase(p.title, r));
 }
 
-export async function findAnyProperty(inventory: AgentProperty[], ref: string): Promise<AgentProperty[]> {
-  const live = findProperty(inventory, ref);
-  if (live.length) return live;
+/**
+ * Find a property among ALL live listings (the light index), then read just
+ * that one row in full. Several matches → their names, to ask which one.
+ */
+export async function findAnyProperty(
+  index: IndexRow[],
+  ref: string,
+): Promise<{ property: AgentProperty } | { candidates: string[] }> {
+  const live = findProperty(index, ref);
+  if (live.length > 1) return { candidates: live.map((p) => p.title) };
+  if (live.length === 1) {
+    const [p] = await fullRows([live[0].id]);
+    if (p) return { property: p };
+  }
   // Sold-out / withdrawn projects are still answerable ("is X available?" → no).
   const p = await prisma.property.findFirst({
     where: { deletedAt: null, OR: [{ id: ref }, { slug: ref }, { title: { equals: ref, mode: "insensitive" } }] },
     include: agentInclude,
   });
-  return p ? [p] : [];
+  return p ? { property: p } : { candidates: [] };
 }
 
 function cleanText(s: string | null | undefined, max: number): string | null {
@@ -708,7 +879,7 @@ export async function developerInfo(name: string) {
   };
 }
 
-export function areaOverview(inventory: AgentProperty[]) {
+export function areaOverview(inventory: IndexRow[]) {
   const areas = new Map<string, { emirate: string | null; projects: number; from: number }>();
   const devs = new Map<string, number>();
   for (const p of inventory) {

@@ -2,7 +2,7 @@ import { resolveLLMConfig } from "@/lib/ai/provider";
 import { getPrompts } from "@/lib/ai/get-prompt";
 import { agentContext, type AgentChannel } from "./prompt";
 import { runTool, TOOL_DEFINITIONS, type ToolContext } from "./tools";
-import type { SearchCriteria } from "./inventory";
+import { loadIndex, type SearchCriteria } from "./inventory";
 
 /**
  * The sales agent: an LLM tool-calling loop over the inventory and lead tools.
@@ -150,7 +150,10 @@ export async function runSalesAgent(opts: {
   if (!result.reply) return fail(`Empty reply from ${result.model}`);
   // Grid should mirror what the reply actually recommends (the projects it
   // links to), in that order; fall back to the last search's matches.
-  const inv = ctx.inventory ? await ctx.inventory : [];
+  // Slugs of every live listing (the light index, cached), so a link to any
+  // of them is recognised. Only read when the reply links to a listing.
+  const links = /\/(?:projects|properties)\//i.test(result.reply);
+  const inv = links ? await (ctx.index ?? loadIndex()).catch(() => []) : [];
   const linked = linkedPropertyIds(result.reply, inv);
   result.propertyIds = linked.length ? linked : (ctx.shownPropertyIds ?? null);
   result.lastSearch = ctx.lastSearch ?? null;
