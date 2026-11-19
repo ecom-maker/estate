@@ -85,13 +85,16 @@ function rateFromSeries(series: number[], basisLabel?: string): Appreciation | n
  * Annual price-appreciation rate for the capital-gain projection.
  *
  * Uses the unit's recorded price/sqft trend. The chart's own scope is the most
- * specific one available (this building/bedroom, else the community); when that
- * specific scope rests on too few real sales to be a trend, the community
- * average the trend carries alongside it is used instead. Falls back to the flat
+ * specific one available (this building/bedroom, else the community); the
+ * community average it carries alongside is used instead when the specific scope
+ * rests on too few real sales to be a trend, or when the building is still new
+ * (`preferCommunity`) — a new tower's own prices are launch-phase noise, not
+ * multi-year appreciation, however many sales it has. Falls back to the flat
  * baseline when there isn't a year of usable history either way.
  */
 export function appreciationFromInsights(
   insights: MarketInsights | null | undefined,
+  opts?: { preferCommunity?: boolean },
 ): Appreciation {
   const baseline: Appreciation = { rate: APPRECIATION_RATE, source: "baseline" };
   const trend = insights?.trend;
@@ -106,7 +109,7 @@ export function appreciationFromInsights(
   const specificIsThin =
     (insights?.salesCount ?? Number.POSITIVE_INFINITY) < MIN_SALES_FOR_SPECIFIC;
 
-  if (hasCommunity && specificIsThin) {
+  if (hasCommunity && (specificIsThin || opts?.preferCommunity)) {
     return (
       rateFromSeries(trend.sale.secondary, trend.secondaryLabel) ?? baseline
     );

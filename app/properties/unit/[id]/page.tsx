@@ -192,12 +192,22 @@ export default async function UnitDetailPage({
     lng: p.longitude,
     bedrooms: unit.bedrooms,
   });
+  // A still-new building (off-plan, or handed over within the last ~2 years) has
+  // only launch-phase sales, so its own price trend is noise, not multi-year
+  // appreciation — measure growth from the community instead until it matures.
+  const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
+  const handoverAt = p.handoverAt ? new Date(p.handoverAt) : null;
+  const buildingIsNew =
+    unitOffPlan ||
+    (handoverAt ? Date.now() - handoverAt.getTime() < TWO_YEARS_MS : false);
   const investment = computeInvestment({
     priceAed: unit.priceAed,
     areaSqft: unit.areaSqft,
     rent: rentRate,
     serviceChargeText: serviceCharge,
-    appreciation: appreciationFromInsights(unitInsights),
+    appreciation: appreciationFromInsights(unitInsights, {
+      preferCommunity: buildingIsNew,
+    }),
   });
   const unitFaqs = buildUnitFaqs({
     projectTitle: p.title,
