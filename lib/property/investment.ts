@@ -27,6 +27,12 @@ export const MANAGEMENT_RATE = 0.05;
 
 /** Minimum months of price trend before an observed growth rate is trusted. */
 const MIN_TREND_MONTHS = 12;
+/**
+ * Minimum recorded sales behind a *specific* scope (a single building/bedroom)
+ * before its own trend is trusted. Below this, a building's short history is
+ * launch-phase noise, so the steadier community average is used instead.
+ */
+const MIN_SALES_FOR_SPECIFIC = 12;
 /** Observed growth is blended this far toward the baseline, then clamped. */
 const OBSERVED_WEIGHT = 0.5;
 const RATE_MIN = 0.02;
@@ -41,23 +47,14 @@ export type Appreciation = {
 };
 
 /**
- * Annual price-appreciation rate for the capital-gain projection.
- *
- * Where the recorded price/sqft trend (the most specific scope available — this
- * building, else same-bedroom, else the community) spans at least a year, fit a
- * line to ln(price) over time for a noise-resistant annualised rate, blend it
- * halfway toward the baseline so a single hot (or cold) year can't run away, and
- * clamp to a sane band. Otherwise fall back to the flat baseline.
+ * Fit a line to ln(price) over the monthly series and annualise the slope into a
+ * growth rate, blended halfway toward the baseline (so one hot/cold year can't
+ * run away) and clamped to a sane band. null when the series is too short or has
+ * a non-positive value.
  */
-export function appreciationFromTrend(
-  trend: MarketInsights["trend"] | null | undefined,
-): Appreciation {
-  const baseline: Appreciation = { rate: APPRECIATION_RATE, source: "baseline" };
-  const series = trend?.sale.primary ?? [];
+function rateFromSeries(series: number[], basisLabel?: string): Appreciation | null {
   const n = series.length;
-  if (!trend || n < MIN_TREND_MONTHS || series.some((v) => !(v > 0))) {
-    return baseline;
-  }
+  if (n < MIN_TREND_MONTHS || series.some((v) => !(v > 0))) return null;
 
   // Ordinary least squares on (monthIndex, ln price); the slope is the monthly
   // log growth, so exp(slope * 12) - 1 is the annual rate.
@@ -73,15 +70,48 @@ export function appreciationFromTrend(
     sxy += i * y;
   }
   const denom = n * sxx - sx * sx;
-  if (denom === 0) return baseline;
+  if (denom === 0) return null;
   const slopePerMonth = (n * sxy - sx * sy) / denom;
   const observed = Math.exp(slopePerMonth * 12) - 1;
-  if (!Number.isFinite(observed)) return baseline;
+  if (!Number.isFinite(observed)) return null;
 
   const blended =
     OBSERVED_WEIGHT * observed + (1 - OBSERVED_WEIGHT) * APPRECIATION_RATE;
   const rate = Math.min(RATE_MAX, Math.max(RATE_MIN, blended));
-  return { rate, source: "observed", basisLabel: trend.primaryLabel };
+  return { rate, source: "observed", basisLabel: basisLabel ?? null };
+}
+
+/**
+ * Annual price-appreciation rate for the capital-gain projection.
+ *
+ * Uses the unit's recorded price/sqft trend. The chart's own scope is the most
+ * specific one available (this building/bedroom, else the community); when that
+ * specific scope rests on too few real sales to be a trend, the community
+ * average the trend carries alongside it is used instead. Falls back to the flat
+ * baseline when there isn't a year of usable history either way.
+ */
+export function appreciationFromInsights(
+  insights: MarketInsights | null | undefined,
+): Appreciation {
+  const baseline: Appreciation = { rate: APPRECIATION_RATE, source: "baseline" };
+  const trend = insights?.trend;
+  if (!trend) return baseline;
+
+  // The trend carries the community average as its secondary line whenever the
+  // primary is a specific scope (secondaryLabel is then set and aligned).
+  const hasCommunity =
+    !!trend.secondaryLabel &&
+    trend.sale.secondary.length === trend.sale.primary.length &&
+    trend.sale.secondary.length > 0;
+  const specificIsThin =
+    (insights?.salesCount ?? Number.POSITIVE_INFINITY) < MIN_SALES_FOR_SPECIFIC;
+
+  if (hasCommunity && specificIsThin) {
+    return (
+      rateFromSeries(trend.sale.secondary, trend.secondaryLabel) ?? baseline
+    );
+  }
+  return rateFromSeries(trend.sale.primary, trend.primaryLabel) ?? baseline;
 }
 
 export type Investment = {

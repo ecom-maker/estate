@@ -1,8 +1,29 @@
-import { TrendingUp, Wallet, PiggyBank, LineChart } from "lucide-react";
+import { TrendingUp, Wallet, PiggyBank, LineChart, Info } from "lucide-react";
 import { PROJECTION_YEARS, type Investment } from "@/lib/property/investment";
 
 const aed = (n: number) => `AED ${Math.round(n).toLocaleString()}`;
 const pct = (fraction: number, dp = 1) => `${(fraction * 100).toFixed(dp)}%`;
+
+/** An (i) that reveals an explanation on hover or keyboard focus (no JS). */
+function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="group/tip relative inline-flex">
+      <button
+        type="button"
+        aria-label="How this is calculated"
+        className="rounded-full text-muted/70 transition hover:text-muted focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+      >
+        <Info className="h-3.5 w-3.5" aria-hidden />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute right-0 top-6 z-20 w-64 rounded-md border border-border bg-card p-3 text-left text-[11px] font-normal normal-case leading-relaxed tracking-normal text-muted opacity-0 shadow-lg transition-opacity duration-150 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
 
 function Tile({
   label,
@@ -10,12 +31,14 @@ function Tile({
   value,
   sub,
   gold,
+  info,
 }: {
   label: string;
   icon: React.ReactNode;
   value: string;
   sub?: string;
   gold?: boolean;
+  info?: React.ReactNode;
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-4">
@@ -23,7 +46,10 @@ function Tile({
         <p className="text-[11px] font-medium uppercase tracking-wider text-muted">
           {label}
         </p>
-        <span className="text-muted">{icon}</span>
+        <span className="flex items-center gap-1.5 text-muted">
+          {info}
+          {icon}
+        </span>
       </div>
       <p
         className={`mt-2 font-serif text-2xl ${gold ? "text-accent" : "text-primary"}`}
@@ -48,6 +74,18 @@ export function InvestmentPanel({ data }: { data: Investment }) {
           appr.basisLabel ? ` for ${appr.basisLabel}` : ""
         }`
       : `a ${pct(appr.rate, 0)} p.a. price-growth assumption`;
+  const capitalGainTip =
+    appr.source === "observed"
+      ? `Price today grown over ${PROJECTION_YEARS} years at ~${pct(
+          appr.rate,
+          1,
+        )}/yr. That rate comes from recorded DLD sale prices${
+          appr.basisLabel ? ` for ${appr.basisLabel}` : ""
+        }, blended halfway toward a long-run 7%/yr and capped at 15%/yr. An estimate, not a guarantee.`
+      : `Price today grown over ${PROJECTION_YEARS} years at ${pct(
+          appr.rate,
+          0,
+        )}/yr — a long-run assumption used because there isn't enough recorded sales history here to measure a local trend. An estimate, not a guarantee.`;
   const km = data.rentDistanceKm;
   const nearbyWhere =
     typeof km === "number" && km >= 0.1
@@ -86,6 +124,7 @@ export function InvestmentPanel({ data }: { data: Investment }) {
               icon={<LineChart className="h-4 w-4" aria-hidden />}
               value={aed(data.capitalGain)}
               sub={appreciationNote}
+              info={<InfoTip text={capitalGainTip} />}
             />
             <Tile
               label={`${PROJECTION_YEARS}-year total return`}
@@ -115,6 +154,7 @@ export function InvestmentPanel({ data }: { data: Investment }) {
               icon={<LineChart className="h-4 w-4" aria-hidden />}
               value={aed(data.capitalGain)}
               sub={appreciationNote}
+              info={<InfoTip text={capitalGainTip} />}
             />
           </>
         )}

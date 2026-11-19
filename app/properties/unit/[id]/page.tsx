@@ -27,7 +27,10 @@ import { formatKm } from "@/lib/property/nearby";
 import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
 import { getMarketInsights } from "@/lib/property/market-data";
-import { computeInvestment, appreciationFromTrend } from "@/lib/property/investment";
+import {
+  computeInvestment,
+  appreciationFromInsights,
+} from "@/lib/property/investment";
 import { getRentRate } from "@/lib/property/rent-comparable";
 import { InvestmentPanel } from "@/components/property/investment-panel";
 import { buildUnitFaqs } from "@/lib/seo/unit-faqs";
@@ -194,7 +197,7 @@ export default async function UnitDetailPage({
     areaSqft: unit.areaSqft,
     rent: rentRate,
     serviceChargeText: serviceCharge,
-    appreciation: appreciationFromTrend(unitInsights?.trend),
+    appreciation: appreciationFromInsights(unitInsights),
   });
   const unitFaqs = buildUnitFaqs({
     projectTitle: p.title,
