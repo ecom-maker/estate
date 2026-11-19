@@ -45,8 +45,8 @@ export function InvestmentPanel({ data }: { data: Investment }) {
   const km = data.rentDistanceKm;
   const nearbyWhere =
     typeof km === "number" && km >= 0.1
-      ? `the nearest building with recorded rents (~${km.toFixed(1)} km away)`
-      : "a nearby building with recorded rents";
+      ? `the nearest building with rent data (~${km.toFixed(1)} km away)`
+      : "a nearby building";
   const rentNote =
     data.rentScope === "building"
       ? "Rent estimated from recorded DLD rents in this building"
