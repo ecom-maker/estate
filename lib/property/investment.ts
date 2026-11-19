@@ -1,13 +1,22 @@
 import "server-only";
-import type { MarketInsights } from "@/lib/property/market-insights";
 
 /**
  * Investment / cash-flow snapshot for a unit, computed only from data we have:
- * the unit's sale price and area, recorded DLD rent comparables (building-first,
- * else area), and the project's service-charge rate. Projections use fixed,
- * clearly-disclosed assumptions. Returns null when there isn't enough to show
- * even a gross yield (no price, no area, or no rent comparables).
+ * the unit's sale price and area, a recorded DLD rent rate (the unit's own
+ * building first, else the nearest building in the same community — see
+ * `lib/property/rent-comparable.ts`), and the project's service-charge rate.
+ * Projections use fixed, clearly-disclosed assumptions. Returns null when there
+ * isn't enough to show even a gross yield (no price, no area, or no rent).
  */
+
+/** A recorded rent rate for the unit, and where it came from. */
+export type RentRate = {
+  perSqftYr: number;
+  /** "building" = the unit's own building; "area" = a nearby building. */
+  scope: "building" | "area";
+  /** Distance to the source building, for the "area" case (km). */
+  distanceKm?: number | null;
+};
 
 /** Price appreciation assumption for the capital-gain projection. */
 export const APPRECIATION_RATE = 0.07;
@@ -20,6 +29,8 @@ export type Investment = {
   area: number;
   rentPerSqftYr: number;
   rentScope: "building" | "area";
+  /** Distance to the rent source when it's a nearby building (km). */
+  rentDistanceKm?: number | null;
   grossAnnualRent: number;
   grossYield: number; // fraction, e.g. 0.076
   capitalGain: number; // over PROJECTION_YEARS
@@ -57,15 +68,15 @@ export function parseServiceChargePerSqft(text: unknown): number | null {
 export function computeInvestment(input: {
   priceAed: number | null;
   areaSqft: number | null;
-  insights: MarketInsights | null;
+  rent: RentRate | null;
   serviceChargeText: unknown;
 }): Investment | null {
   const price = input.priceAed ?? 0;
   const area = input.areaSqft ?? 0;
   if (price <= 0 || area <= 0) return null;
 
-  const rent = input.insights?.rentComparable ?? null;
-  if (!rent) return null;
+  const rent = input.rent;
+  if (!rent || !(rent.perSqftYr > 0)) return null;
 
   const grossAnnualRent = rent.perSqftYr * area;
   const grossYield = grossAnnualRent / price;
@@ -77,6 +88,7 @@ export function computeInvestment(input: {
     area,
     rentPerSqftYr: rent.perSqftYr,
     rentScope: rent.scope,
+    rentDistanceKm: rent.distanceKm ?? null,
     grossAnnualRent,
     grossYield,
     capitalGain,

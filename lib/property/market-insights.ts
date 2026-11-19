@@ -31,14 +31,6 @@ export type MarketInsights = {
    *  D1 data only). The table shows the latest 14 of them. */
   salesCount?: number;
   /**
-   * Median recorded annual rent per sqft, for the investment snapshot. Unlike
-   * the `rented` table (which is tied to the headline scope and so is empty for
-   * an off-plan building that has sales but no rent contracts), this falls back
-   * from the building to same-bedroom area comparables, so a yield can still be
-   * shown. `scope` says which it came from. Absent when no rent is on record.
-   */
-  rentComparable?: { perSqftYr: number; scope: "building" | "area" };
-  /**
    * null when the comparables exist but span too few months to call a trend.
    * The transactions table is still shown in that case — it is a list of real
    * sales and stands on its own — while the chart is omitted.

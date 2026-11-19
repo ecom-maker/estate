@@ -78,37 +78,6 @@ function perSqft(r: Row): number | null {
   return r.amountAed / (r.areaSqm * SQFT_PER_SQM);
 }
 
-/** Median annual rent per sqft across the rows, or null when none are usable. */
-function medianRentPerSqftYr(rows: Row[]): number | null {
-  const vals: number[] = [];
-  for (const r of rows) {
-    const annual = r.amountAed ?? (r.monthlyRentAed ? r.monthlyRentAed * 12 : null);
-    const area = (r.areaSqm ?? 0) * SQFT_PER_SQM;
-    if (annual && annual > 0 && area > 0) vals.push(annual / area);
-  }
-  if (!vals.length) return null;
-  vals.sort((a, b) => a - b);
-  const mid = Math.floor(vals.length / 2);
-  return vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
-}
-
-/**
- * Rent per sqft for the investment snapshot: the building's own recorded rents
- * when any exist, otherwise the area comparables. Independent of the table's
- * headline scope so a yield is still shown for a building with sales but no
- * rent contracts.
- */
-function rentComparableOf(
-  buildingRows: Row[],
-  areaRows: Row[],
-): MarketInsights["rentComparable"] {
-  const b = medianRentPerSqftYr(buildingRows);
-  if (b !== null) return { perSqftYr: b, scope: "building" };
-  const a = medianRentPerSqftYr(areaRows);
-  if (a !== null) return { perSqftYr: a, scope: "area" };
-  return undefined;
-}
-
 /** Monthly mean AED/sqft, keyed "YYYY-MM". Months with no sales are absent. */
 function monthlyPerSqft(rows: Row[]): Map<string, number> {
   const buckets = new Map<string, { sum: number; n: number }>();
@@ -361,10 +330,6 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     comparablesLabel,
     scope: useBuilding ? "building" : "area",
     trend,
-    rentComparable: rentComparableOf(
-      buildingRentals,
-      compRentals.length ? compRentals : rentals,
-    ),
   };
 }
 
@@ -489,11 +454,6 @@ async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Pro
     break;
   }
 
-  const buildingRentRows = d1Rows(data.project?.rentals.latest ?? []);
-  const areaRentRows = d1Rows(
-    (data.sameBed.rentals.latest.length ? data.sameBed : data.all).rentals.latest,
-  );
-
   return {
     sold,
     rented,
@@ -501,6 +461,5 @@ async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Pro
     scope: useBuilding ? "building" : "area",
     trend,
     salesCount: salesScope.sales.count,
-    rentComparable: rentComparableOf(buildingRentRows, areaRentRows),
   };
 }

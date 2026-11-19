@@ -28,6 +28,7 @@ import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
 import { getMarketInsights } from "@/lib/property/market-data";
 import { computeInvestment } from "@/lib/property/investment";
+import { getRentRate } from "@/lib/property/rent-comparable";
 import { InvestmentPanel } from "@/components/property/investment-panel";
 import { buildUnitFaqs } from "@/lib/seo/unit-faqs";
 import { FaqSection } from "@/components/seo/faq-section";
@@ -178,13 +179,20 @@ export default async function UnitDetailPage({
     unit.priceAed && unit.areaSqft && unit.areaSqft > 0
       ? unit.priceAed / unit.areaSqft
       : null;
-  // Investment snapshot: price + area + recorded rent comparables, with the
+  // Investment snapshot: price + area + a recorded rent rate (the unit's own
+  // building first, else the nearest building in the same community), with the
   // project's service charge promoting it from gross-yield to net-cashflow.
   // null when there isn't enough to show even a gross yield.
+  const rentRate = await getRentRate({
+    community: p.community?.name,
+    lat: p.latitude,
+    lng: p.longitude,
+    bedrooms: unit.bedrooms,
+  });
   const investment = computeInvestment({
     priceAed: unit.priceAed,
     areaSqft: unit.areaSqft,
-    insights: unitInsights,
+    rent: rentRate,
     serviceChargeText: serviceCharge,
   });
   const unitFaqs = buildUnitFaqs({

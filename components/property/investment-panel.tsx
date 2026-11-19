@@ -42,10 +42,15 @@ function Tile({
 export function InvestmentPanel({ data }: { data: Investment }) {
   const { net } = data;
   const appreciationNote = `@ ${pct(APPRECIATION_RATE, 0)} annual projection`;
+  const km = data.rentDistanceKm;
+  const nearbyWhere =
+    typeof km === "number" && km >= 0.1
+      ? `the nearest building with recorded rents (~${km.toFixed(1)} km away)`
+      : "a nearby building with recorded rents";
   const rentNote =
     data.rentScope === "building"
       ? "Rent estimated from recorded DLD rents in this building"
-      : "Rent estimated from recorded DLD rents in this area";
+      : `Rent estimated from recorded DLD rents at ${nearbyWhere}`;
 
   return (
     <section className="mt-16">
