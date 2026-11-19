@@ -54,23 +54,6 @@ export function parseServiceChargePerSqft(text: unknown): number | null {
   return Number.isFinite(n) && n > 0 && n <= 200 ? n : null;
 }
 
-function median(values: number[]): number | null {
-  const v = values.filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
-  if (!v.length) return null;
-  const mid = Math.floor(v.length / 2);
-  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
-}
-
-/** Median annual rent per sqft from the recorded rent comparables. */
-function rentPerSqftYr(
-  insights: MarketInsights | null,
-): { value: number; scope: "building" | "area" } | null {
-  const rows = insights?.rented ?? [];
-  const per = median(rows.map((r) => (r.area > 0 ? r.aed / r.area : NaN)));
-  if (per === null) return null;
-  return { value: per, scope: insights?.scope === "building" ? "building" : "area" };
-}
-
 export function computeInvestment(input: {
   priceAed: number | null;
   areaSqft: number | null;
@@ -81,10 +64,10 @@ export function computeInvestment(input: {
   const area = input.areaSqft ?? 0;
   if (price <= 0 || area <= 0) return null;
 
-  const rent = rentPerSqftYr(input.insights);
+  const rent = input.insights?.rentComparable ?? null;
   if (!rent) return null;
 
-  const grossAnnualRent = rent.value * area;
+  const grossAnnualRent = rent.perSqftYr * area;
   const grossYield = grossAnnualRent / price;
   const capitalGain =
     price * ((1 + APPRECIATION_RATE) ** PROJECTION_YEARS - 1);
@@ -92,7 +75,7 @@ export function computeInvestment(input: {
   const base: Investment = {
     price,
     area,
-    rentPerSqftYr: rent.value,
+    rentPerSqftYr: rent.perSqftYr,
     rentScope: rent.scope,
     grossAnnualRent,
     grossYield,
