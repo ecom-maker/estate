@@ -1,9 +1,5 @@
 import { TrendingUp, Wallet, PiggyBank, LineChart } from "lucide-react";
-import {
-  APPRECIATION_RATE,
-  PROJECTION_YEARS,
-  type Investment,
-} from "@/lib/property/investment";
+import { PROJECTION_YEARS, type Investment } from "@/lib/property/investment";
 
 const aed = (n: number) => `AED ${Math.round(n).toLocaleString()}`;
 const pct = (fraction: number, dp = 1) => `${(fraction * 100).toFixed(dp)}%`;
@@ -41,7 +37,17 @@ function Tile({
 
 export function InvestmentPanel({ data }: { data: Investment }) {
   const { net } = data;
-  const appreciationNote = `@ ${pct(APPRECIATION_RATE, 0)} annual projection`;
+  const appr = data.appreciation;
+  const appreciationNote =
+    appr.source === "observed"
+      ? `@ ~${pct(appr.rate, 1)} / yr (recorded trend)`
+      : `@ ${pct(appr.rate, 0)} annual projection`;
+  const growthNote =
+    appr.source === "observed"
+      ? `the recorded ~${pct(appr.rate, 1)} p.a. price trend${
+          appr.basisLabel ? ` for ${appr.basisLabel}` : ""
+        }`
+      : `a ${pct(appr.rate, 0)} p.a. price-growth assumption`;
   const km = data.rentDistanceKm;
   const nearbyWhere =
     typeof km === "number" && km >= 0.1
@@ -147,9 +153,8 @@ export function InvestmentPanel({ data }: { data: Investment }) {
       ) : null}
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted">
-        {rentNote}. Illustrative estimate using a {pct(APPRECIATION_RATE, 0)} p.a.
-        price-growth assumption over {PROJECTION_YEARS} years — not a guarantee or
-        financial advice.
+        {rentNote}. Illustrative estimate using {growthNote} over{" "}
+        {PROJECTION_YEARS} years — not a guarantee or financial advice.
       </p>
     </section>
   );
