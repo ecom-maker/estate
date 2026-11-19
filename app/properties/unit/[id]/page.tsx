@@ -27,6 +27,8 @@ import { formatKm } from "@/lib/property/nearby";
 import { getNearbyBundle } from "@/lib/property/nearby-bundle";
 import { MarketInsightsSection } from "@/components/property/market-insights-section";
 import { getMarketInsights } from "@/lib/property/market-data";
+import { computeInvestment } from "@/lib/property/investment";
+import { InvestmentPanel } from "@/components/property/investment-panel";
 import { buildUnitFaqs } from "@/lib/seo/unit-faqs";
 import { FaqSection } from "@/components/seo/faq-section";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
@@ -176,6 +178,15 @@ export default async function UnitDetailPage({
     unit.priceAed && unit.areaSqft && unit.areaSqft > 0
       ? unit.priceAed / unit.areaSqft
       : null;
+  // Investment snapshot: price + area + recorded rent comparables, with the
+  // project's service charge promoting it from gross-yield to net-cashflow.
+  // null when there isn't enough to show even a gross yield.
+  const investment = computeInvestment({
+    priceAed: unit.priceAed,
+    areaSqft: unit.areaSqft,
+    insights: unitInsights,
+    serviceChargeText: serviceCharge,
+  });
   const unitFaqs = buildUnitFaqs({
     projectTitle: p.title,
     pricePerSqft: unitPricePerSqft,
@@ -514,6 +525,9 @@ export default async function UnitDetailPage({
             metadata: p.metadata,
           }}
         />
+
+        {/* Investment snapshot — shown only when we have price, area and rent */}
+        {investment ? <InvestmentPanel data={investment} /> : null}
 
         {/* Masterplan — shown only when a masterplan image exists */}
         {masterplanImg ? (
