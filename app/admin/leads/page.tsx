@@ -117,7 +117,7 @@ export default async function AdminLeadsPage({
                   ))}
                   {lead.notes ? <div className="mt-1 whitespace-pre-wrap text-primary">{lead.notes}</div> : null}
                   {lead.sessionId ? (
-                    <Link href={`/agent/chat-history/${lead.sessionId}`} className="mt-1 inline-block text-accent hover:underline">
+                    <Link href={`/admin/leads/${lead.sessionId}`} className="mt-1 inline-block text-accent hover:underline">
                       Conversation
                     </Link>
                   ) : null}
