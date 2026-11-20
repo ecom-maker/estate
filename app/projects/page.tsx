@@ -43,7 +43,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const page = parsePage((await searchParams).page);
   const description =
-    "Off-plan developments from leading developers — explore new projects, payment plans, unit types and floor plans.";
+    "Developments from leading developers — explore off-plan and ready projects, payment plans, unit types and floor plans.";
   return {
     title: page > 1 ? `New Projects – Page ${page}` : "New Projects",
     description,
@@ -121,7 +121,7 @@ export default async function ProjectsPage({
       ) : null}
       <ProjectBrowser
         initialProjects={projects}
-        eyebrowLabel="New Developments"
+        eyebrowLabel="Developments"
         heading="Projects"
         subheading={`${total.toLocaleString()} Projects · ${offPlanCount.toLocaleString()} Off-plan · ${(total - offPlanCount).toLocaleString()} Ready`}
         chatPlaceholder="Ask about new projects..."
