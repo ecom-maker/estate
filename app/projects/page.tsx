@@ -51,10 +51,11 @@ export async function generateMetadata({
   };
 }
 
+// All live projects, off-plan and completed alike. The header reports the
+// total and its off-plan / ready split; the grid lists them all.
 const PROJECTS_WHERE: Prisma.PropertyWhereInput = {
   deletedAt: null,
   status: { in: ["ACTIVE", "RESERVED"] },
-  offPlan: true,
 };
 
 export default async function ProjectsPage({
@@ -72,14 +73,17 @@ export default async function ProjectsPage({
 
   let projects: ProjectCardData[] = [];
   let total = 0;
+  let offPlanCount = 0;
   let facets: Awaited<ReturnType<typeof getCityFacets>> = [];
   let page = 1;
   try {
-    const [count, cityFacets] = await Promise.all([
+    const [count, offPlan, cityFacets] = await Promise.all([
       prisma.property.count({ where }),
+      prisma.property.count({ where: { AND: [where, { offPlan: true }] } }),
       getCityFacets(PROJECTS_WHERE),
     ]);
     total = count;
+    offPlanCount = offPlan;
     facets = cityFacets;
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     page = Math.min(requestedPage, totalPages);
@@ -119,7 +123,7 @@ export default async function ProjectsPage({
         initialProjects={projects}
         eyebrowLabel="New Developments"
         heading="Projects"
-        subheading={`${total.toLocaleString()} off-plan developments from leading developers`}
+        subheading={`${total.toLocaleString()} Projects · ${offPlanCount.toLocaleString()} Off-plan · ${(total - offPlanCount).toLocaleString()} Ready`}
         chatPlaceholder="Ask about new projects..."
         city={city}
         sort={sort}
