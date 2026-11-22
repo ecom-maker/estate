@@ -7,6 +7,7 @@ type Series = { primary: number[]; secondary: number[] };
 
 type Props = {
   months: string[];
+  rentMonths?: string[];
   sale: Series;
   rent: Series;
   primaryLabel: string;
@@ -30,6 +31,7 @@ const PAD = { top: 20, right: 20, bottom: 34, left: 52 };
 
 export function PriceTrendChart({
   months,
+  rentMonths,
   sale,
   rent,
   primaryLabel,
@@ -41,11 +43,14 @@ export function PriceTrendChart({
 
   const view = useMemo(() => {
     const series = deal === "sale" ? sale : rent;
+    // Sale and rent have their own month axes (rent usually spans fewer
+    // months), so pick the one that matches the selected deal.
+    const axis = deal === "sale" ? months : (rentMonths ?? months);
     const n = RANGES.find((r) => r.id === range)?.months ?? 12;
     const slice = <T,>(a: T[]) => a.slice(Math.max(0, a.length - n));
     const p = slice(series.primary);
     const s = slice(series.secondary);
-    const m = slice(months);
+    const m = slice(axis);
     const all = [...p, ...s];
     // No data for the selected deal (e.g. Rent with no recorded rent trend):
     // keep a safe 0–1 domain so nothing computes to Infinity / NaN, and flag it
@@ -73,7 +78,7 @@ export function PriceTrendChart({
       .filter(({ i }) => i % step === 0 || i === m.length - 1);
 
     return { p, s, m, x, y, toPath, ticks, xlabels, hasData };
-  }, [range, deal, months, sale, rent]);
+  }, [range, deal, months, rentMonths, sale, rent]);
 
   const fmtK = (v: number) =>
     v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${Math.round(v)}`;

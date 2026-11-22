@@ -407,6 +407,9 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     const saleTrend = buildSeries(primaryM, secondaryM);
     if (!saleTrend) continue;
 
+    // Rent is drawn on its OWN month axis — it commonly covers fewer months
+    // than sales, and forcing it onto the sale axis either hid it (when the
+    // month counts differed) or back-filled a misleading flat line.
     const rentPrimaryM = monthlyPerSqft(scope.rentals);
     const rentSecondaryM = scope.kind === "all" ? null : mAllRentals;
     const rentTrend = buildSeries(rentPrimaryM, rentSecondaryM);
@@ -414,10 +417,10 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     trend = {
       months: saleTrend.months,
       sale: { primary: saleTrend.primary, secondary: saleTrend.secondary },
-      rent:
-        rentTrend && rentTrend.months.length === saleTrend.months.length
-          ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
-          : { primary: [], secondary: [] },
+      rentMonths: rentTrend ? rentTrend.months : [],
+      rent: rentTrend
+        ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
+        : { primary: [], secondary: [] },
       primaryLabel: scope.label,
       secondaryLabel: scope.kind === "all" ? "" : areaAvgLabel,
     };
@@ -545,14 +548,15 @@ async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Pro
   for (const sc of scopes) {
     const saleTrend = buildSeries(d1Months(sc.s.sales.monthly), sc.kind === "all" ? null : mAllSales);
     if (!saleTrend) continue;
+    // Rent on its own axis (see the Supabase path).
     const rentTrend = buildSeries(d1Months(sc.s.rentals.monthly), sc.kind === "all" ? null : mAllRentals);
     trend = {
       months: saleTrend.months,
       sale: { primary: saleTrend.primary, secondary: saleTrend.secondary },
-      rent:
-        rentTrend && rentTrend.months.length === saleTrend.months.length
-          ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
-          : { primary: [], secondary: [] },
+      rentMonths: rentTrend ? rentTrend.months : [],
+      rent: rentTrend
+        ? { primary: rentTrend.primary, secondary: rentTrend.secondary }
+        : { primary: [], secondary: [] },
       primaryLabel: sc.label,
       secondaryLabel: sc.kind === "all" ? "" : areaAvgLabel,
     };

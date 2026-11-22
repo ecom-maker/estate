@@ -203,6 +203,7 @@ export async function MarketInsightsSection({
               <div className="mt-5 rounded-sm border border-border bg-card p-5">
                 <PriceTrendChart
                   months={insights.trend.months}
+                  rentMonths={insights.trend.rentMonths}
                   sale={insights.trend.sale}
                   rent={insights.trend.rent}
                   primaryLabel={insights.trend.primaryLabel}

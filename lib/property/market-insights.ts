@@ -50,8 +50,13 @@ export type MarketInsights = {
    * sales and stands on its own — while the chart is omitted.
    */
   trend: {
-    months: string[]; // oldest → newest
+    months: string[]; // sale axis, oldest → newest
     sale: { primary: number[]; secondary: number[] }; // AED / sqft
+    /** Rent's own month axis: rent often spans fewer months than sales (a new
+     *  community may have a year of sales but only recent rents), so the two
+     *  are drawn on independent axes rather than forcing rent onto the sale
+     *  months. Empty when there's no rent trend. */
+    rentMonths: string[];
     rent: { primary: number[]; secondary: number[] }; // AED / sqft / year
     primaryLabel: string;
     secondaryLabel: string;
