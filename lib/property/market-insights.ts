@@ -22,11 +22,25 @@ export type MarketInsights = {
   /** What the sold/rented rows represent, e.g. "1 bedroom at <project>" or
    *  "1 bedroom in <community>". Drives the transactions table subtitle. */
   comparablesLabel?: string;
-  /** Whether the rows are this building's own sales ("building") or
+  /** Whether the SOLD rows are this building's own sales ("building") or
    *  same-bedroom comparables across the community ("area"). Drives the
    *  transactions table heading so it never claims "this building" for what are
    *  actually area comparables (e.g. an off-plan tower with no sales yet). */
   scope?: "building" | "area";
+  /** Building/project name to show when a side is building-scoped (so the
+   *  heading can name it, e.g. "Transactions in VYB" rather than "this
+   *  building"). Null when nothing is building-scoped. */
+  buildingName?: string | null;
+  /** Specific scope label for the SOLD side, e.g. "1 bedroom in VYB" or
+   *  "1 bedroom in Business Bay". */
+  soldLabel?: string;
+  /** Specific scope label for the RENTED side. Decided independently of the
+   *  sold side — a building may have its own sales but no recorded rentals, so
+   *  this can read "1 bedroom in Business Bay" while soldLabel names the
+   *  building. */
+  rentedLabel?: string;
+  /** "building" when the rented rows are this building's own, else "area". */
+  rentScope?: "building" | "area";
   /** Recorded sales behind the headline scope over the last five years (full
    *  D1 data only). The table shows the latest 14 of them. */
   salesCount?: number;

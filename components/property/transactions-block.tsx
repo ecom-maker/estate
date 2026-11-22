@@ -15,18 +15,23 @@ function bedsLabel(beds: number): string {
 
 function TxnTable({
   title,
+  caption,
   unit,
   perSqftLabel,
   rows,
 }: {
   title: string;
+  /** Scope of these rows, e.g. "1 bedroom in VYB" — stated per side so the
+   *  sold and rented tables can honestly show different sources. */
+  caption?: string;
   unit: string;
   perSqftLabel: string;
   rows: Txn[];
 }) {
   return (
     <div>
-      <p className="mb-3 text-sm font-medium text-primary">{title}</p>
+      <p className="text-sm font-medium text-primary">{title}</p>
+      <p className="mb-3 mt-0.5 text-xs text-muted">{caption ?? " "}</p>
       <div className="overflow-hidden rounded-sm border border-border">
         <table className="w-full text-left text-sm">
           <thead className="bg-primary/[0.03] text-[11px] uppercase tracking-wider text-muted">
@@ -72,6 +77,9 @@ export function TransactionsBlock({
   subtitle,
   locationName,
   scope = "area",
+  buildingName,
+  soldCaption,
+  rentedCaption,
 }: {
   sold: Txn[];
   rented: Txn[];
@@ -80,18 +88,23 @@ export function TransactionsBlock({
   locationName: string;
   /** "building" = this building's own sales; "area" = community comparables. */
   scope?: "building" | "area";
+  /** The building/project name, shown in the heading when sold rows are its own. */
+  buildingName?: string | null;
+  /** Per-side scope captions, e.g. "1 bedroom in VYB" / "1 bedroom in Business Bay". */
+  soldCaption?: string;
+  rentedCaption?: string;
 }) {
   const [open, setOpen] = useState(false);
-  // The heading must match the data: only say "this building" when the rows are
-  // actually the building's own sales, not area comparables.
-  const heading =
-    scope === "building"
-      ? "Transactions in this building"
-      : `Recent transactions in ${locationName}`;
-  const modalTitle =
-    scope === "building"
-      ? "All transactions in this building"
-      : `All transactions in ${locationName}`;
+  // The heading names the building only when the sold rows are actually its
+  // own; otherwise it's community comparables. Each table also carries its own
+  // caption, so a building-scoped sale can sit beside a community-scoped rent.
+  const named = scope === "building" && buildingName ? buildingName : null;
+  const heading = named
+    ? `Transactions in ${named}`
+    : `Recent transactions in ${locationName}`;
+  const modalTitle = named
+    ? `All transactions in ${named}`
+    : `All transactions in ${locationName}`;
 
   useEffect(() => {
     if (!open) return;
@@ -110,12 +123,14 @@ export function TransactionsBlock({
       <div className="mt-5 grid gap-8 md:grid-cols-2">
         <TxnTable
           title="Sold for"
+          caption={soldCaption}
           unit="AED"
           perSqftLabel="AED/sqft"
           rows={sold.slice(0, 5)}
         />
         <TxnTable
           title="Rented for"
+          caption={rentedCaption}
           unit="AED/year"
           perSqftLabel="AED/sqft/yr"
           rows={rented.slice(0, 5)}
@@ -128,8 +143,8 @@ export function TransactionsBlock({
           onClick={() => setOpen(true)}
           className="inline-flex items-center rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary transition hover:border-accent"
         >
-          {scope === "building"
-            ? "See all transactions in this building"
+          {named
+            ? `See all transactions in ${named}`
             : "See all transactions in this location"}
         </button>
       </div>
@@ -166,12 +181,14 @@ export function TransactionsBlock({
             <div className="grid gap-8 overflow-y-auto p-5 md:grid-cols-2">
               <TxnTable
                 title="Sold for"
+                caption={soldCaption}
                 unit="AED"
                 perSqftLabel="AED/sqft"
                 rows={sold}
               />
               <TxnTable
                 title="Rented for"
+                caption={rentedCaption}
                 unit="AED/year"
                 perSqftLabel="AED/sqft/yr"
                 rows={rented}

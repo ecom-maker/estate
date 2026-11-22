@@ -57,6 +57,39 @@ function parseBeds(raw: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Short display name for a project, dropping the trailing "at <area>" /
+ *  "by <developer>" so a label reads "VYB", not "VYB at Business Bay". */
+function projectDisplayName(title: string | null): string | null {
+  const t = title?.replace(/\s+by\s+.*$/i, "").replace(/\s+at\s+.*$/i, "").trim();
+  return t || title?.trim() || null;
+}
+
+/** Exact names to match a project's own DLD rows on (`building` or
+ *  `sub_community`): the short display name and the full title. Exact,
+ *  case-insensitive matches, so even a short name like "VYB" is safe. */
+function projectExactNames(title: string | null): string[] {
+  const names = new Set<string>();
+  const short = projectDisplayName(title);
+  if (short) names.add(short);
+  if (title?.trim()) names.add(title.trim());
+  return [...names];
+}
+
+/** One side's scope label, e.g. "1 bedroom in VYB" (building),
+ *  "1 bedroom in Business Bay" (same-bed community), or
+ *  "Similar properties in Business Bay" (whole community). */
+function scopeLabel(
+  bedWord: string,
+  isBuilding: boolean,
+  sameBedOk: boolean,
+  buildingName: string | null,
+  community: string,
+): string {
+  if (isBuilding && buildingName) return `${bedWord} in ${buildingName}`;
+  if (sameBedOk) return `${bedWord} in ${community}`;
+  return `Similar properties in ${community}`;
+}
+
 function toTxn(r: Row, annualRent = false): Txn | null {
   const area = Math.round((r.areaSqm ?? 0) * SQFT_PER_SQM);
   const aed = annualRent
@@ -215,6 +248,7 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
 
   const beds = property.bedrooms === null ? null : String(property.bedrooms);
   const building = property.building?.trim() || null;
+  const buildingName = projectDisplayName(building);
 
   const select = {
     transactedOn: true,
@@ -246,28 +280,29 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
   const compSales = sameBeds(sales);
   const compRentals = sameBeds(rentals);
 
-  // Building-level (project-specific) transactions, same bedroom count, when
-  // the DLD records name this building. For an off-plan tower there are none.
+  // Building-level (project-specific) transactions, same bedroom count. DLD
+  // names towers in `building` but files many projects (VYB among them) under
+  // `sub_community` with a null `building`, so match either, on the project's
+  // exact name(s). For an off-plan tower there are none.
   let buildingSales: Row[] = [];
   let buildingRentals: Row[] = [];
-  if (building) {
+  const projectNames = projectExactNames(building);
+  if (projectNames.length) {
+    const nameFilter = {
+      OR: projectNames.flatMap((n) => [
+        { building: { equals: n, mode: "insensitive" as const } },
+        { subCommunity: { equals: n, mode: "insensitive" as const } },
+      ]),
+    };
     const [bs, br] = await Promise.all([
       prisma.marketTransaction.findMany({
-        where: {
-          emirateCommunity: community,
-          purpose: "for-sale",
-          building: { equals: building, mode: "insensitive" },
-        },
+        where: { emirateCommunity: community, purpose: "for-sale", ...nameFilter },
         select,
         orderBy: { transactedOn: "desc" },
         take: 4000,
       }),
       prisma.marketTransaction.findMany({
-        where: {
-          emirateCommunity: community,
-          purpose: "for-rent",
-          building: { equals: building, mode: "insensitive" },
-        },
+        where: { emirateCommunity: community, purpose: "for-rent", ...nameFilter },
         select,
         orderBy: { transactedOn: "desc" },
         take: 4000,
@@ -277,21 +312,18 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     buildingRentals = sameBeds(br);
   }
 
-  // Headline scope (table + primary trend line): the building itself when we
-  // have enough of its own sales, otherwise same-bedroom community comparables,
-  // otherwise the whole community.
-  const useBuilding = buildingSales.length >= MIN_TXNS;
-  const sameBedOk = compSales.length >= MIN_TXNS;
-  const salesScope = useBuilding
-    ? buildingSales
-    : sameBedOk
-      ? compSales
-      : sales;
-  const rentalScope = useBuilding
-    ? buildingRentals
-    : compRentals.length >= MIN_TXNS
-      ? compRentals
-      : rentals;
+  // Sale and rental scope are decided INDEPENDENTLY, each by its own ladder:
+  // the building itself when it has enough of its own records, else same-bedroom
+  // community comparables, else the whole community. A tower can have its own
+  // sales but no recorded rentals, so the two sides may land on different
+  // scopes — and the headings must say so honestly.
+  const useBuildingSales = buildingSales.length >= MIN_TXNS;
+  const useBuildingRent = buildingRentals.length >= MIN_TXNS;
+  const saleSameBedOk = compSales.length >= MIN_TXNS;
+  const rentSameBedOk = compRentals.length >= MIN_TXNS;
+
+  const salesScope = useBuildingSales ? buildingSales : saleSameBedOk ? compSales : sales;
+  const rentalScope = useBuildingRent ? buildingRentals : rentSameBedOk ? compRentals : rentals;
 
   if (salesScope.length < MIN_TXNS) return null;
 
@@ -313,12 +345,12 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
         ? "Studios"
         : `${beds} bedroom`;
 
-  // Label for the transactions table (the headline scope used for the rows).
-  const comparablesLabel = useBuilding
-    ? `${bedWord} at ${building}`
-    : sameBedOk
-      ? `${bedWord} in ${community}`
-      : `Similar properties in ${community}`;
+  const soldLabel = scopeLabel(bedWord, useBuildingSales, saleSameBedOk, buildingName, community);
+  const rentedLabel = scopeLabel(bedWord, useBuildingRent, rentSameBedOk, buildingName, community);
+  // The table subtitle tracks the sold side (the headline scope).
+  const comparablesLabel = soldLabel;
+  const useBuilding = useBuildingSales;
+  const sameBedOk = saleSameBedOk;
 
   // Chart line labels. Phrased so the two lines read clearly on their own:
   // the bedroom segment ("4-bedroom average") against the whole-area baseline
@@ -338,7 +370,7 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     scopes.push({
       sales: buildingSales,
       rentals: buildingRentals,
-      label: `${segWord} at ${building}`,
+      label: `${segWord} at ${buildingName ?? community}`,
       kind: "building",
     });
   if (sameBedOk)
@@ -381,7 +413,11 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     sold,
     rented,
     comparablesLabel,
-    scope: useBuilding ? "building" : "area",
+    scope: useBuildingSales ? "building" : "area",
+    rentScope: useBuildingRent ? "building" : "area",
+    buildingName: useBuildingSales || useBuildingRent ? buildingName : null,
+    soldLabel,
+    rentedLabel,
     trend,
   };
 }
@@ -448,16 +484,19 @@ async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Pro
 
   const beds = property.bedrooms === null ? null : String(property.bedrooms);
   const building = property.building?.trim() || null;
+  const buildingName = projectDisplayName(building);
   const data = await fetchD1(worker.url, worker.secret, query);
 
-  const useBuilding = (data.project?.sales.count ?? 0) >= MIN_TXNS;
-  const sameBedOk = data.sameBed.sales.count >= MIN_TXNS;
-  const salesScope = useBuilding ? data.project! : sameBedOk ? data.sameBed : data.all;
-  const rentalScope = useBuilding
-    ? data.project!
-    : data.sameBed.rentals.count >= MIN_TXNS
-      ? data.sameBed
-      : data.all;
+  // Sale and rental scope decided independently (see the Supabase path): the
+  // project's own records when it has enough, else same-bed community, else all.
+  const useBuildingSales = (data.project?.sales.count ?? 0) >= MIN_TXNS;
+  const useBuildingRent = (data.project?.rentals.count ?? 0) >= MIN_TXNS;
+  const saleSameBedOk = data.sameBed.sales.count >= MIN_TXNS;
+  const rentSameBedOk = data.sameBed.rentals.count >= MIN_TXNS;
+  const salesScope = useBuildingSales ? data.project! : saleSameBedOk ? data.sameBed : data.all;
+  const rentalScope = useBuildingRent ? data.project! : rentSameBedOk ? data.sameBed : data.all;
+  const useBuilding = useBuildingSales;
+  const sameBedOk = saleSameBedOk;
 
   if (salesScope.sales.count < MIN_TXNS) return null;
 
@@ -473,17 +512,15 @@ async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Pro
 
   const bedWord =
     beds === null ? "Similar properties" : beds === "0" ? "Studios" : `${beds} bedroom`;
-  const comparablesLabel = useBuilding
-    ? `${bedWord} at ${building}`
-    : sameBedOk
-      ? `${bedWord} in ${community}`
-      : `Similar properties in ${community}`;
+  const soldLabel = scopeLabel(bedWord, useBuildingSales, saleSameBedOk, buildingName, community);
+  const rentedLabel = scopeLabel(bedWord, useBuildingRent, rentSameBedOk, buildingName, community);
+  const comparablesLabel = soldLabel;
   const segWord =
     beds === null ? "Similar homes" : beds === "0" ? "Studio" : `${beds}-bedroom`;
   const areaAvgLabel = `${community} average (all sizes)`;
 
   const scopes: { s: D1Scope; label: string; kind: string }[] = [];
-  if (useBuilding) scopes.push({ s: data.project!, label: `${segWord} at ${building}`, kind: "building" });
+  if (useBuilding) scopes.push({ s: data.project!, label: `${segWord} at ${buildingName ?? community}`, kind: "building" });
   if (sameBedOk) scopes.push({ s: data.sameBed, label: `${segWord} average`, kind: "sameBed" });
   scopes.push({ s: data.all, label: areaAvgLabel, kind: "all" });
 
@@ -511,7 +548,11 @@ async function getD1Insights(worker: WorkerConfig, property: InsightsInput): Pro
     sold,
     rented,
     comparablesLabel,
-    scope: useBuilding ? "building" : "area",
+    scope: useBuildingSales ? "building" : "area",
+    rentScope: useBuildingRent ? "building" : "area",
+    buildingName: useBuildingSales || useBuildingRent ? buildingName : null,
+    soldLabel,
+    rentedLabel,
     trend,
     salesCount: salesScope.sales.count,
   };
