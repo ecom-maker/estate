@@ -145,8 +145,16 @@ export function PriceTrendChart({
               <button
                 key={r.id}
                 type="button"
-                disabled={disabled}
+                // Not the native `disabled` attribute: browsers suppress pointer
+                // events on a disabled control, so its title tooltip never shows.
+                // aria-disabled + the onClick guard keep it inert while letting
+                // the hover tooltip explain why there's nothing more to show.
                 aria-disabled={disabled}
+                title={
+                  disabled
+                    ? `${r.months / 12}-year data not available yet`
+                    : undefined
+                }
                 onClick={() => !disabled && setRange(r.id)}
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-medium transition",
