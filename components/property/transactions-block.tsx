@@ -103,8 +103,8 @@ export function TransactionsBlock({
     ? `Transactions in ${named}`
     : `Recent transactions in ${locationName}`;
   const modalTitle = named
-    ? `All transactions in ${named}`
-    : `All transactions in ${locationName}`;
+    ? `Recent transactions in ${named}`
+    : `Recent transactions in ${locationName}`;
 
   useEffect(() => {
     if (!open) return;
@@ -143,8 +143,8 @@ export function TransactionsBlock({
           className="inline-flex items-center rounded-sm border border-border px-4 py-2 text-sm font-medium text-primary transition hover:border-accent"
         >
           {named
-            ? `See all transactions in ${named}`
-            : "See all transactions in this location"}
+            ? `See recent transactions in ${named}`
+            : "See recent transactions in this location"}
         </button>
       </div>
 
