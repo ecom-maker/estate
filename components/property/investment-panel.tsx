@@ -95,6 +95,16 @@ export function InvestmentPanel({ data }: { data: Investment }) {
     data.rentScope === "building"
       ? "Rent estimated from recorded DLD rents in this building"
       : `Rent estimated from recorded DLD rents at ${nearbyWhere}`;
+  // Gross annual rent = recorded rent per sqft/yr × this unit's area.
+  const rentArea =
+    data.rentPerSqftYr > 0
+      ? Math.round(data.grossAnnualRent / data.rentPerSqftYr)
+      : 0;
+  const rentSource =
+    data.rentScope === "building"
+      ? "recorded DLD rents in this building"
+      : `recorded DLD rents at ${nearbyWhere}`;
+  const grossRentTip = `${aed(data.rentPerSqftYr)}/sqft/yr × ~${rentArea.toLocaleString()} sqft. The rent rate comes from ${rentSource}. This is the gross figure, before the service charge and management deductions below.`;
 
   return (
     <section className="mt-16">
@@ -148,6 +158,7 @@ export function InvestmentPanel({ data }: { data: Investment }) {
               icon={<Wallet className="h-4 w-4" aria-hidden />}
               value={aed(data.grossAnnualRent)}
               sub={`${aed(data.rentPerSqftYr)} / sqft / yr`}
+              info={<InfoTip text={grossRentTip} />}
             />
             <Tile
               label={`${PROJECTION_YEARS}-year capital gain`}
@@ -167,7 +178,10 @@ export function InvestmentPanel({ data }: { data: Investment }) {
           </p>
           <dl className="mt-4 space-y-2.5 text-sm">
             <div className="flex items-center justify-between">
-              <dt className="text-muted">Gross annual rent</dt>
+              <dt className="flex items-center gap-1.5 text-muted">
+                Gross annual rent
+                <InfoTip text={grossRentTip} />
+              </dt>
               <dd className="font-medium text-primary">
                 {aed(data.grossAnnualRent)}
               </dd>
