@@ -118,7 +118,6 @@ export function TransactionsBlock({
   return (
     <section>
       <h2 className="font-serif text-2xl text-primary">{heading}</h2>
-      <p className="mt-1 text-sm text-muted">{subtitle}</p>
 
       <div className="mt-5 grid gap-8 md:grid-cols-2">
         <TxnTable
