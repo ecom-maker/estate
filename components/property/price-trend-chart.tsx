@@ -41,12 +41,24 @@ export function PriceTrendChart({
   const [deal, setDeal] = useState<(typeof DEALS)[number]["id"]>("sale");
   const [hover, setHover] = useState<number | null>(null);
 
+  // Sale and rent have their own month axes (rent usually spans fewer months),
+  // so pick the one that matches the selected deal.
+  const axisLen = (deal === "sale" ? months : (rentMonths ?? months)).length;
+  // A range reveals more data only if the axis extends past the previous,
+  // smaller range's cap. Enabled ranges are therefore a prefix [1Y..k]; a range
+  // that would show the same points as a smaller one is disabled, so the toggle
+  // never looks inert (e.g. rent with only ~5 months disables 2Y and 5Y).
+  const maxEnabledIdx = Math.max(
+    0,
+    RANGES.filter((_, i) => axisLen > (i === 0 ? 0 : RANGES[i - 1].months)).length - 1,
+  );
+  const selectedIdx = Math.max(0, RANGES.findIndex((r) => r.id === range));
+  const effIdx = Math.min(selectedIdx, maxEnabledIdx);
+
   const view = useMemo(() => {
     const series = deal === "sale" ? sale : rent;
-    // Sale and rent have their own month axes (rent usually spans fewer
-    // months), so pick the one that matches the selected deal.
     const axis = deal === "sale" ? months : (rentMonths ?? months);
-    const n = RANGES.find((r) => r.id === range)?.months ?? 12;
+    const n = RANGES[effIdx].months;
     const slice = <T,>(a: T[]) => a.slice(Math.max(0, a.length - n));
     const p = slice(series.primary);
     const s = slice(series.secondary);
@@ -78,7 +90,7 @@ export function PriceTrendChart({
       .filter(({ i }) => i % step === 0 || i === m.length - 1);
 
     return { p, s, m, x, y, toPath, ticks, xlabels, hasData };
-  }, [range, deal, months, rentMonths, sale, rent]);
+  }, [effIdx, deal, months, rentMonths, sale, rent]);
 
   const fmtK = (v: number) =>
     v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${Math.round(v)}`;
@@ -127,21 +139,28 @@ export function PriceTrendChart({
           ))}
         </div>
         <div className="inline-flex rounded-full border border-border p-0.5">
-          {RANGES.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => setRange(r.id)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition",
-                range === r.id
-                  ? "bg-accent/15 text-accent"
-                  : "text-muted hover:text-primary",
-              )}
-            >
-              {r.id}
-            </button>
-          ))}
+          {RANGES.map((r, i) => {
+            const disabled = i > maxEnabledIdx;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                disabled={disabled}
+                aria-disabled={disabled}
+                onClick={() => !disabled && setRange(r.id)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition",
+                  disabled
+                    ? "cursor-not-allowed text-muted/30"
+                    : i === effIdx
+                      ? "bg-accent/15 text-accent"
+                      : "text-muted hover:text-primary",
+                )}
+              >
+                {r.id}
+              </button>
+            );
+          })}
         </div>
         </div>
       </div>
