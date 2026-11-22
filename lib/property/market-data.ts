@@ -32,6 +32,17 @@ const MIN_TREND_MONTHS = 3;
  * than deep-but-stale D1 data for the headline rows.
  */
 const STALE_DAYS = 30;
+/**
+ * Rows fetched per community for the tables and the trend. The old `take: 4000`,
+ * newest-first, truncated a high-volume community to its most recent rows — JVC
+ * alone records ~5k sales in a single year, so 4000 covered only ~8 months and
+ * collapsed the 2Y/5Y chart to the same short span. The Supabase slice holds at
+ * most ~6–7k sale rows even for the busiest community, so this captures the full
+ * multi-year history. Bounded to the chart's longest (5-year) window below.
+ */
+const TXN_TAKE = 20_000;
+/** Longest window the price-trend chart offers (the 5Y toggle). */
+const TREND_YEARS = 5;
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -259,18 +270,22 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     bedrooms: true,
   } as const;
 
+  // Fetch the full multi-year history within the chart's longest window, so the
+  // 2Y/5Y toggles have older months to show — not just the newest ~4000 rows.
+  const since = new Date();
+  since.setUTCFullYear(since.getUTCFullYear() - TREND_YEARS);
   const [sales, rentals] = await Promise.all([
     prisma.marketTransaction.findMany({
-      where: { emirateCommunity: community, purpose: "for-sale" },
+      where: { emirateCommunity: community, purpose: "for-sale", transactedOn: { gte: since } },
       select,
       orderBy: { transactedOn: "desc" },
-      take: 4000,
+      take: TXN_TAKE,
     }),
     prisma.marketTransaction.findMany({
-      where: { emirateCommunity: community, purpose: "for-rent" },
+      where: { emirateCommunity: community, purpose: "for-rent", transactedOn: { gte: since } },
       select,
       orderBy: { transactedOn: "desc" },
-      take: 4000,
+      take: TXN_TAKE,
     }),
   ]);
 
@@ -296,16 +311,16 @@ async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsig
     };
     const [bs, br] = await Promise.all([
       prisma.marketTransaction.findMany({
-        where: { emirateCommunity: community, purpose: "for-sale", ...nameFilter },
+        where: { emirateCommunity: community, purpose: "for-sale", transactedOn: { gte: since }, ...nameFilter },
         select,
         orderBy: { transactedOn: "desc" },
-        take: 4000,
+        take: TXN_TAKE,
       }),
       prisma.marketTransaction.findMany({
-        where: { emirateCommunity: community, purpose: "for-rent", ...nameFilter },
+        where: { emirateCommunity: community, purpose: "for-rent", transactedOn: { gte: since }, ...nameFilter },
         select,
         orderBy: { transactedOn: "desc" },
-        take: 4000,
+        take: TXN_TAKE,
       }),
     ]);
     buildingSales = sameBeds(bs);
