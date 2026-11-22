@@ -4,8 +4,11 @@ import { PROJECTION_YEARS, type Investment } from "@/lib/property/investment";
 const aed = (n: number) => `AED ${Math.round(n).toLocaleString()}`;
 const pct = (fraction: number, dp = 1) => `${(fraction * 100).toFixed(dp)}%`;
 
-/** An (i) that reveals an explanation on hover or keyboard focus (no JS). */
-function InfoTip({ text }: { text: string }) {
+/** An (i) that reveals an explanation on hover or keyboard focus (no JS).
+ *  `align` picks which edge the panel anchors to: "right" (default) suits an
+ *  icon at the right of its row (the tiles); "left" suits one near the left
+ *  edge, so the 256px panel opens rightward instead of off the viewport. */
+function InfoTip({ text, align = "right" }: { text: string; align?: "left" | "right" }) {
   return (
     <span className="group/tip relative inline-flex">
       <button
@@ -17,7 +20,9 @@ function InfoTip({ text }: { text: string }) {
       </button>
       <span
         role="tooltip"
-        className="pointer-events-none absolute right-0 top-6 z-20 w-64 rounded-md border border-border bg-card p-3 text-left text-[11px] font-normal normal-case leading-relaxed tracking-normal text-muted opacity-0 shadow-lg transition-opacity duration-150 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
+        className={`pointer-events-none absolute ${
+          align === "left" ? "left-0" : "right-0"
+        } top-6 z-20 w-64 rounded-md border border-border bg-card p-3 text-left text-[11px] font-normal normal-case leading-relaxed tracking-normal text-muted opacity-0 shadow-lg transition-opacity duration-150 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100`}
       >
         {text}
       </span>
@@ -95,16 +100,20 @@ export function InvestmentPanel({ data }: { data: Investment }) {
     data.rentScope === "building"
       ? "Rent estimated from recorded DLD rents in this building"
       : `Rent estimated from recorded DLD rents at ${nearbyWhere}`;
-  // Gross annual rent = recorded rent per sqft/yr × this unit's area.
+  // Gross annual rent = recorded rent per sqft/yr × this unit's area; the rate
+  // itself is the median of recorded DLD lease contracts (see rent-comparable).
   const rentArea =
     data.rentPerSqftYr > 0
       ? Math.round(data.grossAnnualRent / data.rentPerSqftYr)
       : 0;
   const rentSource =
     data.rentScope === "building"
-      ? "recorded DLD rents in this building"
-      : `recorded DLD rents at ${nearbyWhere}`;
-  const grossRentTip = `${aed(data.rentPerSqftYr)}/sqft/yr × ~${rentArea.toLocaleString()} sqft. The rent rate comes from ${rentSource}. This is the gross figure, before the service charge and management deductions below.`;
+      ? "lease contracts in this building"
+      : `lease contracts at ${nearbyWhere}`;
+  const grossRentTip =
+    `${aed(data.rentPerSqftYr)}/sqft/yr is the median of recorded DLD ${rentSource} ` +
+    `— each contract's annual rent ÷ its size — matched to the same bedroom count where the sample allows. ` +
+    `× this unit's ~${rentArea.toLocaleString()} sqft = the gross annual rent, before the service charge and management deductions below.`;
 
   return (
     <section className="mt-16">
@@ -180,7 +189,7 @@ export function InvestmentPanel({ data }: { data: Investment }) {
             <div className="flex items-center justify-between">
               <dt className="flex items-center gap-1.5 text-muted">
                 Gross annual rent
-                <InfoTip text={grossRentTip} />
+                <InfoTip text={grossRentTip} align="left" />
               </dt>
               <dd className="font-medium text-primary">
                 {aed(data.grossAnnualRent)}
