@@ -24,6 +24,14 @@ const SQFT_PER_SQM = 10.7639;
 const MIN_TXNS = 6;
 /** A trend line needs several months, not several days, to mean anything. */
 const MIN_TREND_MONTHS = 3;
+/**
+ * How far the D1 store may fall behind the live Supabase table before we treat
+ * it as stale and fail over. D1 holds the deep 10-year history but is reloaded
+ * only on a monthly top-up; if that top-up stalls, its "recent transactions"
+ * silently freeze. Past this gap, fresh-but-shallower Supabase data is better
+ * than deep-but-stale D1 data for the headline rows.
+ */
+const STALE_DAYS = 30;
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -148,12 +156,57 @@ export async function getMarketInsights(property: InsightsInput): Promise<Market
   const worker = await dldWorker();
   if (worker) {
     try {
-      return await getD1Insights(worker, property);
+      const d1 = await getD1Insights(worker, property);
+      // Freshness failover: if the D1 store has fallen behind the live Supabase
+      // table by more than STALE_DAYS, its recent rows are frozen — serve the
+      // current Supabase data instead. Keeps D1's depth in the normal case and
+      // self-heals when the monthly top-up stalls, without a code change.
+      if (d1 && (await d1IsStale(property, newestSoldDate(d1)))) {
+        const fresh = await getSupabaseInsights(property);
+        if (fresh) return fresh;
+      }
+      return d1;
     } catch (error) {
       console.error("[market-data] D1 worker failed, using Supabase table", error);
     }
   }
   return getSupabaseInsights(property);
+}
+
+/** Newest sold-row date in an insights result (the table is latest-first). */
+function newestSoldDate(insights: MarketInsights): Date | null {
+  const first = insights.sold[0]?.date;
+  if (!first) return null;
+  const t = Date.parse(first); // Txn.date is formatted like "13 Aug 2026"
+  return Number.isNaN(t) ? null : new Date(t);
+}
+
+/**
+ * The latest recorded for-sale date in the Supabase table for a community.
+ * One indexed lookup, cached for a day (same "dld" tag as the rest), so the
+ * freshness check costs almost nothing on the hot path.
+ */
+const communityMaxSaleDate = unstable_cache(
+  async (community: string): Promise<string | null> => {
+    const row = await prisma.marketTransaction.findFirst({
+      where: { emirateCommunity: community, purpose: "for-sale" },
+      orderBy: { transactedOn: "desc" },
+      select: { transactedOn: true },
+    });
+    return row?.transactedOn ? row.transactedOn.toISOString() : null;
+  },
+  ["community-max-sale-date-v1"],
+  { revalidate: 86_400, tags: ["dld"] },
+);
+
+/** True when D1's newest row lags the live Supabase table by > STALE_DAYS. */
+async function d1IsStale(property: InsightsInput, d1Latest: Date | null): Promise<boolean> {
+  const community = property.community?.name;
+  if (!d1Latest || !community) return false; // can't compare → trust D1
+  const supaStr = await communityMaxSaleDate(community);
+  if (!supaStr) return false; // Supabase has nothing fresher to offer
+  const gapMs = new Date(supaStr).getTime() - d1Latest.getTime();
+  return gapMs > STALE_DAYS * 86_400_000;
 }
 
 async function getSupabaseInsights(property: InsightsInput): Promise<MarketInsights | null> {
